@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	aiAssistantOpenAIEmbeddingsURL            = "https://api.openai.com/v1/embeddings"
+	aiAssistantOpenAIEmbeddingsPath           = "embeddings"
 	aiAssistantKnowledgeBaseTransactionLimit  = 180
 	aiAssistantKnowledgeBaseTopK              = 18
 	aiAssistantEmbeddingRequestBatchSize      = 64
@@ -532,7 +532,7 @@ func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, 
 			return nil, errs.ErrOperationFailed
 		}
 
-		httpRequest, err := http.NewRequest("POST", aiAssistantOpenAIEmbeddingsURL, bytes.NewReader(requestBodyBytes))
+		httpRequest, err := http.NewRequest("POST", llmConfig.GetOpenAIEndpointURL(aiAssistantOpenAIEmbeddingsPath), bytes.NewReader(requestBodyBytes))
 
 		if err != nil {
 			return nil, errs.ErrFailedToRequestRemoteApi

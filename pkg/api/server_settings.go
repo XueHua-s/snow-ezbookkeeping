@@ -64,6 +64,10 @@ func (a *ServerSettingsApi) ServerSettingsJavascriptHandler(c *core.WebContext) 
 
 	if config.EnableAIAssistant && config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider != "" {
 		a.appendBooleanSetting(builder, "llma", config.EnableAIAssistant)
+
+		if modelID := strings.TrimSpace(config.AIAssistantLLMConfig.OpenAIModelID); modelID != "" {
+			a.appendStringSetting(builder, "llmam", modelID)
+		}
 	}
 
 	if config.LoginPageTips.Enabled {

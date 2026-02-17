@@ -167,8 +167,9 @@ const (
 	defaultAIRecognitionPictureMaxSize                 uint32 = 10485760 // 10MB
 	defaultAnthropicLargeLanguageModelAPIMaximumTokens uint32 = 1024
 	defaultLargeLanguageModelAPIRequestTimeout         uint32 = 60000 // 60 seconds
-	defaultAIAssistantOpenAIModelID                           = "gpt-5.1-mini"
-	defaultAIAssistantOpenAIEmbeddingModelID                  = "text-embedding-3-small"
+	defaultOpenAIBaseURL                               string = "https://api.openai.com/v1/"
+	defaultAIAssistantOpenAIModelID                    string = "gpt-5.1-mini"
+	defaultAIAssistantOpenAIEmbeddingModelID           string = "text-embedding-3-small"
 
 	defaultInMemoryDuplicateCheckerCleanupInterval uint32 = 60  // 1 minutes
 	defaultDuplicateSubmissionsInterval            uint32 = 300 // 5 minutes
@@ -245,6 +246,7 @@ type WebDAVConfig struct {
 // LLMConfig represents the Large Language Model setting config
 type LLMConfig struct {
 	LLMProvider                         string
+	OpenAIBaseURL                       string
 	OpenAIAPIKey                        string
 	OpenAIModelID                       string
 	OpenAIEmbeddingModelID              string
@@ -271,6 +273,33 @@ type LLMConfig struct {
 	LargeLanguageModelAPIRequestTimeout uint32
 	LargeLanguageModelAPIProxy          string
 	LargeLanguageModelAPISkipTLSVerify  bool
+}
+
+// GetOpenAIBaseURL returns the final OpenAI API base url
+func (config *LLMConfig) GetOpenAIBaseURL() string {
+	baseURL := strings.TrimSpace(config.OpenAIBaseURL)
+
+	if baseURL == "" {
+		return defaultOpenAIBaseURL
+	}
+
+	return baseURL
+}
+
+// GetOpenAIEndpointURL returns the final OpenAI endpoint url with the given path
+func (config *LLMConfig) GetOpenAIEndpointURL(path string) string {
+	baseURL := config.GetOpenAIBaseURL()
+	finalPath := strings.TrimPrefix(strings.TrimSpace(path), "/")
+
+	if finalPath == "" {
+		return baseURL
+	}
+
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL += "/"
+	}
+
+	return baseURL + finalPath
 }
 
 // MultiLanguageContentConfig represents a multi-language content setting config
@@ -914,6 +943,7 @@ func loadLLMConfiguration(configFile *ini.File, sectionName string) (*LLMConfig,
 	}
 
 	llmConfig.OpenAIAPIKey = getConfigItemStringValue(configFile, sectionName, "openai_api_key")
+	llmConfig.OpenAIBaseURL = getConfigItemStringValue(configFile, sectionName, "openai_base_url")
 	llmConfig.OpenAIModelID = getConfigItemStringValue(configFile, sectionName, "openai_model_id")
 	llmConfig.OpenAIEmbeddingModelID = getConfigItemStringValue(configFile, sectionName, "openai_embedding_model_id")
 

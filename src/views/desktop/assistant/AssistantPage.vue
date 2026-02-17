@@ -6,7 +6,7 @@
                     <div class="d-flex align-center">
                         <v-icon :icon="mdiRobotOutline" size="24" />
                         <span class="ms-2">{{ tt('AI Assistant') }}</span>
-                        <v-chip class="ms-3" size="small" color="secondary" variant="tonal">gpt-5.1-mini</v-chip>
+                        <v-chip class="ms-3" size="small" color="secondary" variant="tonal" v-if="aiAssistantModelID">{{ aiAssistantModelID }}</v-chip>
                         <v-spacer />
                         <v-btn class="ms-2"
                                color="secondary"
@@ -105,6 +105,7 @@ import SnackBar from '@/components/desktop/SnackBar.vue';
 import { nextTick, useTemplateRef, watch } from 'vue';
 
 import { useI18n } from '@/locales/helpers.ts';
+import { getAIAssistantModelID } from '@/lib/server_settings.ts';
 import { useAssistantPageBase } from '@/views/base/assistant/AssistantPageBase.ts';
 
 import {
@@ -118,6 +119,7 @@ import {
 type SnackBarType = InstanceType<typeof SnackBar>;
 
 const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
+const aiAssistantModelID = getAIAssistantModelID();
 const {
     enabled,
     messages,
