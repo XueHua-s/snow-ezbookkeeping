@@ -65,6 +65,18 @@
 - `[auth]`：OAuth2/OIDC 相关配置
 - `[llm]`、`[llm_image_recognition]`、`[llm_assistant]`：AI 功能相关配置
 
+AI 配置建议重点核对（防止“能启动但行为偏差”）：
+
+- `llm_image_recognition.llm_provider`
+- `llm_image_recognition.openai_api_key`
+- `llm_image_recognition.openai_base_url`
+- `llm_image_recognition.openai_model_id`
+- `llm_assistant.llm_provider`
+- `llm_assistant.openai_api_key`
+- `llm_assistant.openai_base_url`
+- `llm_assistant.openai_model_id`
+- `llm_assistant.openai_embedding_model_id`
+
 同时检查环境变量覆盖：
 
 - `EBK_WORK_DIR`（影响相对路径解析）

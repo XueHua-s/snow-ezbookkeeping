@@ -11,15 +11,16 @@ import (
 // OpenAIOfficialChatCompletionsAPIProvider defines the structure of OpenAI official chat completions API provider
 type OpenAIOfficialChatCompletionsAPIProvider struct {
 	OpenAIChatCompletionsAPIProvider
-	OpenAIAPIKey  string
-	OpenAIModelID string
+	OpenAIAPIKey             string
+	OpenAIModelID            string
+	OpenAIChatCompletionsURL string
 }
 
-const openAIChatCompletionsUrl = "https://api.openai.com/v1/chat/completions"
+const openAIChatCompletionsPath = "chat/completions"
 
 // BuildChatCompletionsHttpRequest returns the chat completions http request by OpenAI official chat completions API provider
 func (p *OpenAIOfficialChatCompletionsAPIProvider) BuildChatCompletionsHttpRequest(c core.Context, uid int64) (*http.Request, error) {
-	req, err := http.NewRequest("POST", openAIChatCompletionsUrl, nil)
+	req, err := http.NewRequest("POST", p.OpenAIChatCompletionsURL, nil)
 
 	if err != nil {
 		return nil, err
@@ -38,7 +39,8 @@ func (p *OpenAIOfficialChatCompletionsAPIProvider) GetModelID() string {
 // NewOpenAILargeLanguageModelProvider creates a new OpenAI large language model provider instance
 func NewOpenAILargeLanguageModelProvider(llmConfig *settings.LLMConfig, enableResponseLog bool) provider.LargeLanguageModelProvider {
 	return newCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter(llmConfig, enableResponseLog, &OpenAIOfficialChatCompletionsAPIProvider{
-		OpenAIAPIKey:  llmConfig.OpenAIAPIKey,
-		OpenAIModelID: llmConfig.OpenAIModelID,
+		OpenAIAPIKey:             llmConfig.OpenAIAPIKey,
+		OpenAIModelID:            llmConfig.OpenAIModelID,
+		OpenAIChatCompletionsURL: llmConfig.GetOpenAIEndpointURL(openAIChatCompletionsPath),
 	})
 }
