@@ -62,6 +62,10 @@ func (a *ServerSettingsApi) ServerSettingsJavascriptHandler(c *core.WebContext) 
 		}
 	}
 
+	if config.EnableAIAssistant && config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider != "" {
+		a.appendBooleanSetting(builder, "llma", config.EnableAIAssistant)
+	}
+
 	if config.LoginPageTips.Enabled {
 		a.appendMultiLanguageTipSetting(builder, "lpt", config.LoginPageTips)
 	}

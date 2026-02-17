@@ -161,6 +161,22 @@
                     </div>
                 </template>
             </f7-list-item>
+
+            <f7-list-item link="/assistant" chevron-center v-if="isAIAssistantEnabled()">
+                <template #media>
+                    <f7-icon f7="sparkles"></f7-icon>
+                </template>
+                <template #title>
+                    <div class="padding-top-half">
+                        {{ tt('AI Assistant') }}
+                    </div>
+                </template>
+                <template #footer>
+                    <div class="overview-transaction-footer padding-bottom-half">
+                        {{ tt('Private assistant for personal bills and bookkeeping suggestions') }}
+                    </div>
+                </template>
+            </f7-list-item>
         </f7-list>
 
         <f7-toolbar tabbar icons bottom class="main-tabbar">
@@ -234,7 +250,7 @@ import type { RecognizedReceiptImageResponse } from '@/models/large_language_mod
 
 import { isUserLogined, isUserUnlocked } from '@/lib/userstate.ts';
 import { getShareCacheImageBlob } from '@/lib/cache.ts';
-import { isTransactionFromAIImageRecognitionEnabled } from '@/lib/server_settings.ts';
+import { isTransactionFromAIImageRecognitionEnabled, isAIAssistantEnabled } from '@/lib/server_settings.ts';
 
 type AIImageRecognitionSheetType = InstanceType<typeof AIImageRecognitionSheet>;
 

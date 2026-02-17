@@ -16,6 +16,7 @@ import (
 // LargeLanguageModelProviderContainer contains the current large language model provider
 type LargeLanguageModelProviderContainer struct {
 	receiptImageRecognitionCurrentProvider provider.LargeLanguageModelProvider
+	aiAssistantCurrentProvider             provider.LargeLanguageModelProvider
 }
 
 // Initialize a large language model provider container singleton instance
@@ -26,9 +27,19 @@ var (
 // InitializeLargeLanguageModelProvider initializes the current large language model provider according to the config
 func InitializeLargeLanguageModelProvider(config *settings.Config) error {
 	var err error = nil
+	Container.receiptImageRecognitionCurrentProvider = nil
+	Container.aiAssistantCurrentProvider = nil
 
 	if config.ReceiptImageRecognitionLLMConfig != nil {
 		Container.receiptImageRecognitionCurrentProvider, err = initializeLargeLanguageModelProvider(config.ReceiptImageRecognitionLLMConfig, config.EnableDebugLog)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	if config.EnableAIAssistant && config.AIAssistantLLMConfig != nil {
+		Container.aiAssistantCurrentProvider, err = initializeLargeLanguageModelProvider(config.AIAssistantLLMConfig, config.EnableDebugLog)
 
 		if err != nil {
 			return err
@@ -69,4 +80,13 @@ func (l *LargeLanguageModelProviderContainer) GetJsonResponseByReceiptImageRecog
 	}
 
 	return l.receiptImageRecognitionCurrentProvider.GetJsonResponse(c, uid, currentConfig.ReceiptImageRecognitionLLMConfig, request)
+}
+
+// GetJsonResponseByAIAssistantModel returns the json response from the current large language model provider by ai assistant model
+func (l *LargeLanguageModelProviderContainer) GetJsonResponseByAIAssistantModel(c core.Context, uid int64, currentConfig *settings.Config, request *data.LargeLanguageModelRequest) (*data.LargeLanguageModelTextualResponse, error) {
+	if currentConfig.AIAssistantLLMConfig == nil || Container.aiAssistantCurrentProvider == nil {
+		return nil, errs.ErrInvalidLLMProvider
+	}
+
+	return l.aiAssistantCurrentProvider.GetJsonResponse(c, uid, currentConfig.AIAssistantLLMConfig, request)
 }

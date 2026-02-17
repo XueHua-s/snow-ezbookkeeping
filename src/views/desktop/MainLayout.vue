@@ -50,6 +50,12 @@
                         <span class="nav-item-title">{{ tt('Insights Explorer') }}</span>
                     </router-link>
                 </li>
+                <li class="nav-link" v-if="isAIAssistantEnabled()">
+                    <router-link to="/assistant">
+                        <v-icon class="nav-item-icon" :icon="mdiRobotOutline"/>
+                        <span class="nav-item-title">{{ tt('AI Assistant') }}</span>
+                    </router-link>
+                </li>
                 <li class="nav-section-title">
                     <div class="title-wrapper">
                         <span class="title-text">{{ tt('Basis Data') }}</span>
@@ -220,9 +226,8 @@ import { useDesktopPageStore } from '@/stores/desktopPage.ts';
 
 import { APPLICATION_LOGO_PATH } from '@/consts/asset.ts';
 import { ThemeType } from '@/core/theme.ts';
-
 import { getShareCacheImageBlob } from '@/lib/cache.ts';
-import { isUserScheduledTransactionEnabled } from '@/lib/server_settings.ts';
+import { isUserScheduledTransactionEnabled, isAIAssistantEnabled } from '@/lib/server_settings.ts';
 import { getSystemTheme, setExpenseAndIncomeAmountColor } from '@/lib/ui/common.ts';
 import logger from '@/lib/logger.ts';
 
@@ -238,6 +243,7 @@ import {
     mdiClipboardTextClockOutline,
     mdiChartPieOutline,
     mdiCompassOutline,
+    mdiRobotOutline,
     mdiSwapHorizontal,
     mdiCogOutline,
     mdiCellphone,
