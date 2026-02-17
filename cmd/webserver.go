@@ -461,6 +461,10 @@ func startWebServer(c *core.CliContext) error {
 				}
 			}
 
+			if config.EnableAIAssistant && config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider != "" {
+				apiV1Route.POST("/llm/assistant/chat.json", bindApi(api.LargeLanguageModels.AssistantChatHandler))
+			}
+
 			// Exchange Rates
 			apiV1Route.GET("/exchange_rates/latest.json", bindApi(api.ExchangeRates.LatestExchangeRateHandler))
 			apiV1Route.POST("/exchange_rates/user_custom/update.json", bindApi(api.ExchangeRates.UserCustomExchangeRateUpdateHandler))

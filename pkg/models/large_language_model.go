@@ -25,3 +25,50 @@ type RecognizedReceiptImageResult struct {
 	DestinationAmount      string   `json:"destination_amount,omitempty" jsonschema_description:"Destination amount for transfer transactions"`
 	DestinationAccountName string   `json:"destination_account,omitempty" jsonschema_description:"Destination account name for transfer transactions"`
 }
+
+const (
+	AIAssistantModeChat    = "chat"
+	AIAssistantModeSummary = "summary"
+)
+
+// AIAssistantHistoryItem represents one history message for ai assistant
+type AIAssistantHistoryItem struct {
+	Role    string `json:"role" binding:"required,oneof=user assistant"`
+	Content string `json:"content" binding:"required,max=2048"`
+}
+
+// AIAssistantChatRequest represents all parameters for ai assistant chat request
+type AIAssistantChatRequest struct {
+	Mode    string                    `json:"mode" binding:"omitempty,oneof=chat summary"`
+	Message string                    `json:"message" binding:"max=2048"`
+	History []*AIAssistantHistoryItem `json:"history" binding:"max=20"`
+}
+
+// AIAssistantReferencedTransaction represents one referenced transaction in ai assistant response
+type AIAssistantReferencedTransaction struct {
+	Id                     int64           `json:"id,string"`
+	Time                   int64           `json:"time"`
+	TimeText               string          `json:"timeText,omitempty"`
+	Type                   TransactionType `json:"type"`
+	CategoryName           string          `json:"categoryName,omitempty"`
+	SourceAccountName      string          `json:"sourceAccountName,omitempty"`
+	DestinationAccountName string          `json:"destinationAccountName,omitempty"`
+	SourceAmount           int64           `json:"sourceAmount"`
+	DestinationAmount      int64           `json:"destinationAmount,omitempty"`
+	Currency               string          `json:"currency,omitempty"`
+	DestinationCurrency    string          `json:"destinationCurrency,omitempty"`
+	Comment                string          `json:"comment,omitempty"`
+	SimilarityScore        float64         `json:"similarityScore,omitempty"`
+}
+
+// AIAssistantChatResponse represents ai assistant chat response
+type AIAssistantChatResponse struct {
+	Mode       string                              `json:"mode"`
+	Reply      string                              `json:"reply"`
+	References []*AIAssistantReferencedTransaction `json:"references,omitempty"`
+}
+
+// AIAssistantResult represents the result schema of ai assistant response from llm
+type AIAssistantResult struct {
+	Reply string `json:"reply,omitempty" jsonschema_description:"Response text for user with bill summary and bookkeeping suggestions"`
+}

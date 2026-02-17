@@ -59,6 +59,10 @@ export function isTransactionFromAIImageRecognitionEnabled(): boolean {
     return getServerSetting('llmt') === 1;
 }
 
+export function isAIAssistantEnabled(): boolean {
+    return getServerSetting('llma') === 1;
+}
+
 export function getLoginPageTips(): Record<string, string>{
     return getServerSetting('lpt') as Record<string, string>;
 }

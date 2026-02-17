@@ -18,6 +18,7 @@ import AccountMoveAllTransactionsPage from '@/views/mobile/accounts/MoveAllTrans
 
 import StatisticsTransactionPage from '@/views/mobile/statistics/TransactionPage.vue';
 import StatisticsSettingsPage from '@/views/mobile/statistics/SettingsPage.vue';
+import AssistantPage from '@/views/mobile/assistant/AssistantPage.vue';
 
 import TextSizeSettingsPage from '@/views/mobile/settings/TextSizeSettingsPage.vue';
 import PageSettingsPage from '@/views/mobile/settings/PageSettingsPage.vue';
@@ -213,6 +214,11 @@ const routes: Router.RouteParameters[] = [
     {
         path: '/statistic/settings',
         async: asyncResolve(StatisticsSettingsPage),
+        beforeEnter: [checkLogin]
+    },
+    {
+        path: '/assistant',
+        async: asyncResolve(AssistantPage),
         beforeEnter: [checkLogin]
     },
     {

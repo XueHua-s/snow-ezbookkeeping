@@ -167,6 +167,8 @@ const (
 	defaultAIRecognitionPictureMaxSize                 uint32 = 10485760 // 10MB
 	defaultAnthropicLargeLanguageModelAPIMaximumTokens uint32 = 1024
 	defaultLargeLanguageModelAPIRequestTimeout         uint32 = 60000 // 60 seconds
+	defaultAIAssistantOpenAIModelID                           = "gpt-5.1-mini"
+	defaultAIAssistantOpenAIEmbeddingModelID                  = "text-embedding-3-small"
 
 	defaultInMemoryDuplicateCheckerCleanupInterval uint32 = 60  // 1 minutes
 	defaultDuplicateSubmissionsInterval            uint32 = 300 // 5 minutes
@@ -245,6 +247,7 @@ type LLMConfig struct {
 	LLMProvider                         string
 	OpenAIAPIKey                        string
 	OpenAIModelID                       string
+	OpenAIEmbeddingModelID              string
 	OpenAICompatibleBaseURL             string
 	OpenAICompatibleAPIKey              string
 	OpenAICompatibleModelID             string
@@ -338,9 +341,11 @@ type Config struct {
 	// Large Language Model
 	TransactionFromAIImageRecognition bool
 	MaxAIRecognitionPictureFileSize   uint32
+	EnableAIAssistant                 bool
 
 	// Large Language Model for Receipt Image Recognition
 	ReceiptImageRecognitionLLMConfig *LLMConfig
+	AIAssistantLLMConfig             *LLMConfig
 
 	// Uuid
 	UuidGeneratorType string
@@ -518,6 +523,22 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	config.AIAssistantLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant")
+
+	if err != nil {
+		return nil, err
+	}
+
+	if config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider == OpenAILLMProvider {
+		if config.AIAssistantLLMConfig.OpenAIModelID == "" {
+			config.AIAssistantLLMConfig.OpenAIModelID = defaultAIAssistantOpenAIModelID
+		}
+
+		if config.AIAssistantLLMConfig.OpenAIEmbeddingModelID == "" {
+			config.AIAssistantLLMConfig.OpenAIEmbeddingModelID = defaultAIAssistantOpenAIEmbeddingModelID
+		}
 	}
 
 	err = loadUuidConfiguration(config, cfgFile, "uuid")
@@ -861,6 +882,7 @@ func loadStorageConfiguration(config *Config, configFile *ini.File, sectionName 
 func loadLLMGlobalConfiguration(config *Config, configFile *ini.File, sectionName string) error {
 	config.TransactionFromAIImageRecognition = getConfigItemBoolValue(configFile, sectionName, "transaction_from_ai_image_recognition", false)
 	config.MaxAIRecognitionPictureFileSize = getConfigItemUint32Value(configFile, sectionName, "max_ai_recognition_picture_size", defaultAIRecognitionPictureMaxSize)
+	config.EnableAIAssistant = getConfigItemBoolValue(configFile, sectionName, "enable_ai_assistant", false)
 
 	return nil
 }
@@ -893,6 +915,7 @@ func loadLLMConfiguration(configFile *ini.File, sectionName string) (*LLMConfig,
 
 	llmConfig.OpenAIAPIKey = getConfigItemStringValue(configFile, sectionName, "openai_api_key")
 	llmConfig.OpenAIModelID = getConfigItemStringValue(configFile, sectionName, "openai_model_id")
+	llmConfig.OpenAIEmbeddingModelID = getConfigItemStringValue(configFile, sectionName, "openai_embedding_model_id")
 
 	llmConfig.OpenAICompatibleBaseURL = getConfigItemStringValue(configFile, sectionName, "openai_compatible_base_url")
 	llmConfig.OpenAICompatibleAPIKey = getConfigItemStringValue(configFile, sectionName, "openai_compatible_api_key")

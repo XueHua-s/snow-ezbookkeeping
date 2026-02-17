@@ -216,6 +216,36 @@ func getConfigWithoutSensitiveData(config *settings.Config) *settings.Config {
 		}
 	}
 
+	if clonedConfig.AIAssistantLLMConfig != nil {
+		if clonedConfig.AIAssistantLLMConfig.OpenAIAPIKey != "" {
+			clonedConfig.AIAssistantLLMConfig.OpenAIAPIKey = "****"
+		}
+
+		if clonedConfig.AIAssistantLLMConfig.OpenAICompatibleAPIKey != "" {
+			clonedConfig.AIAssistantLLMConfig.OpenAICompatibleAPIKey = "****"
+		}
+
+		if clonedConfig.AIAssistantLLMConfig.AnthropicCompatibleAPIKey != "" {
+			clonedConfig.AIAssistantLLMConfig.AnthropicCompatibleAPIKey = "****"
+		}
+
+		if clonedConfig.AIAssistantLLMConfig.AnthropicAPIKey != "" {
+			clonedConfig.AIAssistantLLMConfig.AnthropicAPIKey = "****"
+		}
+
+		if clonedConfig.AIAssistantLLMConfig.OpenRouterAPIKey != "" {
+			clonedConfig.AIAssistantLLMConfig.OpenRouterAPIKey = "****"
+		}
+
+		if clonedConfig.AIAssistantLLMConfig.LMStudioToken != "" {
+			clonedConfig.AIAssistantLLMConfig.LMStudioToken = "****"
+		}
+
+		if clonedConfig.AIAssistantLLMConfig.GoogleAIAPIKey != "" {
+			clonedConfig.AIAssistantLLMConfig.GoogleAIAPIKey = "****"
+		}
+	}
+
 	if clonedConfig.OAuth2ClientSecret != "" {
 		clonedConfig.OAuth2ClientSecret = "****"
 	}

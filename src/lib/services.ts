@@ -169,7 +169,9 @@ import type {
     UserApplicationCloudSettingsUpdateRequest
 } from '@/models/user_app_cloud_setting.ts';
 import type {
-    RecognizedReceiptImageResponse
+    RecognizedReceiptImageResponse,
+    AIAssistantChatRequest,
+    AIAssistantChatResponse
 } from '@/models/large_language_model.ts';
 
 import {
@@ -800,6 +802,12 @@ export default {
         return axios.postForm<ApiResponse<RecognizedReceiptImageResponse>>('v1/llm/transactions/recognize_receipt_image.json', {
             image: imageFile
         }, {
+            timeout: DEFAULT_LLM_API_TIMEOUT,
+            cancelableUuid: cancelableUuid
+        } as ApiRequestConfig);
+    },
+    chatWithAIAssistant: ({ req, cancelableUuid }: { req: AIAssistantChatRequest, cancelableUuid?: string }): ApiResponsePromise<AIAssistantChatResponse> => {
+        return axios.post<ApiResponse<AIAssistantChatResponse>>('v1/llm/assistant/chat.json', req, {
             timeout: DEFAULT_LLM_API_TIMEOUT,
             cancelableUuid: cancelableUuid
         } as ApiRequestConfig);
