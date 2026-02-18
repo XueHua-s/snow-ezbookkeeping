@@ -23,16 +23,19 @@ export interface AIAssistantConversationMessage {
 }
 
 const maxHistoryMessageCount = 12;
+const assistantStreamingChunkSize = 26;
+const assistantStreamingChunkInterval = 16;
 
 export function useAssistantPageBase() {
     const enabled = computed<boolean>(() => isAIAssistantEnabled());
     const messages = ref<AIAssistantConversationMessage[]>([]);
     const messageInput = ref<string>('');
     const requesting = ref<boolean>(false);
+    const rendering = ref<boolean>(false);
     const cancelableUuid = ref<string | undefined>(undefined);
 
     const canSendMessage = computed<boolean>(() => {
-        return !!messageInput.value.trim() && !requesting.value;
+        return !!messageInput.value.trim() && !requesting.value && !rendering.value;
     });
 
     function clearConversation(): void {
@@ -79,6 +82,19 @@ export function useAssistantPageBase() {
         messages.value = [...messages.value, message];
     }
 
+    function patchConversationMessage(messageId: string, patch: Partial<AIAssistantConversationMessage>): void {
+        messages.value = messages.value.map(message => {
+            if (message.id !== messageId) {
+                return message;
+            }
+
+            return {
+                ...message,
+                ...patch
+            };
+        });
+    }
+
     function appendUserMessage(content: string): void {
         appendConversationMessage({
             id: generateRandomUUID(),
@@ -88,14 +104,47 @@ export function useAssistantPageBase() {
         });
     }
 
-    function appendAssistantMessage(response: AIAssistantChatResponse): void {
+    async function appendAssistantMessage(response: AIAssistantChatResponse): Promise<void> {
+        const messageId = generateRandomUUID();
+        const fullReply = response.reply || '';
+
         appendConversationMessage({
-            id: generateRandomUUID(),
+            id: messageId,
             role: 'assistant',
-            content: response.reply,
-            createdAt: Date.now(),
-            references: response.references
+            content: '',
+            createdAt: Date.now()
         });
+
+        rendering.value = true;
+
+        try {
+            if (!fullReply) {
+                patchConversationMessage(messageId, {
+                    references: response.references
+                });
+
+                return;
+            }
+
+            let renderedContent = '';
+
+            for (let offset = 0; offset < fullReply.length; offset += assistantStreamingChunkSize) {
+                renderedContent += fullReply.slice(offset, offset + assistantStreamingChunkSize);
+
+                patchConversationMessage(messageId, {
+                    content: renderedContent
+                });
+
+                await new Promise(resolve => setTimeout(resolve, assistantStreamingChunkInterval));
+            }
+
+            patchConversationMessage(messageId, {
+                content: fullReply,
+                references: response.references
+            });
+        } finally {
+            rendering.value = false;
+        }
     }
 
     async function requestAIAssistant(req: AIAssistantChatRequest): Promise<AIAssistantChatResponse> {
@@ -147,7 +196,7 @@ export function useAssistantPageBase() {
     }
 
     async function sendMessage(): Promise<void> {
-        if (requesting.value) {
+        if (requesting.value || rendering.value) {
             return;
         }
 
@@ -167,11 +216,11 @@ export function useAssistantPageBase() {
             history
         });
 
-        appendAssistantMessage(response);
+        await appendAssistantMessage(response);
     }
 
     async function generateSummary(): Promise<void> {
-        if (requesting.value) {
+        if (requesting.value || rendering.value) {
             return;
         }
 
@@ -180,7 +229,7 @@ export function useAssistantPageBase() {
             history: getHistoryPayload()
         });
 
-        appendAssistantMessage(response);
+        await appendAssistantMessage(response);
     }
 
     return {
@@ -188,6 +237,7 @@ export function useAssistantPageBase() {
         messages,
         messageInput,
         requesting,
+        rendering,
         canSendMessage,
         clearConversation,
         cancelCurrentRequest,

@@ -9,12 +9,12 @@
         <template v-else>
             <f7-block class="assistant-top-actions display-flex justify-content-space-between align-items-center">
                 <f7-button class="assistant-top-action-btn" fill
-                           :disabled="requesting"
+                           :disabled="requesting || rendering"
                            @click="generateSummaryMessage">
                     {{ tt('Generate AI Summary') }}
                 </f7-button>
                 <f7-button class="assistant-top-action-btn" outline
-                           :disabled="requesting || !messages.length"
+                           :disabled="requesting || rendering || !messages.length"
                            @click="clearConversation">
                     {{ tt('Clear Conversation') }}
                 </f7-button>
@@ -32,7 +32,7 @@
                      v-for="message in messages">
                     <div class="assistant-message-bubble">
                         <div class="assistant-message-role">{{ message.role === 'user' ? tt('You') : tt('AI Assistant') }}</div>
-                        <div class="assistant-message-content">{{ message.content }}</div>
+                        <assistant-markdown-content class="assistant-message-content" :content="message.content" />
 
                         <div class="assistant-message-references margin-top" v-if="message.references && message.references.length">
                             <div class="assistant-reference-title">{{ tt('Referenced Bills') }}</div>
@@ -54,7 +54,7 @@
                         class="assistant-input"
                         type="textarea"
                         resizable
-                        :disabled="requesting"
+                        :disabled="requesting || rendering"
                         :placeholder="tt('Ask your personal finance question')"
                         v-model:value="messageInput">
                     </f7-input>
@@ -74,6 +74,8 @@
 </template>
 
 <script setup lang="ts">
+import AssistantMarkdownContent from '@/components/common/AssistantMarkdownContent.vue';
+
 import { nextTick, useTemplateRef, watch } from 'vue';
 
 import { useI18n } from '@/locales/helpers.ts';
@@ -87,6 +89,7 @@ const {
     messages,
     messageInput,
     requesting,
+    rendering,
     canSendMessage,
     clearConversation,
     sendMessage,
@@ -95,7 +98,7 @@ const {
 
 const messagesPanel = useTemplateRef<HTMLElement>('messagesPanel');
 
-watch(() => messages.value.length, () => {
+watch(() => messages.value.map(message => `${message.id}:${message.content.length}:${message.references?.length || 0}`).join('|'), () => {
     nextTick(() => {
         if (!messagesPanel.value) {
             return;
@@ -182,7 +185,6 @@ function generateSummaryMessage(): void {
 }
 
 .assistant-message-content {
-    white-space: pre-wrap;
     line-height: 1.45;
 }
 
