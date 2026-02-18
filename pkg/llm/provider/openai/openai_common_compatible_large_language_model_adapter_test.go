@@ -2,12 +2,14 @@ package openai
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/mayswind/ezbookkeeping/pkg/core"
 	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
+	"github.com/mayswind/ezbookkeeping/pkg/models"
 )
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_TextualUserPrompt(t *testing.T) {
@@ -54,6 +56,37 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonReques
 	assert.Nil(t, err)
 
 	assert.Equal(t, "{\"model\":\"test\",\"stream\":false,\"messages\":[{\"role\":\"system\",\"content\":\"What's in this image?\"},{\"role\":\"user\",\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,ZmFrZWRhdGE=\"}}]}],\"response_format\":{\"type\":\"json_object\"}}", string(bodyBytes))
+}
+
+func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_WithJsonSchema(t *testing.T) {
+	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
+		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{
+			OpenAIModelID: "test",
+		},
+	}
+
+	request := &data.LargeLanguageModelRequest{
+		SystemPrompt:           "You are a helpful assistant.",
+		UserPrompt:             []byte("Please reply in json"),
+		ResponseJsonObjectType: reflect.TypeOf(models.AIAssistantResult{}),
+	}
+
+	bodyBytes, err := adapter.buildJsonRequestBody(core.NewNullContext(), 0, request, data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
+	assert.Nil(t, err)
+
+	var body map[string]any
+	err = json.Unmarshal(bodyBytes, &body)
+	assert.Nil(t, err)
+
+	responseFormat := body["response_format"].(map[string]any)
+	assert.Equal(t, "json_schema", responseFormat["type"])
+
+	jsonSchema := responseFormat["json_schema"].(map[string]any)
+	assert.Equal(t, "structured_output", jsonSchema["name"])
+
+	schema := jsonSchema["schema"].(map[string]any)
+	properties := schema["properties"].(map[string]any)
+	assert.NotNil(t, properties["reply"])
 }
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualResponse_ValidJsonResponse(t *testing.T) {

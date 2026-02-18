@@ -8,12 +8,12 @@
 
         <template v-else>
             <f7-block class="assistant-top-actions display-flex justify-content-space-between align-items-center">
-                <f7-button small fill
+                <f7-button class="assistant-top-action-btn" fill
                            :disabled="requesting"
                            @click="generateSummaryMessage">
                     {{ tt('Generate AI Summary') }}
                 </f7-button>
-                <f7-button small
+                <f7-button class="assistant-top-action-btn" outline
                            :disabled="requesting || !messages.length"
                            @click="clearConversation">
                     {{ tt('Clear Conversation') }}
@@ -49,21 +49,24 @@
             </f7-block>
 
             <f7-block class="assistant-input-block">
-                <f7-textarea
-                    class="assistant-input"
-                    type="textarea"
-                    resizable
-                    :disabled="requesting"
-                    :placeholder="tt('Ask your personal finance question')"
-                    v-model:value="messageInput">
-                </f7-textarea>
-                <div class="display-flex justify-content-space-between align-items-center margin-top-half">
-                    <f7-preloader size="18" v-if="requesting"></f7-preloader>
-                    <f7-button fill
+                <div class="assistant-input-row">
+                    <f7-input
+                        class="assistant-input"
+                        type="textarea"
+                        resizable
+                        :disabled="requesting"
+                        :placeholder="tt('Ask your personal finance question')"
+                        v-model:value="messageInput">
+                    </f7-input>
+                    <f7-button class="assistant-send-button"
+                               fill
                                :disabled="!canSendMessage"
                                @click="sendChatMessage">
                         {{ tt('Send') }}
                     </f7-button>
+                </div>
+                <div class="assistant-requesting margin-top-half" v-if="requesting">
+                    <f7-preloader size="16"></f7-preloader>
                 </div>
             </f7-block>
         </template>
@@ -121,17 +124,24 @@ function generateSummaryMessage(): void {
 
 <style scoped>
 .assistant-top-actions {
-    margin-top: var(--f7-block-margin-vertical);
-    margin-bottom: 0;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    column-gap: 8px;
+}
+
+.assistant-top-action-btn {
+    flex: 1;
+    min-width: 0;
 }
 
 .assistant-message-list {
-    height: calc(100vh - 290px);
+    height: clamp(220px, calc(100vh - 338px), 560px);
     overflow-y: auto;
+    padding-inline: 12px;
 }
 
 .assistant-empty-state {
-    min-height: 220px;
+    min-height: 180px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -188,13 +198,43 @@ function generateSummaryMessage(): void {
 
 .assistant-input-block {
     margin-top: 0;
-    padding-top: 8px;
+    margin-bottom: 0;
+    padding-top: 10px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+    position: sticky;
+    bottom: 0;
+    z-index: 8;
+    background: var(--f7-page-bg-color);
+    border-top: 1px solid var(--f7-page-master-border-color);
+}
+
+.assistant-input-row {
+    display: flex;
+    align-items: flex-end;
+    column-gap: 8px;
 }
 
 .assistant-input {
+    flex: 1;
+    width: auto;
     background: var(--f7-card-bg-color);
     border: 1px solid var(--f7-page-master-border-color);
     border-radius: 12px;
     padding-inline: 8px;
+}
+
+.assistant-input :deep(textarea) {
+    width: 100%;
+    min-height: 42px;
+}
+
+.assistant-send-button {
+    height: 42px;
+    min-width: 72px;
+}
+
+.assistant-requesting {
+    display: flex;
+    justify-content: center;
 }
 </style>
