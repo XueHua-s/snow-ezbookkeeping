@@ -273,6 +273,10 @@ export default defineConfig(() => {
         resolve: {
             alias: {
                 '@': SRC_DIR,
+                // @markdown-next/parser statically imports rehype-mathjax and can pull Node-only `require` code
+                // into browser bundles even when mathjax grammar is not enabled.
+                // We alias it to a browser-safe noop to prevent runtime `require is not defined`.
+                'rehype-mathjax/chtml': resolve(SRC_DIR, './lib/markdown/rehypeMathjaxChtmlStub.ts'),
             },
         },
         server: {
