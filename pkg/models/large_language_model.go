@@ -68,6 +68,23 @@ type AIAssistantChatResponse struct {
 	References []*AIAssistantReferencedTransaction `json:"references,omitempty"`
 }
 
+const (
+	AIAssistantChatStreamChunkTypeThinkingDelta = "thinking_delta"
+	AIAssistantChatStreamChunkTypeReplyDelta    = "reply_delta"
+	AIAssistantChatStreamChunkTypeReferences    = "references"
+	AIAssistantChatStreamChunkTypeDone          = "done"
+)
+
+// AIAssistantChatStreamChunk represents one ai assistant stream response chunk
+type AIAssistantChatStreamChunk struct {
+	Type       string                              `json:"type"`
+	Mode       string                              `json:"mode,omitempty"`
+	Delta      string                              `json:"delta,omitempty"`
+	Reply      string                              `json:"reply,omitempty"`
+	Thinking   string                              `json:"thinking,omitempty"`
+	References []*AIAssistantReferencedTransaction `json:"references,omitempty"`
+}
+
 // AIAssistantResult represents the result schema of ai assistant response from llm
 type AIAssistantResult struct {
 	Reply string `json:"reply,omitempty" jsonschema_description:"Response text for user with bill summary and bookkeeping suggestions"`

@@ -32,7 +32,9 @@
                      v-for="message in messages">
                     <div class="assistant-message-bubble">
                         <div class="assistant-message-role">{{ message.role === 'user' ? tt('You') : tt('AI Assistant') }}</div>
-                        <assistant-markdown-content class="assistant-message-content" :content="message.content" />
+                        <assistant-markdown-content class="assistant-message-content"
+                                                    :content="message.content"
+                                                    :thinking="message.thinking" />
 
                         <div class="assistant-message-references margin-top" v-if="message.references && message.references.length">
                             <div class="assistant-reference-title">{{ tt('Referenced Bills') }}</div>
@@ -98,7 +100,7 @@ const {
 
 const messagesPanel = useTemplateRef<HTMLElement>('messagesPanel');
 
-watch(() => messages.value.map(message => `${message.id}:${message.content.length}:${message.references?.length || 0}`).join('|'), () => {
+watch(() => messages.value.map(message => `${message.id}:${message.thinking?.length || 0}:${message.content.length}:${message.references?.length || 0}`).join('|'), () => {
     nextTick(() => {
         if (!messagesPanel.value) {
             return;

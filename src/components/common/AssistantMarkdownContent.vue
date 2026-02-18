@@ -2,7 +2,7 @@
     <markdown-renderer
         class="assistant-markdown"
         mode="streaming"
-        :markdown="content"
+        :markdown="displayContent"
         :streamdown="streamdownOptions"
         :parserOptions="parserOptions"
         :components="customComponents"
@@ -10,7 +10,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, type FunctionalComponent } from 'vue';
+import { computed, h, type FunctionalComponent } from 'vue';
 
 import type { ParserOptions } from '@markdown-next/parser';
 import { MarkdownRenderer } from '@markdown-next/vue';
@@ -18,9 +18,25 @@ import type { MarkdownComponents } from '@markdown-next/vue';
 
 interface AssistantMarkdownContentProps {
     readonly content: string;
+    readonly thinking?: string;
 }
 
-defineProps<AssistantMarkdownContentProps>();
+const props = defineProps<AssistantMarkdownContentProps>();
+
+const displayContent = computed<string>(() => {
+    const content = props.content || '';
+    const thinking = props.thinking || '';
+
+    if (thinking && content) {
+        return `<think>\n${thinking}\n</think>\n\n${content}`;
+    }
+
+    if (thinking) {
+        return `<think>\n${thinking}\n</think>`;
+    }
+
+    return content;
+});
 
 const parserOptions: ParserOptions = {
     extendedGrammar: ['gfm'],

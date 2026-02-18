@@ -2,7 +2,6 @@ import { ref, computed } from 'vue';
 
 import type {
     AIAssistantChatRequest,
-    AIAssistantChatResponse,
     AIAssistantHistoryItem,
     AIAssistantReferencedTransaction
 } from '@/models/large_language_model.ts';
@@ -18,13 +17,12 @@ export interface AIAssistantConversationMessage {
     readonly id: string;
     readonly role: AIAssistantConversationRole;
     readonly content: string;
+    readonly thinking?: string;
     readonly createdAt: number;
     readonly references?: AIAssistantReferencedTransaction[];
 }
 
 const maxHistoryMessageCount = 12;
-const assistantStreamingChunkSize = 26;
-const assistantStreamingChunkInterval = 16;
 
 export function useAssistantPageBase() {
     const enabled = computed<boolean>(() => isAIAssistantEnabled());
@@ -104,65 +102,87 @@ export function useAssistantPageBase() {
         });
     }
 
-    async function appendAssistantMessage(response: AIAssistantChatResponse): Promise<void> {
+    async function appendAssistantMessageByStream(req: AIAssistantChatRequest): Promise<void> {
         const messageId = generateRandomUUID();
-        const fullReply = response.reply || '';
+        let latestReply = '';
+        let latestThinking = '';
 
         appendConversationMessage({
             id: messageId,
             role: 'assistant',
             content: '',
+            thinking: '',
             createdAt: Date.now()
         });
 
         rendering.value = true;
 
         try {
-            if (!fullReply) {
-                patchConversationMessage(messageId, {
-                    references: response.references
-                });
+            await requestAIAssistantStream(req, {
+                onThinkingDelta: delta => {
+                    latestThinking += delta;
+                    patchConversationMessage(messageId, {
+                        thinking: latestThinking
+                    });
+                },
+                onReplyDelta: delta => {
+                    latestReply += delta;
+                    patchConversationMessage(messageId, {
+                        content: latestReply
+                    });
+                },
+                onReferences: references => {
+                    patchConversationMessage(messageId, {
+                        references
+                    });
+                },
+                onDone: chunk => {
+                    const doneReply = chunk.reply || latestReply;
+                    const doneThinking = chunk.thinking || latestThinking;
 
-                return;
-            }
+                    if (doneReply) {
+                        latestReply = doneReply;
+                    }
 
-            let renderedContent = '';
+                    if (doneThinking) {
+                        latestThinking = doneThinking;
+                    }
 
-            for (let offset = 0; offset < fullReply.length; offset += assistantStreamingChunkSize) {
-                renderedContent += fullReply.slice(offset, offset + assistantStreamingChunkSize);
-
-                patchConversationMessage(messageId, {
-                    content: renderedContent
-                });
-
-                await new Promise(resolve => setTimeout(resolve, assistantStreamingChunkInterval));
-            }
-
-            patchConversationMessage(messageId, {
-                content: fullReply,
-                references: response.references
+                    patchConversationMessage(messageId, {
+                        content: latestReply,
+                        thinking: latestThinking
+                    });
+                }
             });
+
+            if (!latestReply) {
+                patchConversationMessage(messageId, {
+                    content: ''
+                });
+            }
         } finally {
             rendering.value = false;
         }
     }
 
-    async function requestAIAssistant(req: AIAssistantChatRequest): Promise<AIAssistantChatResponse> {
+    async function requestAIAssistantStream(req: AIAssistantChatRequest, callbacks: {
+        onThinkingDelta?: (delta: string) => void;
+        onReplyDelta?: (delta: string) => void;
+        onReferences?: (references: AIAssistantReferencedTransaction[] | undefined) => void;
+        onDone?: (chunk: {
+            reply?: string;
+            thinking?: string;
+        }) => void;
+    }): Promise<void> {
         cancelableUuid.value = generateRandomUUID();
         requesting.value = true;
 
         try {
-            const response = await services.chatWithAIAssistant({
+            await services.chatWithAIAssistantStream({
                 req,
-                cancelableUuid: cancelableUuid.value
+                cancelableUuid: cancelableUuid.value,
+                callbacks
             });
-            const data = response.data;
-
-            if (!data || !data.success || !data.result) {
-                throw { message: 'Unable to get AI assistant response' };
-            }
-
-            return data.result;
         } catch (error: unknown) {
             const typedError = error as {
                 canceled?: boolean;
@@ -181,7 +201,7 @@ export function useAssistantPageBase() {
             logger.error('failed to request ai assistant', typedError);
 
             if (typedError.response && typedError.response.data && typedError.response.data.errorMessage) {
-                throw { error: typedError.response.data };
+                throw { message: typedError.response.data.errorMessage };
             }
 
             if (typedError.processed) {
@@ -210,13 +230,11 @@ export function useAssistantPageBase() {
         appendUserMessage(message);
         messageInput.value = '';
 
-        const response = await requestAIAssistant({
+        await appendAssistantMessageByStream({
             mode: 'chat',
             message: message,
             history
         });
-
-        await appendAssistantMessage(response);
     }
 
     async function generateSummary(): Promise<void> {
@@ -224,12 +242,10 @@ export function useAssistantPageBase() {
             return;
         }
 
-        const response = await requestAIAssistant({
+        await appendAssistantMessageByStream({
             mode: 'summary',
             history: getHistoryPayload()
         });
-
-        await appendAssistantMessage(response);
     }
 
     return {

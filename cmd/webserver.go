@@ -463,6 +463,7 @@ func startWebServer(c *core.CliContext) error {
 
 			if config.EnableAIAssistant && config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider != "" {
 				apiV1Route.POST("/llm/assistant/chat.json", bindApi(api.LargeLanguageModels.AssistantChatHandler))
+				apiV1Route.POST("/llm/assistant/chat/stream.json", bindEventStreamApi(api.LargeLanguageModels.AssistantChatStreamHandler))
 			}
 
 			// Exchange Rates
