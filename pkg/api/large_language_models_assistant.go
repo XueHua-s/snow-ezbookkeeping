@@ -27,14 +27,16 @@ import (
 )
 
 const (
-	aiAssistantOpenAIEmbeddingsPath           = "embeddings"
-	aiAssistantOpenAIResponsesPath            = "responses"
-	aiAssistantKnowledgeBaseTransactionLimit  = 180
-	aiAssistantKnowledgeBaseTopK              = 18
-	aiAssistantEmbeddingRequestBatchSize      = 64
-	aiAssistantMaxHistoryMessages             = 12
-	aiAssistantMaxReferencedTransactionsCount = 8
-	aiAssistantOpenAIReasoningSummaryLevel    = "auto"
+	aiAssistantOpenAIEmbeddingsPath              = "embeddings"
+	aiAssistantOpenAIResponsesPath               = "responses"
+	aiAssistantKnowledgeBaseTransactionPageSize  = int32(180)
+	aiAssistantKnowledgeBaseMaxTransactionCount  = 1800
+	aiAssistantKnowledgeBaseHistoryCoverageYears = 2
+	aiAssistantKnowledgeBaseTopK                 = 18
+	aiAssistantEmbeddingRequestBatchSize         = 64
+	aiAssistantMaxHistoryMessages                = 12
+	aiAssistantMaxReferencedTransactionsCount    = 8
+	aiAssistantOpenAIReasoningSummaryLevel       = "auto"
 )
 
 type openAIEmbeddingsRequest struct {
@@ -232,8 +234,7 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 		return nil, errs.ErrUserNotFound
 	}
 
-	maxTransactionTime := utils.GetMaxTransactionTimeFromUnixTime(time.Now().Unix())
-	transactions, transactionErr := a.transactions.GetTransactionsByMaxTime(c, uid, maxTransactionTime, 0, 0, nil, nil, nil, false, "", "", 1, aiAssistantKnowledgeBaseTransactionLimit, false, true)
+	transactions, transactionErr := a.getAIAssistantTransactionsForKnowledge(c, uid, clientTimezone)
 
 	if transactionErr != nil {
 		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to get transactions for user \"uid:%d\", because %s", uid, transactionErr.Error())
@@ -344,6 +345,60 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 		UserPrompt:   a.buildAIAssistantUserPrompt(&request, mode),
 		References:   buildAIAssistantResponseReferences(retrievedKnowledgeItems, aiAssistantMaxReferencedTransactionsCount),
 	}, nil
+}
+
+func (a *LargeLanguageModelsApi) getAIAssistantTransactionsForKnowledge(c *core.WebContext, uid int64, clientTimezone *time.Location) ([]*models.Transaction, error) {
+	maxTransactionTime := utils.GetMaxTransactionTimeFromUnixTime(time.Now().Unix())
+	coverageStartUnixTime := getAIAssistantKnowledgeCoverageStartUnixTime(clientTimezone)
+	page := int32(1)
+	transactions := make([]*models.Transaction, 0, aiAssistantKnowledgeBaseTransactionPageSize)
+
+	for len(transactions) < aiAssistantKnowledgeBaseMaxTransactionCount {
+		remainingCount := aiAssistantKnowledgeBaseMaxTransactionCount - len(transactions)
+		pageCount := aiAssistantKnowledgeBaseTransactionPageSize
+
+		if remainingCount < int(pageCount) {
+			pageCount = int32(remainingCount)
+		}
+
+		pageTransactions, err := a.transactions.GetTransactionsByMaxTime(c, uid, maxTransactionTime, 0, 0, nil, nil, nil, false, "", "", page, pageCount, false, true)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if len(pageTransactions) < 1 {
+			break
+		}
+
+		transactions = append(transactions, pageTransactions...)
+
+		oldestTransactionUnixTime := utils.GetUnixTimeFromTransactionTime(pageTransactions[len(pageTransactions)-1].TransactionTime)
+
+		if oldestTransactionUnixTime <= coverageStartUnixTime {
+			break
+		}
+
+		if len(pageTransactions) < int(pageCount) {
+			break
+		}
+
+		page++
+	}
+
+	return transactions, nil
+}
+
+func getAIAssistantKnowledgeCoverageStartUnixTime(clientTimezone *time.Location) int64 {
+	if clientTimezone == nil {
+		clientTimezone = time.Local
+	}
+
+	nowInClientTimezone := time.Now().In(clientTimezone)
+	coverageStartYear := nowInClientTimezone.Year() - aiAssistantKnowledgeBaseHistoryCoverageYears
+	coverageStartTime := time.Date(coverageStartYear, time.January, 1, 0, 0, 0, 0, clientTimezone)
+
+	return coverageStartTime.Unix()
 }
 
 func (a *LargeLanguageModelsApi) streamAIAssistantResponseFromOpenAI(c *core.WebContext, uid int64, llmConfig *settings.LLMConfig, assistantContext *aiAssistantPreparedPromptContext) *errs.Error {
