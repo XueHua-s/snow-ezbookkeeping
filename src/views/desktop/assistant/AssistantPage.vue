@@ -11,8 +11,8 @@
                         <v-btn class="ms-2"
                                color="secondary"
                                variant="tonal"
-                               :disabled="!enabled || requesting"
-                               :loading="requesting"
+                               :disabled="!enabled || requesting || rendering"
+                               :loading="requesting || rendering"
                                @click="generateSummaryMessage">
                             <v-icon :icon="mdiTextBoxCheckOutline" size="20" class="me-2" />
                             {{ tt('Generate AI Summary') }}
@@ -20,7 +20,7 @@
                         <v-btn class="ms-2"
                                color="default"
                                variant="text"
-                               :disabled="requesting || !messages.length"
+                               :disabled="requesting || rendering || !messages.length"
                                @click="clearConversation">
                             <v-icon :icon="mdiDeleteOutline" size="20" class="me-2" />
                             {{ tt('Clear Conversation') }}
@@ -47,7 +47,7 @@
                          v-for="message in messages">
                         <div class="assistant-message-bubble">
                             <div class="assistant-message-role">{{ message.role === 'user' ? tt('You') : tt('AI Assistant') }}</div>
-                            <div class="assistant-message-content">{{ message.content }}</div>
+                            <assistant-markdown-content class="assistant-message-content" :content="message.content" />
 
                             <div class="assistant-message-references mt-3"
                                  v-if="message.references && message.references.length">
@@ -79,7 +79,7 @@
                         max-rows="6"
                         class="assistant-input me-3"
                         variant="outlined"
-                        :disabled="!enabled || requesting"
+                        :disabled="!enabled || requesting || rendering"
                         :placeholder="tt('Ask your personal finance question')"
                         v-model="messageInput"
                         @keydown.ctrl.enter.prevent="sendChatMessage"
@@ -101,6 +101,7 @@
 
 <script setup lang="ts">
 import SnackBar from '@/components/desktop/SnackBar.vue';
+import AssistantMarkdownContent from '@/components/common/AssistantMarkdownContent.vue';
 
 import { nextTick, useTemplateRef, watch } from 'vue';
 
@@ -125,6 +126,7 @@ const {
     messages,
     messageInput,
     requesting,
+    rendering,
     canSendMessage,
     clearConversation,
     sendMessage,
@@ -134,7 +136,7 @@ const {
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
 const messagesPanel = useTemplateRef<HTMLElement>('messagesPanel');
 
-watch(() => messages.value.length, () => {
+watch(() => messages.value.map(message => `${message.id}:${message.content.length}:${message.references?.length || 0}`).join('|'), () => {
     nextTick(() => {
         if (!messagesPanel.value) {
             return;
@@ -215,7 +217,6 @@ function generateSummaryMessage(): void {
 }
 
 .assistant-message-content {
-    white-space: pre-wrap;
     line-height: 1.55;
 }
 

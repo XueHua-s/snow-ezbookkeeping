@@ -19,6 +19,8 @@
     "test": "cross-env TS_NODE_PROJECT=\"./tsconfig.jest.json\" jest"
   },
   "dependencies": {
+    "@markdown-next/parser": "^1.1.1",
+    "@markdown-next/vue": "^1.1.1",
     "@mdi/js": "^7.4.47",
     "@vuepic/vue-datepicker": "^12.1.0",
     "axios": "^1.13.4",
