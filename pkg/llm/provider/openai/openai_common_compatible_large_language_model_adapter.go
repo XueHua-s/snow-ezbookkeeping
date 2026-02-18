@@ -48,6 +48,7 @@ type OpenAIChatCompletionsRequestResponseFormatType string
 const (
 	OpenAIChatCompletionsRequestResponseFormatTypeJsonObject OpenAIChatCompletionsRequestResponseFormatType = "json_object"
 	OpenAIChatCompletionsRequestResponseFormatTypeJsonSchema OpenAIChatCompletionsRequestResponseFormatType = "json_schema"
+	openAIChatCompletionsDefaultJsonSchemaName               string                                     = "structured_output"
 )
 
 // OpenAIChatCompletionsRequest defines the structure of OpenAI chat completions request
@@ -73,7 +74,13 @@ type OpenAIChatCompletionsRequestImageContent struct {
 // OpenAIChatCompletionsRequestResponseFormat defines the structure of OpenAI chat completions request response format
 type OpenAIChatCompletionsRequestResponseFormat struct {
 	Type       OpenAIChatCompletionsRequestResponseFormatType `json:"type"`
-	JsonSchema *jsonschema.Schema                             `json:"json_schema,omitempty"`
+	JsonSchema *OpenAIChatCompletionsRequestJsonSchema        `json:"json_schema,omitempty"`
+}
+
+// OpenAIChatCompletionsRequestJsonSchema defines the structure of OpenAI chat completions request json schema
+type OpenAIChatCompletionsRequestJsonSchema struct {
+	Name   string             `json:"name"`
+	Schema *jsonschema.Schema `json:"schema"`
 }
 
 // OpenAIChatCompletionsRequestImageUrl defines the structure of OpenAI image url
@@ -193,7 +200,10 @@ func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) buildJsonReque
 
 			chatCompletionsRequest.ResponseFormat = &OpenAIChatCompletionsRequestResponseFormat{
 				Type:       OpenAIChatCompletionsRequestResponseFormatTypeJsonSchema,
-				JsonSchema: schema,
+				JsonSchema: &OpenAIChatCompletionsRequestJsonSchema{
+					Name:   openAIChatCompletionsDefaultJsonSchemaName,
+					Schema: schema,
+				},
 			}
 		} else {
 			chatCompletionsRequest.ResponseFormat = &OpenAIChatCompletionsRequestResponseFormat{

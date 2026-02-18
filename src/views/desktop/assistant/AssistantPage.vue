@@ -163,8 +163,8 @@ function generateSummaryMessage(): void {
 
 <style scoped>
 .assistant-messages-panel {
-    min-height: 540px;
-    max-height: 540px;
+    min-height: clamp(260px, calc(100vh - 460px), 540px);
+    max-height: clamp(260px, calc(100vh - 460px), 540px);
     overflow-y: auto;
 }
 
