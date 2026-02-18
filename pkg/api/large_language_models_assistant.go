@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -27,11 +28,13 @@ import (
 
 const (
 	aiAssistantOpenAIEmbeddingsPath           = "embeddings"
+	aiAssistantOpenAIResponsesPath            = "responses"
 	aiAssistantKnowledgeBaseTransactionLimit  = 180
 	aiAssistantKnowledgeBaseTopK              = 18
 	aiAssistantEmbeddingRequestBatchSize      = 64
 	aiAssistantMaxHistoryMessages             = 12
 	aiAssistantMaxReferencedTransactionsCount = 8
+	aiAssistantOpenAIReasoningSummaryLevel    = "auto"
 )
 
 type openAIEmbeddingsRequest struct {
@@ -46,6 +49,27 @@ type openAIEmbeddingsResponse struct {
 type openAIEmbeddingsResponseItem struct {
 	Index     int       `json:"index"`
 	Embedding []float64 `json:"embedding"`
+}
+
+type openAIResponsesRequest struct {
+	Model        string                        `json:"model"`
+	Instructions string                        `json:"instructions,omitempty"`
+	Input        string                        `json:"input"`
+	Stream       bool                          `json:"stream"`
+	Store        bool                          `json:"store"`
+	Reasoning    *openAIResponsesReasoningItem `json:"reasoning,omitempty"`
+}
+
+type openAIResponsesReasoningItem struct {
+	Summary string `json:"summary,omitempty"`
+}
+
+type aiAssistantPreparedPromptContext struct {
+	Mode         string
+	SystemPrompt string
+	UserPrompt   string
+	NoDataReply  string
+	References   []*models.AIAssistantReferencedTransaction
 }
 
 type aiAssistantKnowledgeItem struct {
@@ -77,6 +101,89 @@ type aiAssistantExpenseCategoryOverview struct {
 func (a *LargeLanguageModelsApi) AssistantChatHandler(c *core.WebContext) (any, *errs.Error) {
 	currentConfig := a.CurrentConfig()
 
+	assistantContext, err := a.prepareAIAssistantPromptContext(c, currentConfig)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if assistantContext.NoDataReply != "" {
+		return &models.AIAssistantChatResponse{
+			Mode:  assistantContext.Mode,
+			Reply: assistantContext.NoDataReply,
+		}, nil
+	}
+
+	llmRequest := &data.LargeLanguageModelRequest{
+		Stream:                 false,
+		SystemPrompt:           assistantContext.SystemPrompt,
+		UserPrompt:             []byte(assistantContext.UserPrompt),
+		UserPromptType:         data.LARGE_LANGUAGE_MODEL_REQUEST_PROMPT_TYPE_TEXT,
+		ResponseJsonObjectType: reflect.TypeOf(models.AIAssistantResult{}),
+	}
+
+	uid := c.GetCurrentUid()
+	llmResponse, llmErr := llm.Container.GetJsonResponseByAIAssistantModel(c, uid, currentConfig, llmRequest)
+
+	if llmErr != nil {
+		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get llm response for user \"uid:%d\", because %s", uid, llmErr.Error())
+		return nil, errs.Or(llmErr, errs.ErrOperationFailed)
+	}
+
+	if llmResponse == nil || strings.TrimSpace(llmResponse.Content) == "" {
+		return nil, errs.ErrOperationFailed
+	}
+
+	reply := strings.TrimSpace(llmResponse.Content)
+	llmResult := &models.AIAssistantResult{}
+
+	if unmarshalErr := json.Unmarshal([]byte(llmResponse.Content), llmResult); unmarshalErr == nil &&
+		llmResult != nil &&
+		strings.TrimSpace(llmResult.Reply) != "" {
+		reply = strings.TrimSpace(llmResult.Reply)
+	}
+
+	return &models.AIAssistantChatResponse{
+		Mode:       assistantContext.Mode,
+		Reply:      reply,
+		References: assistantContext.References,
+	}, nil
+}
+
+// AssistantChatStreamHandler returns ai assistant response stream for chat or summary request
+func (a *LargeLanguageModelsApi) AssistantChatStreamHandler(c *core.WebContext) *errs.Error {
+	currentConfig := a.CurrentConfig()
+	assistantContext, err := a.prepareAIAssistantPromptContext(c, currentConfig)
+
+	if err != nil {
+		return err
+	}
+
+	if assistantContext.NoDataReply != "" {
+		utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+			Type:  models.AIAssistantChatStreamChunkTypeReplyDelta,
+			Delta: assistantContext.NoDataReply,
+		})
+
+		utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+			Type:  models.AIAssistantChatStreamChunkTypeDone,
+			Mode:  assistantContext.Mode,
+			Reply: assistantContext.NoDataReply,
+		})
+		return nil
+	}
+
+	llmConfig := currentConfig.AIAssistantLLMConfig
+	streamErr := a.streamAIAssistantResponseFromOpenAI(c, c.GetCurrentUid(), llmConfig, assistantContext)
+
+	if streamErr != nil {
+		return streamErr
+	}
+
+	return nil
+}
+
+func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebContext, currentConfig *settings.Config) (*aiAssistantPreparedPromptContext, *errs.Error) {
 	if !currentConfig.EnableAIAssistant ||
 		currentConfig.AIAssistantLLMConfig == nil ||
 		currentConfig.AIAssistantLLMConfig.LLMProvider == "" {
@@ -91,13 +198,13 @@ func (a *LargeLanguageModelsApi) AssistantChatHandler(c *core.WebContext) (any, 
 	err := c.ShouldBindJSON(&request)
 
 	if err != nil {
-		log.Warnf(c, "[large_language_models.AssistantChatHandler] parse request failed, because %s", err.Error())
+		log.Warnf(c, "[large_language_models.prepareAIAssistantPromptContext] parse request failed, because %s", err.Error())
 		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
 	}
 
-	mode, err := normalizeAIAssistantMode(request.Mode)
+	mode, normalizeErr := normalizeAIAssistantMode(request.Mode)
 
-	if err != nil {
+	if normalizeErr != nil {
 		return nil, errs.ErrAIAssistantInvalidMode
 	}
 
@@ -107,44 +214,44 @@ func (a *LargeLanguageModelsApi) AssistantChatHandler(c *core.WebContext) (any, 
 		return nil, errs.ErrAIAssistantMessageIsEmpty
 	}
 
-	clientTimezone, err := c.GetClientTimezone()
+	clientTimezone, timezoneErr := c.GetClientTimezone()
 
-	if err != nil {
-		log.Warnf(c, "[large_language_models.AssistantChatHandler] cannot get client timezone, because %s", err.Error())
+	if timezoneErr != nil {
+		log.Warnf(c, "[large_language_models.prepareAIAssistantPromptContext] cannot get client timezone, because %s", timezoneErr.Error())
 		return nil, errs.ErrClientTimezoneOffsetInvalid
 	}
 
 	uid := c.GetCurrentUid()
-	_, err = a.users.GetUserById(c, uid)
+	_, userErr := a.users.GetUserById(c, uid)
 
-	if err != nil {
-		if !errs.IsCustomError(err) {
-			log.Warnf(c, "[large_language_models.AssistantChatHandler] failed to get user for user \"uid:%d\", because %s", uid, err.Error())
+	if userErr != nil {
+		if !errs.IsCustomError(userErr) {
+			log.Warnf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to get user for user \"uid:%d\", because %s", uid, userErr.Error())
 		}
 
 		return nil, errs.ErrUserNotFound
 	}
 
 	maxTransactionTime := utils.GetMaxTransactionTimeFromUnixTime(time.Now().Unix())
-	transactions, err := a.transactions.GetTransactionsByMaxTime(c, uid, maxTransactionTime, 0, 0, nil, nil, nil, false, "", "", 1, aiAssistantKnowledgeBaseTransactionLimit, false, true)
+	transactions, transactionErr := a.transactions.GetTransactionsByMaxTime(c, uid, maxTransactionTime, 0, 0, nil, nil, nil, false, "", "", 1, aiAssistantKnowledgeBaseTransactionLimit, false, true)
 
-	if err != nil {
-		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get transactions for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, errs.Or(err, errs.ErrOperationFailed)
+	if transactionErr != nil {
+		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to get transactions for user \"uid:%d\", because %s", uid, transactionErr.Error())
+		return nil, errs.Or(transactionErr, errs.ErrOperationFailed)
 	}
 
 	if len(transactions) < 1 {
-		return &models.AIAssistantChatResponse{
-			Mode:  mode,
-			Reply: a.getAIAssistantNoDataReply(c, mode),
+		return &aiAssistantPreparedPromptContext{
+			Mode:        mode,
+			NoDataReply: a.getAIAssistantNoDataReply(c, mode),
 		}, nil
 	}
 
-	accounts, err := a.accounts.GetAllAccountsByUid(c, uid)
+	accounts, accountErr := a.accounts.GetAllAccountsByUid(c, uid)
 
-	if err != nil {
-		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get all accounts for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, errs.Or(err, errs.ErrOperationFailed)
+	if accountErr != nil {
+		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to get all accounts for user \"uid:%d\", because %s", uid, accountErr.Error())
+		return nil, errs.Or(accountErr, errs.ErrOperationFailed)
 	}
 
 	accountMap := a.accounts.GetAccountMapByList(accounts)
@@ -163,57 +270,57 @@ func (a *LargeLanguageModelsApi) AssistantChatHandler(c *core.WebContext) (any, 
 		categoryIds[i] = transaction.CategoryId
 	}
 
-	categories, err := a.transactionCategories.GetCategoriesByCategoryIds(c, uid, utils.ToUniqueInt64Slice(categoryIds))
+	categories, categoryErr := a.transactionCategories.GetCategoriesByCategoryIds(c, uid, utils.ToUniqueInt64Slice(categoryIds))
 
-	if err != nil {
-		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get categories for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, errs.Or(err, errs.ErrOperationFailed)
+	if categoryErr != nil {
+		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to get categories for user \"uid:%d\", because %s", uid, categoryErr.Error())
+		return nil, errs.Or(categoryErr, errs.ErrOperationFailed)
 	}
 
-	allTransactionTagIds, err := a.transactionTags.GetAllTagIdsOfTransactions(c, uid, utils.ToUniqueInt64Slice(transactionIds))
+	allTransactionTagIds, tagErr := a.transactionTags.GetAllTagIdsOfTransactions(c, uid, utils.ToUniqueInt64Slice(transactionIds))
 
-	if err != nil {
-		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get transaction tags for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, errs.Or(err, errs.ErrOperationFailed)
+	if tagErr != nil {
+		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to get transaction tags for user \"uid:%d\", because %s", uid, tagErr.Error())
+		return nil, errs.Or(tagErr, errs.ErrOperationFailed)
 	}
 
 	tagMap := make(map[int64]*models.TransactionTag)
 	allTagIds := utils.ToUniqueInt64Slice(a.transactionTags.GetTransactionTagIds(allTransactionTagIds))
 
 	if len(allTagIds) > 0 {
-		tagMap, err = a.transactionTags.GetTagsByTagIds(c, uid, allTagIds)
+		tagMap, tagErr = a.transactionTags.GetTagsByTagIds(c, uid, allTagIds)
 
-		if err != nil {
-			log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get tags for user \"uid:%d\", because %s", uid, err.Error())
-			return nil, errs.Or(err, errs.ErrOperationFailed)
+		if tagErr != nil {
+			log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to get tags for user \"uid:%d\", because %s", uid, tagErr.Error())
+			return nil, errs.Or(tagErr, errs.ErrOperationFailed)
 		}
 	}
 
 	knowledgeItems := a.buildAIAssistantKnowledgeItems(transactions, accountMap, categories, allTransactionTagIds, tagMap, clientTimezone)
 
 	if len(knowledgeItems) < 1 {
-		return &models.AIAssistantChatResponse{
-			Mode:  mode,
-			Reply: a.getAIAssistantNoDataReply(c, mode),
+		return &aiAssistantPreparedPromptContext{
+			Mode:        mode,
+			NoDataReply: a.getAIAssistantNoDataReply(c, mode),
 		}, nil
 	}
 
 	embeddingQuery := a.buildAIAssistantEmbeddingQueryText(&request, mode)
-	queryEmbedding, err := a.getAIAssistantKnowledgeAndQueryEmbeddings(c, uid, currentConfig.AIAssistantLLMConfig, embeddingQuery, knowledgeItems)
+	queryEmbedding, embeddingErr := a.getAIAssistantKnowledgeAndQueryEmbeddings(c, uid, currentConfig.AIAssistantLLMConfig, embeddingQuery, knowledgeItems)
 
-	if err != nil {
-		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to prepare embeddings for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, errs.Or(err, errs.ErrOperationFailed)
+	if embeddingErr != nil {
+		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to prepare embeddings for user \"uid:%d\", because %s", uid, embeddingErr.Error())
+		return nil, errs.Or(embeddingErr, errs.ErrOperationFailed)
 	}
 
 	retrievedKnowledgeItems := selectTopAIAssistantKnowledgeItems(queryEmbedding, knowledgeItems, aiAssistantKnowledgeBaseTopK)
 	retrievedKnowledgeText := buildRetrievedKnowledgePromptContent(retrievedKnowledgeItems)
 	financialSnapshot := buildAIAssistantFinancialSnapshot(knowledgeItems, clientTimezone)
-	systemPrompt, err := templates.GetTemplate(templates.SYSTEM_PROMPT_PERSONAL_FINANCE_ASSISTANT)
+	systemPromptTemplate, templateErr := templates.GetTemplate(templates.SYSTEM_PROMPT_PERSONAL_FINANCE_ASSISTANT)
 
-	if err != nil {
-		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get system prompt template for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, errs.Or(err, errs.ErrOperationFailed)
+	if templateErr != nil {
+		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to get system prompt template for user \"uid:%d\", because %s", uid, templateErr.Error())
+		return nil, errs.Or(templateErr, errs.ErrOperationFailed)
 	}
 
 	systemPromptParams := map[string]any{
@@ -224,46 +331,286 @@ func (a *LargeLanguageModelsApi) AssistantChatHandler(c *core.WebContext) (any, 
 	}
 
 	var promptBuffer bytes.Buffer
-	err = systemPrompt.Execute(&promptBuffer, systemPromptParams)
+	renderErr := systemPromptTemplate.Execute(&promptBuffer, systemPromptParams)
 
-	if err != nil {
-		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to generate system prompt for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, errs.Or(err, errs.ErrOperationFailed)
+	if renderErr != nil {
+		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to generate system prompt for user \"uid:%d\", because %s", uid, renderErr.Error())
+		return nil, errs.Or(renderErr, errs.ErrOperationFailed)
 	}
 
-	llmRequest := &data.LargeLanguageModelRequest{
-		Stream:                 false,
-		SystemPrompt:           strings.ReplaceAll(promptBuffer.String(), "\r\n", "\n"),
-		UserPrompt:             []byte(a.buildAIAssistantUserPrompt(&request, mode)),
-		UserPromptType:         data.LARGE_LANGUAGE_MODEL_REQUEST_PROMPT_TYPE_TEXT,
-		ResponseJsonObjectType: reflect.TypeOf(models.AIAssistantResult{}),
-	}
-
-	llmResponse, err := llm.Container.GetJsonResponseByAIAssistantModel(c, uid, currentConfig, llmRequest)
-
-	if err != nil {
-		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get llm response for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, errs.Or(err, errs.ErrOperationFailed)
-	}
-
-	if llmResponse == nil || strings.TrimSpace(llmResponse.Content) == "" {
-		return nil, errs.ErrOperationFailed
-	}
-
-	reply := strings.TrimSpace(llmResponse.Content)
-	llmResult := &models.AIAssistantResult{}
-
-	if err := json.Unmarshal([]byte(llmResponse.Content), llmResult); err == nil && llmResult != nil && strings.TrimSpace(llmResult.Reply) != "" {
-		reply = strings.TrimSpace(llmResult.Reply)
-	}
-
-	responseReferences := buildAIAssistantResponseReferences(retrievedKnowledgeItems, aiAssistantMaxReferencedTransactionsCount)
-
-	return &models.AIAssistantChatResponse{
-		Mode:       mode,
-		Reply:      reply,
-		References: responseReferences,
+	return &aiAssistantPreparedPromptContext{
+		Mode:         mode,
+		SystemPrompt: strings.ReplaceAll(promptBuffer.String(), "\r\n", "\n"),
+		UserPrompt:   a.buildAIAssistantUserPrompt(&request, mode),
+		References:   buildAIAssistantResponseReferences(retrievedKnowledgeItems, aiAssistantMaxReferencedTransactionsCount),
 	}, nil
+}
+
+func (a *LargeLanguageModelsApi) streamAIAssistantResponseFromOpenAI(c *core.WebContext, uid int64, llmConfig *settings.LLMConfig, assistantContext *aiAssistantPreparedPromptContext) *errs.Error {
+	if llmConfig == nil {
+		return errs.ErrOperationFailed
+	}
+
+	openAIAPIKey := strings.TrimSpace(llmConfig.OpenAIAPIKey)
+	openAIModelID := strings.TrimSpace(llmConfig.OpenAIModelID)
+
+	if openAIAPIKey == "" || openAIModelID == "" {
+		return errs.ErrFailedToRequestRemoteApi
+	}
+
+	requestBody := &openAIResponsesRequest{
+		Model:        openAIModelID,
+		Instructions: assistantContext.SystemPrompt,
+		Input:        assistantContext.UserPrompt,
+		Stream:       true,
+		Store:        false,
+		Reasoning: &openAIResponsesReasoningItem{
+			Summary: aiAssistantOpenAIReasoningSummaryLevel,
+		},
+	}
+
+	requestBodyBytes, marshalErr := json.Marshal(requestBody)
+
+	if marshalErr != nil {
+		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to marshal request for user \"uid:%d\", because %s", uid, marshalErr.Error())
+		return errs.ErrOperationFailed
+	}
+
+	httpRequest, requestErr := http.NewRequest("POST", llmConfig.GetOpenAIEndpointURL(aiAssistantOpenAIResponsesPath), bytes.NewReader(requestBodyBytes))
+
+	if requestErr != nil {
+		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to build request for user \"uid:%d\", because %s", uid, requestErr.Error())
+		return errs.ErrFailedToRequestRemoteApi
+	}
+
+	httpRequest.Header.Set("Authorization", "Bearer "+openAIAPIKey)
+	httpRequest.Header.Set("Content-Type", "application/json")
+	httpRequest.Header.Set("Accept", "text/event-stream")
+	httpRequest = httpRequest.WithContext(httpclient.CustomHttpResponseLog(c, func(data []byte) {
+		log.Debugf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] response is %s", data)
+	}))
+
+	httpClient := httpclient.NewHttpClient(llmConfig.LargeLanguageModelAPIRequestTimeout, llmConfig.LargeLanguageModelAPIProxy, llmConfig.LargeLanguageModelAPISkipTLSVerify, core.GetOutgoingUserAgent(), false)
+	response, responseErr := httpClient.Do(httpRequest)
+
+	if responseErr != nil {
+		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to request response stream for user \"uid:%d\", because %s", uid, responseErr.Error())
+		return errs.ErrFailedToRequestRemoteApi
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(response.Body)
+		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to request response stream for user \"uid:%d\", because response code is %d, response is %s", uid, response.StatusCode, string(responseBody))
+		return errs.ErrFailedToRequestRemoteApi
+	}
+
+	replyBuilder := &strings.Builder{}
+	thinkingBuilder := &strings.Builder{}
+	scanner := bufio.NewScanner(response.Body)
+	scanner.Buffer(make([]byte, 0, 4096), 4*1024*1024)
+	eventDataLines := make([]string, 0, 4)
+	streamDone := false
+
+	processCurrentEvent := func() *errs.Error {
+		if len(eventDataLines) < 1 {
+			return nil
+		}
+
+		eventData := strings.TrimSpace(strings.Join(eventDataLines, "\n"))
+		eventDataLines = eventDataLines[:0]
+
+		done, processErr := a.processOpenAIResponseStreamEvent(c, uid, eventData, replyBuilder, thinkingBuilder)
+
+		if processErr != nil {
+			return processErr
+		}
+
+		if done {
+			streamDone = true
+		}
+
+		return nil
+	}
+
+	for scanner.Scan() {
+		line := strings.TrimRight(scanner.Text(), "\r")
+
+		if line == "" {
+			eventErr := processCurrentEvent()
+
+			if eventErr != nil {
+				return eventErr
+			}
+
+			if streamDone {
+				break
+			}
+
+			continue
+		}
+
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+
+		eventDataLines = append(eventDataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+	}
+
+	if scanErr := scanner.Err(); scanErr != nil {
+		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to read response stream for user \"uid:%d\", because %s", uid, scanErr.Error())
+		return errs.ErrFailedToRequestRemoteApi
+	}
+
+	if !streamDone {
+		eventErr := processCurrentEvent()
+
+		if eventErr != nil {
+			return eventErr
+		}
+	}
+
+	if len(assistantContext.References) > 0 {
+		utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+			Type:       models.AIAssistantChatStreamChunkTypeReferences,
+			References: assistantContext.References,
+		})
+	}
+
+	utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+		Type:     models.AIAssistantChatStreamChunkTypeDone,
+		Mode:     assistantContext.Mode,
+		Reply:    replyBuilder.String(),
+		Thinking: thinkingBuilder.String(),
+	})
+
+	return nil
+}
+
+func (a *LargeLanguageModelsApi) processOpenAIResponseStreamEvent(c *core.WebContext, uid int64, eventData string, replyBuilder *strings.Builder, thinkingBuilder *strings.Builder) (bool, *errs.Error) {
+	if eventData == "" {
+		return false, nil
+	}
+
+	if eventData == "[DONE]" {
+		return true, nil
+	}
+
+	var event map[string]any
+	if err := json.Unmarshal([]byte(eventData), &event); err != nil {
+		log.Warnf(c, "[large_language_models.processOpenAIResponseStreamEvent] failed to parse event data for user \"uid:%d\", because %s", uid, err.Error())
+		return false, nil
+	}
+
+	eventType, _ := event["type"].(string)
+
+	if eventType == "response.reasoning_summary_text.delta" {
+		delta, _ := event["delta"].(string)
+
+		if delta != "" {
+			thinkingBuilder.WriteString(delta)
+			utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+				Type:  models.AIAssistantChatStreamChunkTypeThinkingDelta,
+				Delta: delta,
+			})
+		}
+
+		return false, nil
+	}
+
+	if eventType == "response.output_text.delta" {
+		delta, _ := event["delta"].(string)
+
+		if delta != "" {
+			replyBuilder.WriteString(delta)
+			utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+				Type:  models.AIAssistantChatStreamChunkTypeReplyDelta,
+				Delta: delta,
+			})
+		}
+
+		return false, nil
+	}
+
+	if eventType == "response.completed" {
+		if replyBuilder.Len() < 1 {
+			if responseObj, ok := event["response"].(map[string]any); ok {
+				outputText := extractTextFromOpenAIResponseCompletedEvent(responseObj)
+
+				if outputText != "" {
+					replyBuilder.WriteString(outputText)
+					utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+						Type:  models.AIAssistantChatStreamChunkTypeReplyDelta,
+						Delta: outputText,
+					})
+				}
+			}
+		}
+
+		return true, nil
+	}
+
+	if eventType == "error" {
+		log.Errorf(c, "[large_language_models.processOpenAIResponseStreamEvent] openai stream returns error for user \"uid:%d\", payload is %s", uid, eventData)
+		return true, errs.ErrFailedToRequestRemoteApi
+	}
+
+	return false, nil
+}
+
+func extractTextFromOpenAIResponseCompletedEvent(responseObj map[string]any) string {
+	outputText, _ := responseObj["output_text"].(string)
+
+	if outputText != "" {
+		return outputText
+	}
+
+	outputItems, ok := responseObj["output"].([]any)
+
+	if !ok || len(outputItems) < 1 {
+		return ""
+	}
+
+	outputBuilder := &strings.Builder{}
+
+	for i := 0; i < len(outputItems); i++ {
+		outputItemMap, ok := outputItems[i].(map[string]any)
+
+		if !ok {
+			continue
+		}
+
+		contentItems, ok := outputItemMap["content"].([]any)
+
+		if !ok {
+			continue
+		}
+
+		for j := 0; j < len(contentItems); j++ {
+			contentItemMap, ok := contentItems[j].(map[string]any)
+
+			if !ok {
+				continue
+			}
+
+			contentType, _ := contentItemMap["type"].(string)
+
+			if contentType != "output_text" && contentType != "text" {
+				continue
+			}
+
+			text, _ := contentItemMap["text"].(string)
+
+			if text == "" {
+				continue
+			}
+
+			outputBuilder.WriteString(text)
+		}
+	}
+
+	return outputBuilder.String()
 }
 
 func normalizeAIAssistantMode(mode string) (string, error) {

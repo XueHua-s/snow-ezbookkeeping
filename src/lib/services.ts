@@ -171,7 +171,8 @@ import type {
 import type {
     RecognizedReceiptImageResponse,
     AIAssistantChatRequest,
-    AIAssistantChatResponse
+    AIAssistantChatResponse,
+    AIAssistantChatStreamChunk
 } from '@/models/large_language_model.ts';
 
 import {
@@ -213,9 +214,17 @@ interface ApiRequestConfig extends AxiosRequestConfig {
 
 export type ApiResponsePromise<T> = Promise<AxiosResponse<ApiResponse<T>>>;
 
+export interface AIAssistantChatStreamCallbacks {
+    readonly onThinkingDelta?: (delta: string) => void;
+    readonly onReplyDelta?: (delta: string) => void;
+    readonly onReferences?: (references: AIAssistantChatResponse['references']) => void;
+    readonly onDone?: (chunk: AIAssistantChatStreamChunk) => void;
+}
+
 let needBlockRequest = false;
 const blockedRequests: ((token: string | undefined) => void)[] = [];
 const cancelableRequests: Record<string, boolean> = {};
+const cancelableStreamingRequests: Record<string, AbortController> = {};
 
 axios.defaults.baseURL = getBasePath() + BASE_API_URL_PATH;
 axios.defaults.timeout = DEFAULT_API_TIMEOUT;
@@ -812,6 +821,219 @@ export default {
             cancelableUuid: cancelableUuid
         } as ApiRequestConfig);
     },
+    chatWithAIAssistantStream: async ({ req, cancelableUuid, callbacks }: {
+        req: AIAssistantChatRequest;
+        cancelableUuid?: string;
+        callbacks?: AIAssistantChatStreamCallbacks;
+    }): Promise<void> => {
+        const token = getCurrentToken();
+        const abortController = new AbortController();
+
+        if (cancelableUuid) {
+            cancelableStreamingRequests[cancelableUuid] = abortController;
+        }
+
+        let timezoneName = getTimeZone();
+
+        if (!timezoneName || timezoneName.trim().length < 1) {
+            timezoneName = getBrowserTimezoneName();
+        }
+
+        try {
+            const requestHeaders: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'Accept-Language': axios.defaults.headers.common['Accept-Language'] as string || '',
+                'X-Timezone-Offset': String(getTimezoneOffsetMinutes(getCurrentUnixTime())),
+                'X-Timezone-Name': timezoneName
+            };
+
+            if (token) {
+                requestHeaders['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`${getBasePath()}${BASE_API_URL_PATH}/v1/llm/assistant/chat/stream.json`, {
+                method: 'POST',
+                headers: requestHeaders,
+                body: JSON.stringify(req),
+                signal: abortController.signal
+            });
+
+            if (!response.ok) {
+                let errorPayload: {
+                    errorCode?: number;
+                    errorMessage?: string;
+                } | null = null;
+
+                try {
+                    errorPayload = await response.json() as {
+                        errorCode?: number;
+                        errorMessage?: string;
+                    };
+                } catch {
+                    // ignore parse error
+                }
+
+                if (errorPayload && errorPayload.errorCode && (
+                    errorPayload.errorCode === 202001
+                    || errorPayload.errorCode === 202002
+                    || errorPayload.errorCode === 202003
+                    || errorPayload.errorCode === 202004
+                    || errorPayload.errorCode === 202005
+                    || errorPayload.errorCode === 202006
+                    || errorPayload.errorCode === 202012
+                )) {
+                    clearCurrentTokenAndUserInfo(false);
+                    location.reload();
+                    throw { processed: true };
+                }
+
+                if (errorPayload && errorPayload.errorMessage) {
+                    throw { response: { data: errorPayload } };
+                }
+
+                throw { message: 'Unable to get AI assistant response' };
+            }
+
+            if (!response.body) {
+                throw { message: 'Unable to get AI assistant response' };
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let streamBuffer = '';
+            const parseRawStreamEvent = (rawEvent: string, fallbackToDoneEvent: boolean): AIAssistantChatStreamChunk | {
+                success: false;
+                errorCode?: number;
+                errorMessage?: string;
+            } | null => {
+                if (!rawEvent.trim()) {
+                    return null;
+                }
+
+                const rawLines = rawEvent.split('\n');
+                const dataLines: string[] = [];
+
+                for (let i = 0; i < rawLines.length; i++) {
+                    const line = (rawLines[i] || '').trim();
+
+                    if (!line.startsWith('data:')) {
+                        continue;
+                    }
+
+                    dataLines.push(line.substring(5).trim());
+                }
+
+                if (!dataLines.length) {
+                    return null;
+                }
+
+                const dataStr = dataLines.join('\n');
+
+                if (dataStr === '[DONE]') {
+                    return null;
+                }
+
+                try {
+                    return JSON.parse(dataStr) as AIAssistantChatStreamChunk | {
+                        success: false;
+                        errorCode?: number;
+                        errorMessage?: string;
+                    };
+                } catch {
+                    if (!fallbackToDoneEvent) {
+                        return null;
+                    }
+
+                    return {
+                        type: 'done'
+                    };
+                }
+            };
+            const handleRawEvent = (rawEvent: string, fallbackToDoneEvent: boolean): void => {
+                const parsedData = parseRawStreamEvent(rawEvent, fallbackToDoneEvent);
+
+                if (!parsedData) {
+                    return;
+                }
+
+                if ('success' in parsedData && !parsedData.success) {
+                    throw { response: { data: parsedData } };
+                }
+
+                if ('type' in parsedData) {
+                    handleChunk(parsedData);
+                }
+            };
+
+            const handleChunk = (chunk: AIAssistantChatStreamChunk): void => {
+                if (!chunk || !chunk.type) {
+                    return;
+                }
+
+                if (chunk.type === 'thinking_delta' && chunk.delta) {
+                    callbacks?.onThinkingDelta?.(chunk.delta);
+                    return;
+                }
+
+                if (chunk.type === 'reply_delta' && chunk.delta) {
+                    callbacks?.onReplyDelta?.(chunk.delta);
+                    return;
+                }
+
+                if (chunk.type === 'references') {
+                    callbacks?.onReferences?.(chunk.references);
+                    return;
+                }
+
+                if (chunk.type === 'done') {
+                    callbacks?.onDone?.(chunk);
+                }
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+
+                if (done) {
+                    break;
+                }
+
+                streamBuffer += decoder.decode(value, { stream: true });
+                streamBuffer = streamBuffer.replace(/\r\n/g, '\n');
+
+                let eventEndIndex = streamBuffer.indexOf('\n\n');
+
+                while (eventEndIndex >= 0) {
+                    const rawEvent = streamBuffer.slice(0, eventEndIndex);
+                    streamBuffer = streamBuffer.slice(eventEndIndex + 2);
+                    eventEndIndex = streamBuffer.indexOf('\n\n');
+
+                    handleRawEvent(rawEvent, false);
+                }
+            }
+
+            streamBuffer += decoder.decode();
+            streamBuffer = streamBuffer.replace(/\r\n/g, '\n');
+
+            if (streamBuffer.trim()) {
+                handleRawEvent(streamBuffer, true);
+            }
+        } catch (error: unknown) {
+            const typedError = error as {
+                name?: string;
+                canceled?: boolean;
+            };
+
+            if (typedError.name === 'AbortError' || typedError.canceled) {
+                throw { canceled: true };
+            }
+
+            throw error;
+        } finally {
+            if (cancelableUuid) {
+                delete cancelableStreamingRequests[cancelableUuid];
+            }
+        }
+    },
     getLatestExchangeRates: (param: { ignoreError?: boolean }): ApiResponsePromise<LatestExchangeRateResponse> => {
         return axios.get<ApiResponse<LatestExchangeRateResponse>>('v1/exchange_rates/latest.json', {
             ignoreError: !!param.ignoreError,
@@ -828,6 +1050,12 @@ export default {
         return axios.get<ApiResponse<VersionInfo>>('v1/systems/version.json');
     },
     cancelRequest: (cancelableUuid: string) => {
+        if (cancelableStreamingRequests[cancelableUuid]) {
+            cancelableStreamingRequests[cancelableUuid].abort();
+            delete cancelableStreamingRequests[cancelableUuid];
+            return;
+        }
+
         cancelableRequests[cancelableUuid] = true;
     },
     generateOAuth2LoginUrl: (platform: 'mobile' | 'desktop', clientSessionId: string): string => {

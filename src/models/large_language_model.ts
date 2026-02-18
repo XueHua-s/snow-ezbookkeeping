@@ -45,3 +45,14 @@ export interface AIAssistantChatResponse {
     readonly reply: string;
     readonly references?: AIAssistantReferencedTransaction[];
 }
+
+export type AIAssistantChatStreamChunkType = 'thinking_delta' | 'reply_delta' | 'references' | 'done';
+
+export interface AIAssistantChatStreamChunk {
+    readonly type: AIAssistantChatStreamChunkType;
+    readonly mode?: AIAssistantMode;
+    readonly delta?: string;
+    readonly reply?: string;
+    readonly thinking?: string;
+    readonly references?: AIAssistantReferencedTransaction[];
+}

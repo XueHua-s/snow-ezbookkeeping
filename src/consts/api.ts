@@ -101,6 +101,9 @@ export const SPECIFIED_API_NOT_FOUND_ERRORS: Record<string, SpecifiedApiError> =
     },
     '/api/v1/llm/assistant/chat.json': {
         message: 'AI assistant is disabled'
+    },
+    '/api/v1/llm/assistant/chat/stream.json': {
+        message: 'AI assistant is disabled'
     }
 };
 
