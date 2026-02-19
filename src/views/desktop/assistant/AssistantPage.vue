@@ -1,99 +1,132 @@
 <template>
-    <v-row class="match-height">
-        <v-col cols="12">
-            <v-card>
+    <v-row class="assistant-page-row">
+        <v-col cols="12" class="assistant-page-col">
+            <v-card class="assistant-card">
                 <template #title>
-                    <div class="d-flex align-center">
-                        <v-icon :icon="mdiRobotOutline" size="24" />
-                        <span class="ms-2">{{ tt('AI Assistant') }}</span>
-                        <v-chip class="ms-3" size="small" color="secondary" variant="tonal" v-if="aiAssistantModelID">{{ aiAssistantModelID }}</v-chip>
-                        <v-spacer />
-                        <v-btn class="ms-2"
-                               color="secondary"
-                               variant="tonal"
-                               :disabled="!enabled || requesting || rendering"
-                               :loading="requesting || rendering"
-                               @click="generateSummaryMessage">
-                            <v-icon :icon="mdiTextBoxCheckOutline" size="20" class="me-2" />
-                            {{ tt('Generate AI Summary') }}
-                        </v-btn>
-                        <v-btn class="ms-2"
-                               color="default"
-                               variant="text"
-                               :disabled="requesting || rendering || !messages.length"
-                               @click="clearConversation">
-                            <v-icon :icon="mdiDeleteOutline" size="20" class="me-2" />
-                            {{ tt('Clear Conversation') }}
-                        </v-btn>
+                    <div class="assistant-title-toolbar">
+                        <div class="assistant-title-main">
+                            <v-icon :icon="mdiRobotOutline" size="24" />
+                            <span class="ms-2">{{ tt('AI Assistant') }}</span>
+                            <v-chip class="ms-3" size="small" color="secondary" variant="tonal" v-if="aiAssistantModelID">{{ aiAssistantModelID }}</v-chip>
+                        </div>
+
+                        <div class="assistant-title-actions">
+                            <v-btn color="secondary"
+                                   variant="tonal"
+                                   :disabled="!enabled || requesting || rendering"
+                                   :loading="requesting || rendering"
+                                   @click="generateSummaryMessage">
+                                <v-icon :icon="mdiTextBoxCheckOutline" size="20" class="me-2" />
+                                {{ tt('Generate AI Summary') }}
+                            </v-btn>
+                            <v-btn color="default"
+                                   variant="text"
+                                   :disabled="requesting || rendering || !messages.length"
+                                   @click="clearConversation">
+                                <v-icon :icon="mdiDeleteOutline" size="20" class="me-2" />
+                                {{ tt('Clear Conversation') }}
+                            </v-btn>
+                        </div>
                     </div>
                 </template>
                 <v-card-subtitle>{{ tt('Private assistant for personal bills and bookkeeping suggestions') }}</v-card-subtitle>
 
                 <v-divider />
 
-                <v-card-text ref="messagesPanel" class="assistant-messages-panel">
-                    <v-alert class="mb-4" type="warning" density="compact" variant="tonal" v-if="!enabled">
-                        {{ tt('AI assistant is disabled') }}
-                    </v-alert>
+                <div class="assistant-conversation-shell">
+                    <v-card-text ref="messagesPanel" class="assistant-messages-panel">
+                        <v-alert class="mb-4" type="warning" density="compact" variant="tonal" v-if="!enabled">
+                            {{ tt('AI assistant is disabled') }}
+                        </v-alert>
 
-                    <div class="assistant-empty-state" v-if="enabled && messages.length < 1">
-                        <v-icon :icon="mdiMessageTextOutline" size="28" />
-                        <div class="mt-2">{{ tt('Start a conversation or generate a summary to analyze your bills') }}</div>
-                    </div>
+                        <div class="assistant-empty-stage" v-if="enabled && messages.length < 1">
+                            <div class="assistant-empty-state">
+                                <v-icon :icon="mdiMessageTextOutline" size="32" />
+                                <div class="mt-3">{{ tt('Start a conversation or generate a summary to analyze your bills') }}</div>
+                            </div>
 
-                    <div class="assistant-message-item"
-                         :class="`assistant-message-${message.role}`"
-                         :key="message.id"
-                         v-for="message in messages">
-                        <div class="assistant-message-bubble">
-                            <div class="assistant-message-role">{{ message.role === 'user' ? tt('You') : tt('AI Assistant') }}</div>
-                            <assistant-markdown-content class="assistant-message-content"
-                                                        :content="message.content"
-                                                        :thinking="message.thinking" />
+                            <div class="assistant-composer assistant-composer-inline">
+                                <v-textarea
+                                    auto-grow
+                                    rows="2"
+                                    max-rows="6"
+                                    class="assistant-input"
+                                    variant="outlined"
+                                    hide-details
+                                    :disabled="!enabled || requesting || rendering"
+                                    :placeholder="tt('Ask your personal finance question')"
+                                    v-model="messageInput"
+                                    @keydown.enter.exact.prevent="sendChatMessage"
+                                />
+                                <v-btn color="primary"
+                                       class="assistant-send-button"
+                                       :disabled="!enabled || !canSendMessage"
+                                       :loading="requesting"
+                                       @click="sendChatMessage">
+                                    <v-icon :icon="mdiSend" size="20" class="me-2" />
+                                    {{ tt('Send') }}
+                                </v-btn>
+                            </div>
+                        </div>
 
-                            <div class="assistant-message-references mt-3"
-                                 v-if="message.references && message.references.length">
-                                <div class="text-subtitle-2">{{ tt('Referenced Bills') }}</div>
-                                <div class="assistant-reference-item mt-1"
-                                     :key="reference.id + '-' + reference.time + '-' + reference.similarityScore"
-                                     v-for="reference in message.references">
-                                    <div class="assistant-reference-main">
-                                        <span>{{ reference.timeText || '-' }}</span>
-                                        <span>{{ reference.categoryName || tt('Uncategorized') }}</span>
-                                        <span>{{ reference.sourceAccountName || tt('Account') }}</span>
-                                    </div>
-                                    <div class="assistant-reference-sub">
-                                        <span>{{ formatAmountToLocalizedNumeralsWithCurrency(reference.sourceAmount, reference.currency || false) }}</span>
-                                        <span v-if="reference.similarityScore">· {{ tt('Similarity') }} {{ reference.similarityScore }}</span>
+                        <div class="assistant-message-list" v-else>
+                            <div class="assistant-message-item"
+                                 :class="`assistant-message-${message.role}`"
+                                 :key="message.id"
+                                 v-for="message in messages">
+                                <div class="assistant-message-bubble">
+                                    <div class="assistant-message-role">{{ message.role === 'user' ? tt('You') : tt('AI Assistant') }}</div>
+                                    <assistant-markdown-content class="assistant-message-content"
+                                                                :content="message.content"
+                                                                :thinking="message.thinking" />
+
+                                    <div class="assistant-message-references mt-3"
+                                         v-if="message.references && message.references.length">
+                                        <div class="text-subtitle-2">{{ tt('Referenced Bills') }}</div>
+                                        <div class="assistant-reference-item mt-1"
+                                             :key="reference.id + '-' + reference.time + '-' + reference.similarityScore"
+                                             v-for="reference in message.references">
+                                            <div class="assistant-reference-main">
+                                                <span>{{ reference.timeText || '-' }}</span>
+                                                <span>{{ reference.categoryName || tt('Uncategorized') }}</span>
+                                                <span>{{ reference.sourceAccountName || tt('Account') }}</span>
+                                            </div>
+                                            <div class="assistant-reference-sub">
+                                                <span>{{ formatAmountToLocalizedNumeralsWithCurrency(reference.sourceAmount, reference.currency || false) }}</span>
+                                                <span v-if="reference.similarityScore">· {{ tt('Similarity') }} {{ reference.similarityScore }}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </v-card-text>
+
+                    <v-divider />
+
+                    <div class="assistant-composer assistant-composer-docked" v-if="enabled && messages.length > 0">
+                        <v-textarea
+                            auto-grow
+                            rows="2"
+                            max-rows="6"
+                            class="assistant-input"
+                            variant="outlined"
+                            hide-details
+                            :disabled="!enabled || requesting || rendering"
+                            :placeholder="tt('Ask your personal finance question')"
+                            v-model="messageInput"
+                            @keydown.enter.exact.prevent="sendChatMessage"
+                        />
+                        <v-btn color="primary"
+                               class="assistant-send-button"
+                               :disabled="!enabled || !canSendMessage"
+                               :loading="requesting"
+                               @click="sendChatMessage">
+                            <v-icon :icon="mdiSend" size="20" class="me-2" />
+                            {{ tt('Send') }}
+                        </v-btn>
                     </div>
-                </v-card-text>
-
-                <v-divider />
-
-                <v-card-actions class="assistant-actions">
-                    <v-textarea
-                        auto-grow
-                        rows="2"
-                        max-rows="6"
-                        class="assistant-input me-3"
-                        variant="outlined"
-                        :disabled="!enabled || requesting || rendering"
-                        :placeholder="tt('Ask your personal finance question')"
-                        v-model="messageInput"
-                        @keydown.ctrl.enter.prevent="sendChatMessage"
-                    />
-                    <v-btn color="primary"
-                           :disabled="!enabled || !canSendMessage"
-                           :loading="requesting"
-                           @click="sendChatMessage">
-                        <v-icon :icon="mdiSend" size="20" class="me-2" />
-                        {{ tt('Send') }}
-                    </v-btn>
-                </v-card-actions>
+                </div>
             </v-card>
         </v-col>
     </v-row>
@@ -166,25 +199,91 @@ function generateSummaryMessage(): void {
 </script>
 
 <style scoped>
-.assistant-messages-panel {
-    min-height: clamp(260px, calc(100vh - 460px), 540px);
-    max-height: clamp(260px, calc(100vh - 460px), 540px);
-    overflow-y: auto;
+.assistant-page-row {
+    min-height: calc(100vh - 188px);
 }
 
-.assistant-empty-state {
-    height: 100%;
-    min-height: 480px;
+.assistant-page-col {
+    display: flex;
+}
+
+.assistant-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.assistant-title-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    row-gap: 10px;
+    column-gap: 14px;
+}
+
+.assistant-title-main {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.assistant-title-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    column-gap: 8px;
+    row-gap: 8px;
+}
+
+.assistant-conversation-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: clamp(520px, calc(100vh - 260px), 760px);
+    flex: 1;
+}
+
+.assistant-messages-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px;
+    background: linear-gradient(
+        180deg,
+        rgba(var(--v-theme-surface), 0.98) 0%,
+        rgba(var(--v-theme-surface), 1) 72%
+    );
+}
+
+.assistant-empty-stage {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    min-height: 100%;
+}
+
+.assistant-message-list {
+    width: 100%;
+}
+
+.assistant-empty-state {
+    max-width: 660px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     opacity: 0.65;
+    margin-bottom: 18px;
 }
 
 .assistant-message-item {
     display: flex;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
 }
 
 .assistant-message-item:last-child {
@@ -200,11 +299,12 @@ function generateSummaryMessage(): void {
 }
 
 .assistant-message-bubble {
-    max-width: min(84%, 860px);
-    border-radius: 12px;
+    max-width: min(82%, 860px);
+    border-radius: 14px;
     padding: 12px 14px;
     background: rgba(var(--v-theme-surface), 1);
     border: 1px solid rgba(var(--v-theme-outline), 0.18);
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
 }
 
 .assistant-message-user .assistant-message-bubble {
@@ -246,12 +346,52 @@ function generateSummaryMessage(): void {
     margin-top: 3px;
 }
 
-.assistant-actions {
+.assistant-composer {
+    display: flex;
     align-items: flex-end;
-    padding: 16px;
+    column-gap: 10px;
+}
+
+.assistant-composer-inline {
+    width: min(820px, 100%);
+}
+
+.assistant-composer-docked {
+    padding: 14px 18px 16px;
+    background: rgba(var(--v-theme-surface), 0.98);
+    border-top: 1px solid rgba(var(--v-theme-outline), 0.12);
 }
 
 .assistant-input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+}
+
+.assistant-send-button {
+    height: 44px;
+    min-width: 106px;
+}
+
+@media (max-width: 960px) {
+    .assistant-page-row {
+        min-height: 0;
+    }
+
+    .assistant-conversation-shell {
+        min-height: 480px;
+    }
+
+    .assistant-message-bubble {
+        max-width: 100%;
+    }
+
+    .assistant-composer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .assistant-send-button {
+        width: 100%;
+    }
 }
 </style>
