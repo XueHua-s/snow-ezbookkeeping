@@ -14,4 +14,5 @@ var (
 	ErrAIAssistantInvalidMode               = NewNormalError(NormalSubcategoryLargeLanguageModel, 7, http.StatusBadRequest, "mode for ai assistant is invalid")
 	ErrAIAssistantEmbeddingModelInvalid     = NewNormalError(NormalSubcategoryLargeLanguageModel, 8, http.StatusBadRequest, "embedding model for ai assistant is invalid")
 	ErrAIAssistantOnlySupportsOpenAI        = NewNormalError(NormalSubcategoryLargeLanguageModel, 9, http.StatusBadRequest, "ai assistant only supports openai provider currently")
+	ErrExceedMaxAIRecognitionBatchImageCount = NewNormalError(NormalSubcategoryLargeLanguageModel, 10, http.StatusBadRequest, "exceed the maximum count of images for batch AI recognition")
 )

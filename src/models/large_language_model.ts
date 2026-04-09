@@ -10,6 +10,17 @@ export interface RecognizedReceiptImageResponse {
     readonly comment?: string;
 }
 
+export interface RecognizedReceiptImageResultItem {
+    readonly index: number;
+    readonly success: boolean;
+    readonly result?: RecognizedReceiptImageResponse;
+    readonly error?: string;
+}
+
+export interface RecognizedReceiptImageBatchResponse {
+    readonly results: RecognizedReceiptImageResultItem[];
+}
+
 export type AIAssistantMode = 'chat' | 'summary';
 export type AIAssistantMessageRole = 'user' | 'assistant';
 

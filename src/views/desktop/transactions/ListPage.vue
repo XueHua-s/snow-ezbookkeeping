@@ -652,6 +652,8 @@ import SnackBar from '@/components/desktop/SnackBar.vue';
 import EditDialog from './list/dialogs/EditDialog.vue';
 import AIImageRecognitionDialog from './list/dialogs/AIImageRecognitionDialog.vue';
 import ImportDialog from './import/ImportDialog.vue';
+
+import type { RecognizedReceiptImageResponse } from '@/models/large_language_model.ts';
 import AccountFilterSettingsCard from '@/views/desktop/common/cards/AccountFilterSettingsCard.vue';
 import CategoryFilterSettingsCard from '@/views/desktop/common/cards/CategoryFilterSettingsCard.vue';
 import TransactionTagFilterSettingsCard from '@/views/desktop/common/cards/TransactionTagFilterSettingsCard.vue';
@@ -1567,29 +1569,48 @@ function add(template?: TransactionTemplate): void {
 }
 
 function addByRecognizingImage(): void {
-    aiImageRecognitionDialog.value?.open().then(result => {
-        editDialog.value?.open({
-            time: result.time,
-            type: result.type,
-            categoryId: result.categoryId,
-            accountId: result.sourceAccountId,
-            destinationAccountId: result.destinationAccountId,
-            amount: result.sourceAmount,
-            destinationAmount: result.destinationAmount,
-            tagIds: result.tagIds ? result.tagIds.join(',') : undefined,
-            comment: result.comment,
-            noTransactionDraft: true
-        }).then(result => {
-            if (result && result.message) {
-                snackbar.value?.showMessage(result.message);
-            }
+    aiImageRecognitionDialog.value?.open().then(results => {
+        if (!results || results.length === 0) {
+            return;
+        }
 
-            reload(false, false);
-        }).catch(error => {
-            if (error) {
-                snackbar.value?.showError(error);
-            }
-        });
+        // Open edit dialogs sequentially for each recognized result
+        openEditDialogSequentially(results, 0);
+    });
+}
+
+function openEditDialogSequentially(results: RecognizedReceiptImageResponse[], index: number): void {
+    if (index >= results.length) {
+        reload(false, false);
+        return;
+    }
+
+    const result: RecognizedReceiptImageResponse = results[index]!;
+
+    editDialog.value?.open({
+        time: result.time,
+        type: result.type,
+        categoryId: result.categoryId,
+        accountId: result.sourceAccountId,
+        destinationAccountId: result.destinationAccountId,
+        amount: result.sourceAmount,
+        destinationAmount: result.destinationAmount,
+        tagIds: result.tagIds ? result.tagIds.join(',') : undefined,
+        comment: result.comment,
+        noTransactionDraft: true
+    }).then(editResult => {
+        if (editResult && editResult.message) {
+            snackbar.value?.showMessage(editResult.message);
+        }
+
+        openEditDialogSequentially(results, index + 1);
+    }).catch(error => {
+        if (error) {
+            snackbar.value?.showError(error);
+        }
+
+        // Continue with next even if this one was cancelled
+        openEditDialogSequentially(results, index + 1);
     });
 }
 

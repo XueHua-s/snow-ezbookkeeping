@@ -245,6 +245,248 @@ func (a *LargeLanguageModelsApi) RecognizeReceiptImageHandler(c *core.WebContext
 	return a.parseRecognizedReceiptImageResponse(c, uid, clientTimezone, result, accountMap, expenseCategoryMap, incomeCategoryMap, transferCategoryMap, tagMap)
 }
 
+// RecognizeReceiptImageBatchHandler returns the recognized receipt image results for multiple images
+func (a *LargeLanguageModelsApi) RecognizeReceiptImageBatchHandler(c *core.WebContext) (any, *errs.Error) {
+	const maxBatchImageCount = 10
+
+	if a.CurrentConfig().ReceiptImageRecognitionLLMConfig == nil || a.CurrentConfig().ReceiptImageRecognitionLLMConfig.LLMProvider == "" || !a.CurrentConfig().TransactionFromAIImageRecognition {
+		return nil, errs.ErrLargeLanguageModelProviderNotEnabled
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Warnf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to get user for user \"uid:%d\", because %s", uid, err.Error())
+		}
+
+		return false, errs.ErrUserNotFound
+	}
+
+	if user.FeatureRestriction.Contains(core.USER_FEATURE_RESTRICTION_TYPE_CREATE_TRANSACTION_FROM_AI_IMAGE_RECOGNITION) {
+		return false, errs.ErrNotPermittedToPerformThisAction
+	}
+
+	form, err := c.MultipartForm()
+
+	if err != nil {
+		log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to get multi-part form data for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.ErrParameterInvalid
+	}
+
+	imageFiles := form.File["image"]
+
+	if len(imageFiles) < 1 {
+		log.Warnf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] there is no image in request for user \"uid:%d\"", uid)
+		return nil, errs.ErrNoAIRecognitionImage
+	}
+
+	if len(imageFiles) > maxBatchImageCount {
+		log.Warnf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] the image count \"%d\" exceeds the maximum count \"%d\" for user \"uid:%d\"", len(imageFiles), maxBatchImageCount, uid)
+		return nil, errs.ErrExceedMaxAIRecognitionBatchImageCount
+	}
+
+	// Validate all images first
+	for i := 0; i < len(imageFiles); i++ {
+		if imageFiles[i].Size < 1 {
+			log.Warnf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] the size of image#%d in request is zero for user \"uid:%d\"", i, uid)
+			return nil, errs.ErrAIRecognitionImageIsEmpty
+		}
+
+		if imageFiles[i].Size > int64(a.CurrentConfig().MaxAIRecognitionPictureFileSize) {
+			log.Warnf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] the upload file size \"%d\" of image#%d exceeds the maximum size \"%d\" for user \"uid:%d\"", imageFiles[i].Size, i, a.CurrentConfig().MaxAIRecognitionPictureFileSize, uid)
+			return nil, errs.ErrExceedMaxAIRecognitionImageFileSize
+		}
+
+		fileExtension := utils.GetFileNameExtension(imageFiles[i].Filename)
+		contentType := utils.GetImageContentType(fileExtension)
+
+		if contentType == "" {
+			log.Warnf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] the file extension \"%s\" of image#%d in request is not supported for user \"uid:%d\"", fileExtension, i, uid)
+			return nil, errs.ErrImageTypeNotSupported
+		}
+	}
+
+	// Fetch user data once for all images
+	accounts, err := a.accounts.GetAllAccountsByUid(c, uid)
+
+	if err != nil {
+		log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to get all accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	accountMap := a.accounts.GetVisibleAccountNameMapByList(accounts)
+	accountNames := make([]string, 0, len(accounts))
+
+	for i := 0; i < len(accounts); i++ {
+		if accounts[i].Hidden || accounts[i].Type == models.ACCOUNT_TYPE_MULTI_SUB_ACCOUNTS {
+			continue
+		}
+
+		accountNames = append(accountNames, accounts[i].Name)
+	}
+
+	categories, err := a.transactionCategories.GetAllCategoriesByUid(c, uid, 0, -1)
+
+	if err != nil {
+		log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to get categories for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	incomeCategoryMap := make(map[string]*models.TransactionCategory)
+	incomeCategoryNames := make([]string, 0)
+
+	expenseCategoryMap := make(map[string]*models.TransactionCategory)
+	expenseCategoryNames := make([]string, 0)
+
+	transferCategoryMap := make(map[string]*models.TransactionCategory)
+	transferCategoryNames := make([]string, 0)
+
+	for i := 0; i < len(categories); i++ {
+		category := categories[i]
+
+		if category.Hidden || category.ParentCategoryId == models.LevelOneTransactionCategoryParentId {
+			continue
+		}
+
+		if category.Type == models.CATEGORY_TYPE_INCOME {
+			incomeCategoryMap[category.Name] = category
+			incomeCategoryNames = append(incomeCategoryNames, category.Name)
+		} else if category.Type == models.CATEGORY_TYPE_EXPENSE {
+			expenseCategoryMap[category.Name] = category
+			expenseCategoryNames = append(expenseCategoryNames, category.Name)
+		} else if category.Type == models.CATEGORY_TYPE_TRANSFER {
+			transferCategoryMap[category.Name] = category
+			transferCategoryNames = append(transferCategoryNames, category.Name)
+		}
+	}
+
+	tags, err := a.transactionTags.GetAllTagsByUid(c, uid)
+
+	if err != nil {
+		log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to get tags for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	tagMap := a.transactionTags.GetVisibleTagNameMapByList(tags)
+	tagNames := make([]string, 0, len(tags))
+
+	for i := 0; i < len(tags); i++ {
+		if tags[i].Hidden {
+			continue
+		}
+
+		tagNames = append(tagNames, tags[i].Name)
+	}
+
+	systemPrompt, err := templates.GetTemplate(templates.SYSTEM_PROMPT_RECEIPT_IMAGE_RECOGNITION)
+
+	if err != nil {
+		log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to get system prompt template for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	systemPromptParams := map[string]any{
+		"CurrentDateTime":          utils.FormatUnixTimeToLongDateTime(time.Now().Unix(), clientTimezone),
+		"AllExpenseCategoryNames":  strings.Join(expenseCategoryNames, "\n"),
+		"AllIncomeCategoryNames":   strings.Join(incomeCategoryNames, "\n"),
+		"AllTransferCategoryNames": strings.Join(transferCategoryNames, "\n"),
+		"AllAccountNames":          strings.Join(accountNames, "\n"),
+		"AllTagNames":              strings.Join(tagNames, "\n"),
+	}
+
+	var bodyBuffer bytes.Buffer
+	err = systemPrompt.Execute(&bodyBuffer, systemPromptParams)
+
+	if err != nil {
+		log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to get final system prompt from template for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	systemPromptStr := strings.ReplaceAll(bodyBuffer.String(), "\r\n", "\n")
+
+	// Process each image sequentially
+	results := make([]*models.RecognizedReceiptImageResultItem, len(imageFiles))
+
+	for i := 0; i < len(imageFiles); i++ {
+		resultItem := &models.RecognizedReceiptImageResultItem{
+			Index: i,
+		}
+		results[i] = resultItem
+
+		imageFile, err := imageFiles[i].Open()
+
+		if err != nil {
+			log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to open image#%d for user \"uid:%d\", because %s", i, uid, err.Error())
+			resultItem.Error = "failed to read image"
+			continue
+		}
+
+		imageData, err := io.ReadAll(imageFile)
+		imageFile.Close()
+
+		if err != nil {
+			log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to read image#%d for user \"uid:%d\", because %s", i, uid, err.Error())
+			resultItem.Error = "failed to read image"
+			continue
+		}
+
+		fileExtension := utils.GetFileNameExtension(imageFiles[i].Filename)
+		contentType := utils.GetImageContentType(fileExtension)
+
+		llmRequest := &data.LargeLanguageModelRequest{
+			Stream:                false,
+			SystemPrompt:          systemPromptStr,
+			UserPrompt:            imageData,
+			UserPromptType:        data.LARGE_LANGUAGE_MODEL_REQUEST_PROMPT_TYPE_IMAGE_URL,
+			UserPromptContentType: contentType,
+		}
+
+		llmResponse, err := llm.Container.GetJsonResponseByReceiptImageRecognitionModel(c, uid, a.CurrentConfig(), llmRequest)
+
+		if err != nil {
+			log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to get llm response for image#%d user \"uid:%d\", because %s", i, uid, err.Error())
+			resultItem.Error = "failed to recognize image"
+			continue
+		}
+
+		if llmResponse == nil || len(llmResponse.Content) == 0 || strings.HasPrefix(llmResponse.Content, "{}") {
+			resultItem.Error = "no transaction information detected"
+			continue
+		}
+
+		var recognizedResult *models.RecognizedReceiptImageResult
+
+		if err := json.Unmarshal([]byte(llmResponse.Content), &recognizedResult); err != nil {
+			log.Errorf(c, "[large_language_models.RecognizeReceiptImageBatchHandler] failed to unmarshal recognized result for image#%d user \"uid:%d\", because %s", i, uid, err.Error())
+			resultItem.Error = "failed to parse recognition result"
+			continue
+		}
+
+		parsedResult, parseErr := a.parseRecognizedReceiptImageResponse(c, uid, clientTimezone, recognizedResult, accountMap, expenseCategoryMap, incomeCategoryMap, transferCategoryMap, tagMap)
+
+		if parseErr != nil {
+			resultItem.Error = "failed to parse recognition result"
+			continue
+		}
+
+		resultItem.Success = true
+		resultItem.Result = parsedResult
+	}
+
+	return &models.RecognizedReceiptImageBatchResponse{
+		Results: results,
+	}, nil
+}
+
 func (a *LargeLanguageModelsApi) parseRecognizedReceiptImageResponse(c *core.WebContext, uid int64, clientTimezone *time.Location, recognizedResult *models.RecognizedReceiptImageResult, accountMap map[string]*models.Account, expenseCategoryMap map[string]*models.TransactionCategory, incomeCategoryMap map[string]*models.TransactionCategory, transferCategoryMap map[string]*models.TransactionCategory, tagMap map[string]*models.TransactionTag) (*models.RecognizedReceiptImageResponse, *errs.Error) {
 	recognizedReceiptImageResponse := &models.RecognizedReceiptImageResponse{
 		Type: models.TRANSACTION_TYPE_EXPENSE,

@@ -170,6 +170,7 @@ import type {
 } from '@/models/user_app_cloud_setting.ts';
 import type {
     RecognizedReceiptImageResponse,
+    RecognizedReceiptImageBatchResponse,
     AIAssistantChatRequest,
     AIAssistantChatResponse,
     AIAssistantChatStreamChunk
@@ -812,6 +813,14 @@ export default {
             image: imageFile
         }, {
             timeout: DEFAULT_LLM_API_TIMEOUT,
+            cancelableUuid: cancelableUuid
+        } as ApiRequestConfig);
+    },
+    recognizeReceiptImages: ({ imageFiles, cancelableUuid }: { imageFiles: File[], cancelableUuid?: string }): ApiResponsePromise<RecognizedReceiptImageBatchResponse> => {
+        return axios.postForm<ApiResponse<RecognizedReceiptImageBatchResponse>>('v1/llm/transactions/recognize_receipt_images.json', {
+            image: imageFiles
+        }, {
+            timeout: DEFAULT_LLM_API_TIMEOUT * imageFiles.length,
             cancelableUuid: cancelableUuid
         } as ApiRequestConfig);
     },
