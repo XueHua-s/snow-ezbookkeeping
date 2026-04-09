@@ -167,7 +167,7 @@ const (
 	defaultAnthropicLargeLanguageModelAPIMaximumTokens uint32 = 1024
 	defaultLargeLanguageModelAPIRequestTimeout         uint32 = 60000 // 60 seconds
 	defaultOpenAIBaseURL                               string = "https://api.openai.com/v1/"
-	defaultAIAssistantOpenAIModelID                    string = "gpt-5.1-mini"
+	defaultAIAssistantOpenAIModelID                    string = "gpt-5.4-mini"
 	defaultAIAssistantOpenAIEmbeddingModelID           string = "text-embedding-3-small"
 
 	defaultInMemoryDuplicateCheckerCleanupInterval uint32 = 60  // 1 minutes
