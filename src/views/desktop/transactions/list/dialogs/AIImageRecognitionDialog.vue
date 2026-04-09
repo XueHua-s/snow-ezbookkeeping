@@ -75,7 +75,7 @@
                         <span class="text-grey" v-if="!recognizing">{{ tt('Recognition results will appear here') }}</span>
                         <div v-else class="d-flex flex-column align-center">
                             <v-progress-circular indeterminate size="40" class="mb-3" />
-                            <span>{{ tt('Recognizing image {current} of {total}...', { current: recognizingIndex + 1, total: imageItems.length }) }}</span>
+                            <span>{{ tt('AI can make mistakes. Check important info.') }}</span>
                         </div>
                     </div>
 
@@ -85,8 +85,7 @@
                                          :class="{ 'bg-red-lighten-5': !item.success }">
                                 <template #prepend>
                                     <v-checkbox-btn v-if="item.success"
-                                                      :model-value="selectedIndices.has(index)"
-                                                      @update:model-value="toggleSelect(index, $event)"
+                                                      v-model="selectedFlags[index]"
                                                       density="compact" hide-details />
                                     <v-icon v-else color="error" size="20" class="me-2">{{ mdiAlertCircle }}</v-icon>
                                 </template>
@@ -124,9 +123,9 @@
                     <!-- Multi result: Import Selected -->
                     <v-btn v-if="results.length > 0 && successCount > 0"
                            color="primary"
-                           :disabled="selectedIndices.size === 0"
+                           :disabled="selectedCount === 0"
                            @click="importSelected">
-                        {{ tt('Import Selected') }} ({{ selectedIndices.size }})
+                        {{ tt('Import Selected') }} ({{ selectedCount }})
                     </v-btn>
                     <v-btn color="secondary" variant="tonal" :disabled="loading"
                            @click="cancelRecognize" v-if="recognizing && cancelRecognizingUuid">{{ tt('Cancel Recognition') }}</v-btn>
@@ -192,15 +191,15 @@ let rejectFunc: ((reason?: unknown) => void) | null = null;
 const showState = ref<boolean>(false);
 const loading = ref<boolean>(false);
 const recognizing = ref<boolean>(false);
-const recognizingIndex = ref<number>(0);
 const cancelRecognizingUuid = ref<string | undefined>(undefined);
 const imageItems = ref<ImageItem[]>([]);
 const results = ref<RecognizedReceiptImageResultItem[]>([]);
-const selectedIndices = ref<Set<number>>(new Set());
+const selectedFlags = ref<boolean[]>([]);
 const isDragOver = ref<boolean>(false);
 
 const isDarkMode = computed<boolean>(() => theme.global.name.value === ThemeType.Dark);
 const successCount = computed<number>(() => results.value.filter(r => r.success).length);
+const selectedCount = computed<number>(() => selectedFlags.value.filter(Boolean).length);
 
 function loadImages(files: File[]): void {
     loading.value = true;
@@ -224,24 +223,25 @@ function loadImages(files: File[]): void {
 }
 
 function removeImage(index: number): void {
-    if (imageItems.value[index]?.src) {
-        URL.revokeObjectURL(imageItems.value[index].src);
+    const item = imageItems.value[index];
+
+    if (item?.src) {
+        URL.revokeObjectURL(item.src);
     }
+
     imageItems.value.splice(index, 1);
-    // Reset results if images changed
     results.value = [];
-    selectedIndices.value.clear();
+    selectedFlags.value = [];
 }
 
 function open(): Promise<RecognizedReceiptImageResponse[]> {
     showState.value = true;
     loading.value = false;
     recognizing.value = false;
-    recognizingIndex.value = 0;
     cancelRecognizingUuid.value = undefined;
     imageItems.value = [];
     results.value = [];
-    selectedIndices.value.clear();
+    selectedFlags.value = [];
 
     return new Promise((resolve, reject) => {
         resolveFunc = resolve;
@@ -281,9 +281,8 @@ function recognize(): void {
 
     cancelRecognizingUuid.value = generateRandomUUID();
     recognizing.value = true;
-    recognizingIndex.value = 0;
     results.value = [];
-    selectedIndices.value.clear();
+    selectedFlags.value = [];
 
     // Mark all as processing
     for (const item of imageItems.value) {
@@ -297,16 +296,14 @@ function recognize(): void {
         cancelableUuid: cancelRecognizingUuid.value
     }).then(response => {
         results.value = response.results;
+        selectedFlags.value = response.results.map(r => r.success);
 
-        // Update image statuses and auto-select successful results
+        // Update image statuses based on recognition results
         for (const resultItem of response.results) {
             const imageItem = imageItems.value[resultItem.index];
+
             if (imageItem) {
                 imageItem.status = resultItem.success ? 'done' : 'error';
-            }
-
-            if (resultItem.success) {
-                selectedIndices.value.add(resultItem.index);
             }
         }
 
@@ -333,21 +330,16 @@ function recognize(): void {
     });
 }
 
-function toggleSelect(index: number, value: boolean): void {
-    if (value) {
-        selectedIndices.value.add(index);
-    } else {
-        selectedIndices.value.delete(index);
-    }
-    // Trigger reactivity
-    selectedIndices.value = new Set(selectedIndices.value);
-}
-
 function importSelected(): void {
     const selected: RecognizedReceiptImageResponse[] = [];
 
-    for (const index of selectedIndices.value) {
-        const item = results.value[index];
+    for (let i = 0; i < results.value.length; i++) {
+        if (!selectedFlags.value[i]) {
+            continue;
+        }
+
+        const item = results.value[i];
+
         if (item?.success && item.result) {
             selected.push(item.result);
         }
@@ -360,6 +352,7 @@ function importSelected(): void {
 
     resolveFunc?.(selected);
     showState.value = false;
+    cleanup();
 }
 
 function cancelRecognize(): void {
@@ -397,7 +390,7 @@ function cleanup(): void {
     cancelRecognizingUuid.value = undefined;
     imageItems.value = [];
     results.value = [];
-    selectedIndices.value.clear();
+    selectedFlags.value = [];
 }
 
 function getTypeColor(type: number): string {
