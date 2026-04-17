@@ -1480,7 +1480,8 @@ func getConfigItemValueFromEnvironment(sectionName string, itemName string) stri
 		content, err := os.ReadFile(itemFilePath)
 
 		if err == nil {
-			return string(content)
+			// Secret files commonly end with a trailing newline; strip only line endings.
+			return strings.TrimRight(string(content), "\r\n")
 		}
 	}
 
