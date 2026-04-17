@@ -306,7 +306,7 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 		}, nil
 	}
 
-	embeddingQuery := a.buildAIAssistantEmbeddingQueryText(&request, mode)
+	embeddingQuery := a.buildAIAssistantEmbeddingQueryText(&request, mode, c.GetClientLocale())
 	queryEmbedding, embeddingErr := a.getAIAssistantKnowledgeAndQueryEmbeddings(c, uid, currentConfig.AIAssistantLLMConfig, embeddingQuery, knowledgeItems)
 
 	if embeddingErr != nil {
@@ -325,10 +325,11 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 	}
 
 	systemPromptParams := map[string]any{
-		"CurrentDateTime":    utils.FormatUnixTimeToLongDateTime(time.Now().Unix(), clientTimezone),
-		"ConversationMode":   mode,
-		"FinancialSnapshot":  financialSnapshot,
-		"RetrievedKnowledge": retrievedKnowledgeText,
+		"CurrentDateTime":        utils.FormatUnixTimeToLongDateTime(time.Now().Unix(), clientTimezone),
+		"ConversationMode":       mode,
+		"PreferredReplyLanguage": getAIAssistantPreferredReplyLanguage(c.GetClientLocale()),
+		"FinancialSnapshot":      financialSnapshot,
+		"RetrievedKnowledge":     retrievedKnowledgeText,
 	}
 
 	var promptBuffer bytes.Buffer
@@ -342,7 +343,7 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 	return &aiAssistantPreparedPromptContext{
 		Mode:         mode,
 		SystemPrompt: strings.ReplaceAll(promptBuffer.String(), "\r\n", "\n"),
-		UserPrompt:   a.buildAIAssistantUserPrompt(&request, mode),
+		UserPrompt:   a.buildAIAssistantUserPrompt(&request, mode, c.GetClientLocale()),
 		References:   buildAIAssistantResponseReferences(retrievedKnowledgeItems, aiAssistantMaxReferencedTransactionsCount),
 	}, nil
 }
@@ -803,10 +804,20 @@ func (a *LargeLanguageModelsApi) buildAIAssistantKnowledgeItems(transactions []*
 	return knowledgeItems
 }
 
-func (a *LargeLanguageModelsApi) buildAIAssistantEmbeddingQueryText(request *models.AIAssistantChatRequest, mode string) string {
+func (a *LargeLanguageModelsApi) buildAIAssistantEmbeddingQueryText(request *models.AIAssistantChatRequest, mode string, clientLocale string) string {
+	normalizedLocale := normalizeAIAssistantClientLocale(clientLocale)
+
 	if mode == models.AIAssistantModeSummary {
 		if request.Message != "" {
+			if strings.HasPrefix(normalizedLocale, "zh") {
+				return "个人财务总结与记账建议，重点关注：" + request.Message
+			}
+
 			return "personal finance summary and bookkeeping suggestions focus: " + request.Message
+		}
+
+		if strings.HasPrefix(normalizedLocale, "zh") {
+			return "总结近期个人财务趋势、支出结构、潜在风险和可执行的记账建议"
 		}
 
 		return "summarize recent personal finance trends, spending, risks, and bookkeeping suggestions"
@@ -838,15 +849,25 @@ func (a *LargeLanguageModelsApi) buildAIAssistantEmbeddingQueryText(request *mod
 	return strings.TrimSpace(queryTextBuilder.String())
 }
 
-func (a *LargeLanguageModelsApi) buildAIAssistantUserPrompt(request *models.AIAssistantChatRequest, mode string) string {
+func (a *LargeLanguageModelsApi) buildAIAssistantUserPrompt(request *models.AIAssistantChatRequest, mode string, clientLocale string) string {
 	promptBuilder := &strings.Builder{}
+	normalizedLocale := normalizeAIAssistantClientLocale(clientLocale)
 
 	if mode == models.AIAssistantModeSummary {
-		promptBuilder.WriteString("Please provide a personal finance summary and practical bookkeeping suggestions based on my bill data.")
+		if strings.HasPrefix(normalizedLocale, "zh") {
+			promptBuilder.WriteString("请基于我的账单数据，用中文给我一份个人财务总结，并提供可执行的记账建议。")
+		} else {
+			promptBuilder.WriteString("Please provide a personal finance summary and practical bookkeeping suggestions based on my bill data.")
+		}
 
 		if request.Message != "" {
-			promptBuilder.WriteString("\nAdditional focus: ")
-			promptBuilder.WriteString(request.Message)
+			if strings.HasPrefix(normalizedLocale, "zh") {
+				promptBuilder.WriteString("\n额外关注点：")
+				promptBuilder.WriteString(request.Message)
+			} else {
+				promptBuilder.WriteString("\nAdditional focus: ")
+				promptBuilder.WriteString(request.Message)
+			}
 		}
 	} else {
 		promptBuilder.WriteString("Latest user message:\n")
@@ -881,6 +902,59 @@ func (a *LargeLanguageModelsApi) buildAIAssistantUserPrompt(request *models.AIAs
 	}
 
 	return promptBuilder.String()
+}
+
+func normalizeAIAssistantClientLocale(clientLocale string) string {
+	normalized := strings.ToLower(strings.TrimSpace(clientLocale))
+	normalized = strings.ReplaceAll(normalized, "_", "-")
+	return normalized
+}
+
+func getAIAssistantPreferredReplyLanguage(clientLocale string) string {
+	normalized := normalizeAIAssistantClientLocale(clientLocale)
+
+	switch {
+	case strings.HasPrefix(normalized, "zh-hant"), strings.HasPrefix(normalized, "zh-tw"), strings.HasPrefix(normalized, "zh-hk"), strings.HasPrefix(normalized, "zh-mo"):
+		return "Traditional Chinese"
+	case strings.HasPrefix(normalized, "zh"):
+		return "Simplified Chinese"
+	case strings.HasPrefix(normalized, "ja"):
+		return "Japanese"
+	case strings.HasPrefix(normalized, "ko"):
+		return "Korean"
+	case strings.HasPrefix(normalized, "fr"):
+		return "French"
+	case strings.HasPrefix(normalized, "de"):
+		return "German"
+	case strings.HasPrefix(normalized, "es"):
+		return "Spanish"
+	case strings.HasPrefix(normalized, "it"):
+		return "Italian"
+	case strings.HasPrefix(normalized, "ru"):
+		return "Russian"
+	case strings.HasPrefix(normalized, "uk"):
+		return "Ukrainian"
+	case strings.HasPrefix(normalized, "vi"):
+		return "Vietnamese"
+	case strings.HasPrefix(normalized, "th"):
+		return "Thai"
+	case strings.HasPrefix(normalized, "pt-br"):
+		return "Brazilian Portuguese"
+	case strings.HasPrefix(normalized, "pt"):
+		return "Portuguese"
+	case strings.HasPrefix(normalized, "tr"):
+		return "Turkish"
+	case strings.HasPrefix(normalized, "nl"):
+		return "Dutch"
+	case strings.HasPrefix(normalized, "sl"):
+		return "Slovenian"
+	case strings.HasPrefix(normalized, "ta"):
+		return "Tamil"
+	case strings.HasPrefix(normalized, "kn"):
+		return "Kannada"
+	default:
+		return "English"
+	}
 }
 
 func (a *LargeLanguageModelsApi) getAIAssistantNoDataReply(c *core.WebContext, mode string) string {

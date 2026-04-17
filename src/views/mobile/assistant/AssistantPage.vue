@@ -84,6 +84,8 @@ import { useI18n } from '@/locales/helpers.ts';
 import { useI18nUIComponents } from '@/lib/ui/mobile.ts';
 import { useAssistantPageBase } from '@/views/base/assistant/AssistantPageBase.ts';
 
+type ScrollablePanelRef = HTMLElement | { $el?: Element };
+
 const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
 const { showToast } = useI18nUIComponents();
 const {
@@ -98,15 +100,31 @@ const {
     generateSummary
 } = useAssistantPageBase();
 
-const messagesPanel = useTemplateRef<HTMLElement>('messagesPanel');
+const messagesPanel = useTemplateRef<ScrollablePanelRef>('messagesPanel');
+
+function getMessagesPanelElement(): HTMLElement | null {
+    const panel = messagesPanel.value;
+
+    if (panel instanceof HTMLElement) {
+        return panel;
+    }
+
+    if (panel && '$el' in panel && panel.$el instanceof HTMLElement) {
+        return panel.$el;
+    }
+
+    return null;
+}
 
 watch(() => messages.value.map(message => `${message.id}:${message.thinking?.length || 0}:${message.content.length}:${message.references?.length || 0}`).join('|'), () => {
     nextTick(() => {
-        if (!messagesPanel.value) {
+        const panel = getMessagesPanelElement();
+
+        if (!panel) {
             return;
         }
 
-        messagesPanel.value.scrollTop = messagesPanel.value.scrollHeight;
+        panel.scrollTop = panel.scrollHeight;
     });
 });
 
