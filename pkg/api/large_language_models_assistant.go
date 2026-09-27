@@ -31,7 +31,7 @@ const (
 	aiAssistantKnowledgeBaseMaxTransactionCount  = 1800
 	aiAssistantKnowledgeBaseHistoryCoverageYears = 2
 	aiAssistantKnowledgeBaseTopK                 = 18
-	aiAssistantEmbeddingRequestBatchSize         = 64
+	aiAssistantEmbeddingRequestBatchSize         = 20
 	aiAssistantMaxHistoryMessages                = 12
 	aiAssistantMaxReferencedTransactionsCount    = 8
 )
@@ -323,7 +323,7 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 	}
 
 	embeddingQuery := a.buildAIAssistantEmbeddingQueryText(&request, mode, c.GetClientLocale())
-	queryEmbedding, embeddingErr := a.getAIAssistantKnowledgeAndQueryEmbeddings(c, uid, currentConfig.AIAssistantLLMConfig, embeddingQuery, knowledgeItems)
+	queryEmbedding, embeddingErr := a.getAIAssistantKnowledgeAndQueryEmbeddings(c, uid, currentConfig.GetAIAssistantEmbeddingLLMConfig(), embeddingQuery, knowledgeItems)
 
 	if embeddingErr != nil {
 		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to prepare embeddings for user \"uid:%d\", because %s", uid, embeddingErr.Error())
@@ -725,6 +725,10 @@ func (a *LargeLanguageModelsApi) getAIAssistantNoDataReply(c *core.WebContext, m
 }
 
 func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, llmConfig *settings.LLMConfig, inputs []string) ([][]float64, error) {
+	if llmConfig == nil {
+		return nil, errs.ErrOperationFailed
+	}
+
 	openAIAPIKey := strings.TrimSpace(llmConfig.OpenAIAPIKey)
 	openAIEmbeddingModelID := strings.TrimSpace(llmConfig.OpenAIEmbeddingModelID)
 
@@ -738,6 +742,7 @@ func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, 
 
 	httpClient := httpclient.NewHttpClient(llmConfig.LargeLanguageModelAPIRequestTimeout, llmConfig.LargeLanguageModelAPIProxy, llmConfig.LargeLanguageModelAPISkipTLSVerify, core.GetOutgoingUserAgent(), false)
 	embeddings := make([][]float64, 0, len(inputs))
+	embeddingDimension := 0
 
 	for start := 0; start < len(inputs); start += aiAssistantEmbeddingRequestBatchSize {
 		end := start + aiAssistantEmbeddingRequestBatchSize
@@ -800,6 +805,12 @@ func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, 
 			return nil, errs.ErrFailedToRequestRemoteApi
 		}
 
+		for _, item := range embeddingsResponse.Data {
+			if item == nil {
+				return nil, errs.ErrFailedToRequestRemoteApi
+			}
+		}
+
 		sort.Slice(embeddingsResponse.Data, func(i, j int) bool {
 			return embeddingsResponse.Data[i].Index < embeddingsResponse.Data[j].Index
 		})
@@ -807,8 +818,14 @@ func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, 
 		for i := 0; i < len(embeddingsResponse.Data); i++ {
 			item := embeddingsResponse.Data[i]
 
-			if item == nil || len(item.Embedding) < 1 {
+			if item.Index != i || len(item.Embedding) < 1 {
 				log.Errorf(c, "[large_language_models.getOpenAIEmbeddings] one embedding item is invalid for user \"uid:%d\"", uid)
+				return nil, errs.ErrFailedToRequestRemoteApi
+			}
+
+			if embeddingDimension == 0 {
+				embeddingDimension = len(item.Embedding)
+			} else if len(item.Embedding) != embeddingDimension {
 				return nil, errs.ErrFailedToRequestRemoteApi
 			}
 

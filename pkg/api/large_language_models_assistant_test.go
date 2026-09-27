@@ -1,11 +1,18 @@
 package api
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/mayswind/ezbookkeeping/pkg/core"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
+	"github.com/mayswind/ezbookkeeping/pkg/settings"
 )
 
 func TestGetAIAssistantPreferredReplyLanguage(t *testing.T) {
@@ -54,4 +61,91 @@ func TestBuildAIAssistantEmbeddingQueryText_SummaryUsesEnglishQueryForEnglishLoc
 
 	queryText := api.buildAIAssistantEmbeddingQueryText(request, models.AIAssistantModeSummary, "en-US")
 	assert.Equal(t, "summarize recent personal finance trends, spending, risks, and bookkeeping suggestions", queryText)
+}
+
+func TestGetOpenAIEmbeddings_RespectsTwentyItemLimit(t *testing.T) {
+	sizes := []int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/compatible-mode/v1/embeddings", r.URL.Path)
+		assert.Equal(t, "Bearer embedding-key", r.Header.Get("Authorization"))
+		var request openAIEmbeddingsRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+			w.WriteHeader(400)
+			return
+		}
+		sizes = append(sizes, len(request.Input))
+		assert.Equal(t, "qwen3.7-text-embedding-flash", request.Model)
+		if len(request.Input) > 20 {
+			w.WriteHeader(400)
+			return
+		}
+		response := &openAIEmbeddingsResponse{}
+		for i := len(request.Input) - 1; i >= 0; i-- {
+			v, _ := strconv.Atoi(request.Input[i])
+			response.Data = append(response.Data, &openAIEmbeddingsResponseItem{Index: i, Embedding: []float64{float64(v), 1}})
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+	inputs := make([]string, 41)
+	for i := range inputs {
+		inputs[i] = strconv.Itoa(i)
+	}
+	api := &LargeLanguageModelsApi{}
+	vectors, err := api.getOpenAIEmbeddings(core.NewNullContext(), 1, &settings.LLMConfig{
+		OpenAIBaseURL: server.URL + "/compatible-mode/v1/", OpenAIAPIKey: "embedding-key",
+		OpenAIEmbeddingModelID: "qwen3.7-text-embedding-flash", LargeLanguageModelAPIRequestTimeout: 5000, LargeLanguageModelAPIProxy: "none",
+	}, inputs)
+	require.NoError(t, err)
+	require.Len(t, vectors, 41)
+	assert.Equal(t, []int{20, 20, 1}, sizes)
+	for i, vector := range vectors {
+		assert.Equal(t, float64(i), vector[0])
+	}
+}
+
+func TestGetOpenAIEmbeddings_RejectsMalformedResponses(t *testing.T) {
+	for name, body := range map[string]string{
+		"null item":            `{"data":[null,{"index":1,"embedding":[1]}]}`,
+		"duplicate index":      `{"data":[{"index":0,"embedding":[1]},{"index":0,"embedding":[2]}]}`,
+		"out of range index":   `{"data":[{"index":0,"embedding":[1]},{"index":2,"embedding":[2]}]}`,
+		"negative index":       `{"data":[{"index":-1,"embedding":[1]},{"index":1,"embedding":[2]}]}`,
+		"empty vector":         `{"data":[{"index":0,"embedding":[]},{"index":1,"embedding":[2]}]}`,
+		"different dimensions": `{"data":[{"index":0,"embedding":[1]},{"index":1,"embedding":[2,3]}]}`,
+		"wrong count":          `{"data":[{"index":0,"embedding":[1]}]}`,
+		"invalid JSON":         `{`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(body)) }))
+			defer server.Close()
+			api := &LargeLanguageModelsApi{}
+			vectors, err := api.getOpenAIEmbeddings(core.NewNullContext(), 1, &settings.LLMConfig{OpenAIBaseURL: server.URL, OpenAIAPIKey: "test", OpenAIEmbeddingModelID: "test", LargeLanguageModelAPIRequestTimeout: 5000, LargeLanguageModelAPIProxy: "none"}, []string{"one", "two"})
+			require.Error(t, err)
+			require.Nil(t, vectors)
+		})
+	}
+}
+
+func TestGetOpenAIEmbeddings_RejectsDimensionChangeAcrossBatches(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		var request openAIEmbeddingsRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+			w.WriteHeader(400)
+			return
+		}
+		response := &openAIEmbeddingsResponse{}
+		for i := range request.Input {
+			response.Data = append(response.Data, &openAIEmbeddingsResponseItem{Index: i, Embedding: make([]float64, calls)})
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+	api := &LargeLanguageModelsApi{}
+	vectors, err := api.getOpenAIEmbeddings(core.NewNullContext(), 1, &settings.LLMConfig{OpenAIBaseURL: server.URL, OpenAIAPIKey: "test", OpenAIEmbeddingModelID: "test", LargeLanguageModelAPIRequestTimeout: 5000, LargeLanguageModelAPIProxy: "none"}, make([]string, 21))
+	require.Error(t, err)
+	require.Nil(t, vectors)
 }

@@ -399,6 +399,7 @@ type Config struct {
 	ReceiptImageRecognitionLLMConfig         *LLMConfig
 	ReceiptImageRecognitionFallbackLLMConfig *LLMConfig
 	AIAssistantLLMConfig                     *LLMConfig
+	AIAssistantEmbeddingLLMConfig            *LLMConfig
 	AIAssistantFallbackLLMConfig             *LLMConfig
 
 	// Uuid
@@ -598,6 +599,18 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 	config.AIAssistantLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant")
 	if err != nil {
 		return nil, err
+	}
+
+	config.AIAssistantEmbeddingLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant_embedding")
+	if err != nil {
+		return nil, err
+	}
+	if config.AIAssistantEmbeddingLLMConfig.LLMProvider == "" {
+		config.AIAssistantEmbeddingLLMConfig = nil
+	} else if config.AIAssistantEmbeddingLLMConfig.LLMProvider != OpenAILLMProvider {
+		return nil, errs.ErrInvalidLLMProvider
+	} else if strings.TrimSpace(config.AIAssistantEmbeddingLLMConfig.OpenAIEmbeddingModelID) == "" {
+		return nil, errs.ErrAIAssistantEmbeddingModelInvalid
 	}
 
 	config.AIAssistantFallbackLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant_fallback")
@@ -1624,4 +1637,12 @@ func getLogLevel(logLevelStr string) (Level, error) {
 	}
 
 	return "", errs.ErrInvalidLogLevel
+}
+
+// GetAIAssistantEmbeddingLLMConfig keeps legacy installations using the assistant provider.
+func (config *Config) GetAIAssistantEmbeddingLLMConfig() *LLMConfig {
+	if config.AIAssistantEmbeddingLLMConfig != nil {
+		return config.AIAssistantEmbeddingLLMConfig
+	}
+	return config.AIAssistantLLMConfig
 }
