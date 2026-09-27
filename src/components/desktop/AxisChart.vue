@@ -46,6 +46,8 @@ interface AxisChartDataItem {
     type: string;
     areaStyle?: object;
     stack?: string;
+    smooth?: boolean;
+    showSymbol?: boolean;
     symbolSize?: (data: number) => number;
     animation: boolean;
     data: number[];  // only used for echarts rendering, the actual value is in allOriginalData
@@ -62,12 +64,18 @@ interface AxisChartTooltipItem extends SortableTransactionStatisticDataItem {
 const props = defineProps<{
     class?: string;
     skeleton?: boolean;
+    noAnimation?: boolean;
     type: AxisChartDisplayType;
     stacked?: boolean;
     hideLegend?: boolean;
     legendPosition?: 'top' | 'bottom';
     hideXAxisLabels?: boolean;
+    hideXAxisLine?: boolean;
     hideYAxisLabels?: boolean;
+    hideHorizontalGridLines?: boolean;
+    hideLineSymbols?: boolean;
+    noMargin?: boolean;
+    smoothCurve?: boolean;
     oneHundredPercentStacked?: boolean;
     sortingType: number;
     showValue?: boolean;
@@ -189,7 +197,9 @@ const axisChartData = computed<AxisChartData>(() => {
             },
             selected: true,
             type: 'line',
-            animation: !props.skeleton,
+            smooth: props.smoothCurve,
+            showSymbol: !props.hideLineSymbols,
+            animation: props.noAnimation ? false : !props.skeleton,
             data: allAmounts.map(amount => amount.toDoubleNumber())
         };
 
@@ -424,7 +434,7 @@ const chartOptions = computed<object>(() => {
             orient: 'horizontal',
             type: 'scroll',
             top: (!props.legendPosition || props.legendPosition === 'top') ? 0 : undefined,
-            bottom: props.legendPosition === 'bottom' ? 0 : undefined,
+            bottom: props.legendPosition === 'bottom' ? 5 : undefined,
             data: axisChartData.value.allSeries.map(item => item.name),
             selected: selectedLegends.value,
             textStyle: {
@@ -433,10 +443,10 @@ const chartOptions = computed<object>(() => {
             formatter: (id: string) => allItemsMap.value[id] ? getItemName(allItemsMap.value[id].name) : id
         },
         grid: {
-            left: props.hideYAxisLabels ? 20 : yAxisWidth.value,
-            top: !props.hideLegend && (!props.legendPosition || props.legendPosition === 'top') ? 50 : 0,
-            right: 20,
-            bottom: (props.hideXAxisLabels ? 10 : 30) + (!props.hideLegend && props.legendPosition === 'bottom' ? 30 : 0),
+            left: props.noMargin ? 0 : (props.hideYAxisLabels ? 10 : yAxisWidth.value),
+            top: props.noMargin ? 5 : (!props.hideLegend && (!props.legendPosition || props.legendPosition === 'top') ? 50 : 5),
+            right: props.noMargin ? 0 : 10,
+            bottom: props.noMargin ? 0 : ((props.hideXAxisLabels ? 10 : 30) + (!props.hideLegend && props.legendPosition === 'bottom' ? 25 : 0)),
         },
         xAxis: [
             {
@@ -444,6 +454,12 @@ const chartOptions = computed<object>(() => {
                 data: props.allCategoryNames,
                 boundaryGap: !props.hideYAxisLabels,
                 inverse: textDirection.value === TextDirection.RTL,
+                axisLine: {
+                    show: !props.hideXAxisLine
+                },
+                axisTick: {
+                    show: !props.hideXAxisLine
+                },
                 axisLabel: {
                     show: !props.hideXAxisLabels,
                     color: isDarkMode.value ? '#888' : '#666'
@@ -471,6 +487,7 @@ const chartOptions = computed<object>(() => {
                     }
                 },
                 splitLine: {
+                    show: !props.hideHorizontalGridLines,
                     lineStyle: {
                         color: isDarkMode.value ? '#4f4f4f' : '#e1e6f2',
                     }

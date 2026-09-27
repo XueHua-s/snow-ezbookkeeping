@@ -9,7 +9,7 @@ import (
 )
 
 func TestGetConfigWithoutSensitiveData_EmbeddingKey(t *testing.T) {
-	config := &settings.Config{DatabaseConfig: &settings.DatabaseConfig{}, SMTPConfig: &settings.SMTPConfig{}, MinIOConfig: &settings.MinIOConfig{}, AIAssistantEmbeddingLLMConfig: &settings.LLMConfig{OpenAIAPIKey: "embedding-secret"}}
+	config := &settings.Config{DatabaseConfig: &settings.DatabaseConfig{}, SMTPConfig: &settings.SMTPConfig{}, MinIOConfig: &settings.MinIOConfig{}, S3Config: &settings.S3Config{}, AIAssistantEmbeddingLLMConfig: &settings.LLMConfig{OpenAIAPIKey: "embedding-secret"}}
 	redacted := getConfigWithoutSensitiveData(config)
 	assert.Equal(t, "****", redacted.AIAssistantEmbeddingLLMConfig.OpenAIAPIKey)
 	assert.Equal(t, "embedding-secret", config.AIAssistantEmbeddingLLMConfig.OpenAIAPIKey)

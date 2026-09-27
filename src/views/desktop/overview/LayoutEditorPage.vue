@@ -1,20 +1,20 @@
 <template>
     <main-page-layout no-navbar>
         <template #top-toolbar>
-            <v-btn class="top-navigation-button" density="comfortable" variant="text" :icon="true"
-                   color="primary" :aria-label="tt('Save')" @click="save">
+            <v-btn class="top-navigation-button" density="comfortable" variant="text" color="primary"
+                   :aria-label="tt('Save')" :disabled="loadingOverview" :icon="true" @click="save">
                 <v-icon :icon="mdiContentSaveOutline" size="24" />
                 <v-tooltip activator="parent">{{ tt('Save') }}</v-tooltip>
             </v-btn>
 
-            <v-btn class="top-navigation-button ms-1" density="comfortable" variant="text" :icon="true"
-                   :aria-label="tt('Cancel')" @click="cancel">
+            <v-btn class="top-navigation-button ms-1" density="comfortable" variant="text"
+                   :aria-label="tt('Cancel')" :disabled="loadingOverview" :icon="true" @click="cancel">
                 <v-icon :icon="mdiClose" size="24" />
                 <v-tooltip activator="parent">{{ tt('Cancel') }}</v-tooltip>
             </v-btn>
 
-            <v-btn class="top-navigation-button ms-1" density="comfortable" variant="text" :icon="true"
-                   :aria-label="tt('More')">
+            <v-btn class="top-navigation-button ms-1" density="comfortable" variant="text"
+                   :aria-label="tt('More')" :disabled="loadingOverview" :icon="true">
                 <v-icon :icon="mdiDotsVertical" size="24" />
                 <v-tooltip activator="parent">{{ tt('More') }}</v-tooltip>
                 <v-menu activator="parent">
@@ -33,14 +33,14 @@
 
         <template #content>
             <overview-dashboard editing :layout="draftLayout" :loading="loadingOverview"
-                                @update:layout="draftLayout = $event" @configure="configureWidget"
-                                @add="addWidget" @remove="removeWidget" @refresh="reload(true)" />
+                                @update:layout="draftLayout = $event" @add="addWidget" @refresh="reload(true)"
+                                @configure="configureWidget" @duplicate="duplicateWidget" @remove="removeWidget" />
         </template>
     </main-page-layout>
 
     <add-widget-dialog ref="addWidgetDialog" />
     <widget-settings-dialog ref="widgetSettingsDialog" />
-    <json-import-dialog ref="layoutImportDialog" :title="tt('Import Layout')" :on-import="onImportLayout" />
+    <json-import-dialog ref="layoutImportDialog" :title="tt('Import Layout')" :sample-json="layoutJsonPlaceholder" :on-import="onImportLayout" />
     <json-export-dialog ref="layoutExportDialog" :title="tt('Export Layout')" :file-name="tt('dataExport.defaultOverviewLayoutFileName')" />
 
     <confirm-dialog ref="confirmDialog" />
@@ -69,7 +69,6 @@ import { useOverviewStore } from '@/stores/overview.ts';
 import { itemAndIndex } from '@/core/base.ts';
 import {
     type OverviewWidgetType,
-    type DesktopOverviewWidgetDefinition,
     type DesktopOverviewLayout,
     type DesktopOverviewWidgetLayout,
     OverviewWidgetDataRequirement
@@ -80,18 +79,21 @@ import {
 } from '@/consts/overview_layout.ts';
 
 import {
-    serializeDesktopOverviewLayout,
+    cloneWidget,
     getOverviewDataRequirements,
-    isDefaultDesktopOverviewLayout,
     getOverviewTransactionOverviewMonths,
-    getOverviewRecentTransactionCount,
+    getOverviewRecentTransactionsQueries,
     getOverviewAssetTrendMonths,
     getOverviewCalendarHeatmapMonths,
-    compactOverviewWidgets,
-    normalizeDesktopOverviewLayout,
-    findOverviewWidgetPosition,
     getOverviewTransactionCategoryStatisticDateTypes,
-    cloneOverviewLayout,
+    compactDesktopOverviewWidgets,
+    findDesktopOverviewWidgetPosition,
+    findDesktopOverviewWidgetDuplicatePosition,
+    resolveDesktopOverviewWidgetCollisions,
+    isDefaultDesktopOverviewLayout,
+    normalizeDesktopOverviewLayout,
+    cloneDesktopOverviewLayout,
+    serializeDesktopOverviewLayout,
     parseDesktopOverviewLayout
 } from '@/lib/overview_layout.ts';
 import { generateRandomUUID } from '@/lib/misc.ts';
@@ -124,6 +126,20 @@ const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
 const overviewStore = useOverviewStore();
 
+const layoutJsonPlaceholder: string = `{
+    "widgets": [
+        {
+            "id": "widget-id",
+            "type": "widget-type",
+            "x": 0,
+            "y": 0,
+            "w": 0,
+            "h": 0,
+            "settings": {}
+        }
+    ]
+}`;
+
 const confirmDialog = useTemplateRef<ConfirmDialogType>('confirmDialog');
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
 const addWidgetDialog = useTemplateRef<AddWidgetDialogType>('addWidgetDialog');
@@ -134,7 +150,7 @@ const layoutExportDialog = useTemplateRef<JsonExportDialogType>('layoutExportDia
 const loadingOverview = ref<boolean>(true);
 const leavingAfterAction = ref<boolean>(false);
 const initialLayout = ref<DesktopOverviewLayout>(getInitialLayout());
-const draftLayout = ref<DesktopOverviewLayout>(cloneOverviewLayout(initialLayout.value));
+const draftLayout = ref<DesktopOverviewLayout>(cloneDesktopOverviewLayout(initialLayout.value));
 const initialJson = ref<string>(serializeDesktopOverviewLayout(initialLayout.value));
 
 const isModified = computed<boolean>(() => serializeDesktopOverviewLayout(draftLayout.value) !== initialJson.value);
@@ -146,7 +162,7 @@ function getInitialLayout(): DesktopOverviewLayout {
         initialLayout = parseDesktopOverviewLayout(settingsStore.appSettings.desktopOverviewPageLayout);
     } catch (error) {
         logger.warn('failed to parse desktop overview page layout in editor', error);
-        initialLayout = cloneOverviewLayout(DEFAULT_DESKTOP_OVERVIEW_LAYOUT);
+        initialLayout = cloneDesktopOverviewLayout(DEFAULT_DESKTOP_OVERVIEW_LAYOUT);
     }
 
     return initialLayout;
@@ -155,7 +171,7 @@ function getInitialLayout(): DesktopOverviewLayout {
 function reload(force: boolean): void {
     loadingOverview.value = true;
 
-    const requirements = getOverviewDataRequirements(draftLayout.value);
+    const requirements = getOverviewDataRequirements(draftLayout.value, DESKTOP_OVERVIEW_WIDGET_DEFINITIONS);
     const promises: Promise<unknown>[] = [
         accountsStore.loadAllAccounts({ force: false }),
         transactionCategoriesStore.loadAllCategories({ force: false })
@@ -187,7 +203,13 @@ function reload(force: boolean): void {
     if (requirements.includes(OverviewWidgetDataRequirement.RecentTransactions)) {
         promises.push(overviewStore.loadRecentTransactions({
             force: force,
-            count: getOverviewRecentTransactionCount(draftLayout.value)
+            queries: getOverviewRecentTransactionsQueries(draftLayout.value)
+        }));
+    }
+
+    if (requirements.includes(OverviewWidgetDataRequirement.CurrentMonthTransactions)) {
+        promises.push(overviewStore.loadCurrentMonthTransactions({
+            force: force
         }));
     }
 
@@ -200,17 +222,28 @@ function reload(force: boolean): void {
 
     Promise.all(promises).then(() => {
         loadingOverview.value = false;
-        if (force) snackbar.value?.showMessage('Data has been updated');
+
+        if (force) {
+            snackbar.value?.showMessage('Data has been updated');
+        }
     }).catch(error => {
         loadingOverview.value = false;
-        if (!error.processed && !error.isUpToDate) snackbar.value?.showError(error);
+
+        if (!error.processed && !error.isUpToDate) {
+            snackbar.value?.showError(error);
+        }
     });
 }
 
 function addWidget(): void {
     addWidgetDialog.value?.open().then((type: OverviewWidgetType) => {
-        const definition: DesktopOverviewWidgetDefinition = DESKTOP_OVERVIEW_WIDGET_DEFINITIONS[type];
-        const position = findOverviewWidgetPosition(draftLayout.value.widgets, definition.defaultWidth, definition.defaultHeight);
+        const definition = DESKTOP_OVERVIEW_WIDGET_DEFINITIONS[type];
+
+        if (!definition) {
+            return;
+        }
+
+        const position = findDesktopOverviewWidgetPosition(draftLayout.value.widgets, definition.defaultWidth, definition.defaultHeight);
         const newWidget: DesktopOverviewWidgetLayout = {
             id: generateRandomUUID(),
             type: type,
@@ -225,11 +258,24 @@ function addWidget(): void {
     });
 }
 
+function duplicateWidget(widget: DesktopOverviewWidgetLayout): void {
+    const position = findDesktopOverviewWidgetDuplicatePosition(draftLayout.value.widgets, widget);
+    const duplicatedWidget: DesktopOverviewWidgetLayout = {
+        ...cloneWidget(widget),
+        id: generateRandomUUID(),
+        ...position
+    };
+
+    const widgets = resolveDesktopOverviewWidgetCollisions([...draftLayout.value.widgets, duplicatedWidget], duplicatedWidget.id);
+    draftLayout.value.widgets = compactDesktopOverviewWidgets(widgets, duplicatedWidget.id);
+    reload(false);
+}
+
 function removeWidget(id: string): void {
     for (const [widget, index] of itemAndIndex(draftLayout.value.widgets)) {
         if (widget.id === id) {
             draftLayout.value.widgets.splice(index, 1);
-            draftLayout.value.widgets = compactOverviewWidgets(draftLayout.value.widgets);
+            draftLayout.value.widgets = compactDesktopOverviewWidgets(draftLayout.value.widgets);
             return;
         }
     }
@@ -259,7 +305,7 @@ function clearLayout(): void {
 
 function resetLayout(): void {
     confirmDialog.value?.open('Reset the layout to its default value?').then(() => {
-        draftLayout.value = cloneOverviewLayout(DEFAULT_DESKTOP_OVERVIEW_LAYOUT);
+        draftLayout.value = cloneDesktopOverviewLayout(DEFAULT_DESKTOP_OVERVIEW_LAYOUT);
         reload(false);
     });
 }
@@ -285,7 +331,7 @@ function save(): void {
 function cancel(): void {
     const leave = () => {
         leavingAfterAction.value = true;
-        router.push('/app/settings/basic');
+        router.push('/settings/preferences');
     };
 
     if (!isModified.value) {

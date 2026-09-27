@@ -23,7 +23,7 @@
                         <v-icon :icon="mdiTextBoxSearchOutline" size="20" />
                         <span class="query-name text-body-large ms-2" v-if="editingQuery !== element">{{ element.name || tt('format.misc.queryIndex', { index: formatNumberToLocalizedNumeralsWithoutDigitGrouping(index + 1) }) }}</span>
                         <div class="query-name-edit ms-2" v-if="editingQuery === element">
-                            <v-text-field autofocus type="text" density="compact" variant="underlined"
+                            <v-text-field autofocus type="text" autocomplete="off" density="compact" variant="underlined"
                                           :disabled="loading || disabled"
                                           :placeholder="tt('format.misc.queryIndex', { index: formatNumberToLocalizedNumeralsWithoutDigitGrouping(index + 1) })"
                                           v-text-field-auto-width="{ minWidth: 20, maxWidth: 300, auxSpanId: `query-name-aux-span-${index + 1}-${element.id}` }"
@@ -33,28 +33,28 @@
                             <span :id="`query-name-aux-span-${index + 1}-${element.id}`" />
                         </div>
                         <v-btn class="ms-2" density="compact" color="primary" variant="text"
-                               :icon="true" :disabled="loading || disabled"
+                               :aria-label="tt('Apply')" :disabled="loading || disabled" :icon="true"
                                @click="updateQueryName(element)"
                                v-if="editingQuery === element">
                             <v-icon :icon="mdiCheck" size="18" />
-                            <v-tooltip activator="parent">{{ tt('Update') }}</v-tooltip>
+                            <v-tooltip activator="parent">{{ tt('Apply') }}</v-tooltip>
                         </v-btn>
                         <v-btn class="ms-1" density="compact" color="default" variant="text"
-                               :icon="true" :disabled="loading || disabled"
+                               :aria-label="tt('Cancel')" :disabled="loading || disabled" :icon="true"
                                @click="cancelUpdateQueryName"
                                v-if="editingQuery === element">
                             <v-icon :icon="mdiClose" size="18" />
                             <v-tooltip activator="parent">{{ tt('Cancel') }}</v-tooltip>
                         </v-btn>
                         <v-btn class="ms-2" density="compact" color="default" variant="text"
-                               :icon="true" :disabled="loading || disabled || !!editingQuery"
+                               :aria-label="tt('Modify Query Name')" :disabled="loading || disabled || !!editingQuery" :icon="true"
                                @click="editingQueryName = element.name; editingQuery = element"
                                v-if="!editingQuery || editingQuery !== element">
                             <v-icon :icon="mdiPencilOutline" size="18" />
                             <v-tooltip activator="parent">{{ tt('Modify Query Name') }}</v-tooltip>
                         </v-btn>
                         <v-btn class="ms-1" density="compact" color="default" variant="text"
-                               :icon="true" :disabled="loading || disabled || !!editingQuery"
+                               :aria-label="tt('Duplicate')" :disabled="loading || disabled || !!editingQuery" :icon="true"
                                @click="duplicateQuery(element)"
                                v-if="!editingQuery || editingQuery !== element">
                             <v-icon :icon="mdiContentCopy" size="18" />
@@ -71,14 +71,14 @@
                             </template>
                         </v-switch>
                         <v-btn class="ms-2" density="compact" color="default" variant="text"
-                               :icon="true" :disabled="loading || disabled || !!editingQuery || queries.length < 1 || (queries.length === 1 && (!element.conditions || element.conditions.length < 1))"
+                               :aria-label="tt('Remove Query')" :disabled="loading || disabled || !!editingQuery || queries.length < 1 || (queries.length === 1 && (!element.conditions || element.conditions.length < 1))" :icon="true"
                                @click="removeQuery(element, index)">
                             <v-icon :icon="mdiClose" size="18" />
                             <v-tooltip activator="parent">{{ tt('Remove Query') }}</v-tooltip>
                         </v-btn>
                         <span class="ms-1 mb-1">
                             <v-icon :class="!loading && !disabled && !editingQuery && queries.length > 1 ? 'drag-handle' : 'disabled'"
-                                    :icon="mdiDrag"/>
+                                    :aria-label="tt('Drag to Reorder')" :icon="mdiDrag"/>
                             <v-tooltip activator="parent" v-if="!loading && !disabled && !editingQuery && queries.length > 1">{{ tt('Drag to Reorder') }}</v-tooltip>
                         </span>
                     </v-card-title>
@@ -254,7 +254,7 @@
                                                     />
                                                     <span class="ms-2 me-2"
                                                           v-if="conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.MinuteOffsetBetween.value ||
-                                                                conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.MinuteOffsetNotBetween.value">~</span>
+                                                                conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.MinuteOffsetNotBetween.value">{{ tt('format.misc.rangeSeparator') }}</span>
                                                     <number-input density="compact"
                                                                   :disabled="loading || disabled || !!editingQuery"
                                                                   :min-value="WESTERNMOST_TIMEZONE_UTC_OFFSET"
@@ -344,7 +344,7 @@
                                                     />
                                                     <span class="ms-2 me-2"
                                                           v-if="conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.Between.value ||
-                                                                conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.NotBetween.value">~</span>
+                                                                conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.NotBetween.value">{{ tt('format.misc.rangeSeparator') }}</span>
                                                     <amount-input density="compact"
                                                                   :currency="defaultCurrency"
                                                                   :disabled="loading || disabled || !!editingQuery"
@@ -363,7 +363,7 @@
                                                                         conditionWithRelation.condition.operator !== TransactionExplorerConditionOperator.LongitudeBetween.value &&
                                                                         conditionWithRelation.condition.operator !== TransactionExplorerConditionOperator.LongitudeNotBetween.value"
                                                     />
-                                                    <number-input density="compact"
+                                                    <number-input autocomplete="off" density="compact"
                                                                   :disabled="loading || disabled || !!editingQuery"
                                                                   :min-value="TransactionExplorerGeoLocationCondition.MIN_LATITUDE"
                                                                   :max-value="TransactionExplorerGeoLocationCondition.MAX_LATITUDE"
@@ -385,7 +385,7 @@
                                                           v-if="conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.LatitudeBetween.value ||
                                                                 conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.LatitudeNotBetween.value ||
                                                                 conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.LongitudeBetween.value ||
-                                                                conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.LongitudeNotBetween.value">~</span>
+                                                                conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.LongitudeNotBetween.value">{{ tt('format.misc.rangeSeparator') }}</span>
                                                     <number-input density="compact"
                                                                   :disabled="loading || disabled || !!editingQuery"
                                                                   :min-value="TransactionExplorerGeoLocationCondition.MIN_LATITUDE"
@@ -408,6 +408,7 @@
 
                                                 <div class="d-flex w-100" v-else-if="conditionWithRelation.condition.field === TransactionExplorerConditionField.TransactionTag.value">
                                                     <v-text-field
+                                                        autocomplete="off"
                                                         disabled
                                                         persistent-placeholder
                                                         density="compact"
@@ -435,7 +436,7 @@
                                                                          conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.IsEmpty.value || conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.IsNotEmpty.value"
                                                 />
 
-                                                <v-text-field density="compact"
+                                                <v-text-field autocomplete="off" density="compact"
                                                               :disabled="loading || disabled || !!editingQuery"
                                                               :placeholder="tt('None')"
                                                               v-model="conditionWithRelation.condition.value"
@@ -444,10 +445,8 @@
                                                 />
                                             </div>
 
-                                            <v-btn color="default" density="compact"
-                                                   variant="text"
-                                                   :icon="true"
-                                                   :disabled="loading || disabled || !!editingQuery"
+                                            <v-btn color="default" density="compact" variant="text"
+                                                   :aria-label="tt('Remove Condition')" :disabled="loading || disabled || !!editingQuery" :icon="true"
                                                    @click="removeCondition(element, conditionIndex)">
                                                 <v-icon :icon="mdiClose" size="18" />
                                                 <v-tooltip activator="parent">{{ tt('Remove Condition') }}</v-tooltip>

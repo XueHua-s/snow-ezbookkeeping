@@ -4,7 +4,7 @@
                                   :title="tt(title)" :cancel-button-title="tt('Cancel')"
                                   @cancel="cancel">
             <template #toolbar>
-                <v-text-field class="mx-2" density="compact"
+                <v-text-field class="mx-2" autocomplete="off" density="compact"
                               :disabled="loading || !hasAnyAvailableCategory"
                               :prepend-inner-icon="mdiMagnify"
                               :placeholder="tt('Find category')"
@@ -14,7 +14,7 @@
                        :disabled="!hasAnyAvailableCategory" @click="save">{{ tt(applyText) }}</v-btn>
 
                 <v-btn density="compact" color="default" variant="text" class="ms-2"
-                       :disabled="loading || !hasAnyAvailableCategory" :icon="true">
+                       :aria-label="tt('More')" :disabled="loading || !hasAnyAvailableCategory" :icon="true">
                     <v-icon :icon="mdiDotsVertical" />
                     <v-menu activator="parent">
                         <v-list>
@@ -53,7 +53,8 @@
                 </div>
 
                 <div v-else-if="!loading">
-                    <v-expansion-panels class="category-types" multiple v-model="expandCategoryTypes">
+                    <v-expansion-panels class="category-types" multiple v-model="expandCategoryTypes"
+                                        @click="focusParentWhenClicked($event, 'v-list', '.v-card-text')">
                         <v-expansion-panel :key="categoryType"
                                            :value="parseInt(categoryType) as CategoryType"
                                            class="border"
@@ -143,6 +144,7 @@ import {
     isSubCategoriesAllChecked,
     isSubCategoriesHasButNotAllChecked
 } from '@/lib/category.ts';
+import { focusParentWhenClicked } from '@/lib/ui/desktop.ts';
 
 import {
     mdiMagnify,
@@ -186,7 +188,7 @@ const {
     getCategoryTypeName,
     loadFilterCategoryIds,
     saveFilterCategoryIds
-} = useCategoryFilterSettingPageBase(props.type, props.categoryTypes, props.selectedCategoryIds);
+} = useCategoryFilterSettingPageBase(props.type, props.categoryTypes);
 
 const transactionCategoriesStore = useTransactionCategoriesStore();
 
@@ -209,7 +211,7 @@ function init(): void {
     }).then(() => {
         loading.value = false;
 
-        if (!loadFilterCategoryIds()) {
+        if (!loadFilterCategoryIds(props.selectedCategoryIds)) {
             snackbar.value?.showError('Parameter Invalid');
         }
     }).catch(error => {
@@ -276,7 +278,7 @@ function cancel(): void {
 
 watch(() => props.show, (newValue) => {
     if (newValue) {
-        loadFilterCategoryIds();
+        loadFilterCategoryIds(props.selectedCategoryIds);
         showHidden.value = false;
         filterContent.value = '';
     }
@@ -295,4 +297,3 @@ init();
     margin-top: 1rem;
 }
 </style>
-

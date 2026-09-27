@@ -16,8 +16,8 @@
                     </a>
                 </div>
 
-                <v-btn density="compact" color="default" variant="text"
-                       class="ms-2" :icon="true" :disabled="loading"
+                <v-btn density="compact" color="default" variant="text" class="ms-2"
+                       :aria-label="tt('Refresh Accounts, Categories and Tags')" :icon="true" :disabled="loading"
                        :loading="loading"
                        @click="reloadBasisData"
                        v-if="currentStep === 'checkData'">
@@ -26,6 +26,13 @@
                     </template>
                     <v-icon :icon="mdiRefresh" size="22" />
                     <v-tooltip activator="parent">{{ tt('Refresh Accounts, Categories and Tags') }}</v-tooltip>
+                </v-btn>
+
+                <v-btn class="ms-2" density="comfortable" color="primary" variant="outlined"
+                       :disabled="loading || submitting || importTransactionCheckDataTab?.isEditing"
+                       @click="batchApplyRules"
+                       v-if="currentStep === 'checkData'">
+                    {{ tt('Batch Apply Rules') }}
                 </v-btn>
             </template>
 
@@ -51,7 +58,7 @@
                     <v-progress-circular indeterminate size="22" class="ms-2" v-if="submitting"></v-progress-circular>
                 </v-btn>
                 <v-btn density="compact" color="default" variant="text" class="ms-2"
-                       :icon="true" :disabled="loading || submitting"
+                       :aria-label="tt('More')" :disabled="loading || submitting" :icon="true"
                        v-if="currentStep === 'defineColumn' && importTransactionDefineColumnTab?.menus">
                     <v-icon :icon="mdiDotsVertical" />
                     <v-menu activator="parent" max-height="500">
@@ -66,7 +73,7 @@
                     </v-menu>
                 </v-btn>
                 <v-btn density="compact" color="default" variant="text" class="ms-2"
-                       :icon="true" :disabled="loading || submitting"
+                       :aria-label="tt('More')" :disabled="loading || submitting" :icon="true"
                        v-if="currentStep === 'executeCustomScript' && importTransactionExecuteCustomScriptTab?.menus">
                     <v-icon :icon="mdiDotsVertical" />
                     <v-menu activator="parent" max-height="500">
@@ -81,7 +88,7 @@
                     </v-menu>
                 </v-btn>
                 <v-btn density="compact" color="default" variant="text" class="ms-2"
-                       :icon="true" :disabled="loading || submitting"
+                       :aria-label="tt('Filter')" :icon="true" :disabled="loading || submitting || importTransactionCheckDataTab?.isEditing"
                        v-if="currentStep === 'checkData' && importTransactionCheckDataTab?.filterMenus">
                     <v-icon :icon="mdiFilterOutline" />
                     <v-menu activator="parent" max-height="500">
@@ -102,7 +109,7 @@
                     </v-menu>
                 </v-btn>
                 <v-btn density="compact" color="default" variant="text" class="ms-2"
-                       :icon="true" :disabled="loading || submitting"
+                       :aria-label="tt('More')" :icon="true" :disabled="loading || submitting"
                        v-if="currentStep === 'checkData' && importTransactionCheckDataTab?.toolMenus">
                     <v-icon :icon="mdiDotsVertical" />
                     <v-menu activator="parent" max-height="500">
@@ -223,6 +230,7 @@
                                 <v-col cols="12" md="12" v-if="supportedAIAdditionalPrompt">
                                     <v-textarea
                                         type="text"
+                                        autocomplete="off"
                                         persistent-placeholder
                                         rows="2"
                                         :disabled="submitting"
@@ -248,6 +256,7 @@
                                 <v-col cols="12" md="12" v-if="isImportDataFromTextbox">
                                     <v-textarea
                                         type="text"
+                                        autocomplete="off"
                                         persistent-placeholder
                                         rows="5"
                                         :disabled="submitting"
@@ -265,7 +274,7 @@
                                                       color="rgba(0,0,0,0)" @click="removeImportImageFile(picIdx)">
                                                 <v-img :src="imageItem.previewUrl"></v-img>
                                                 <div class="picture-control-icon">
-                                                    <v-icon size="48" :icon="mdiTrashCanOutline" />
+                                                    <v-icon size="48" :aria-label="tt('Remove Picture')" :icon="mdiTrashCanOutline" />
                                                 </div>
                                             </v-avatar>
                                         </div>
@@ -275,7 +284,7 @@
                                                       :class="{ 'enabled': !submitting, 'cursor-pointer': !submitting }"
                                                       color="rgba(0,0,0,0)" @click="showOpenFileDialog">
                                                 <v-tooltip activator="parent" v-if="!submitting">{{ tt('Add Picture') }}</v-tooltip>
-                                                <v-icon class="import-image-add-icon" size="48" :icon="mdiImagePlusOutline" />
+                                                <v-icon class="import-image-add-icon" size="48" :aria-label="tt('Add Picture')" :icon="mdiImagePlusOutline" />
                                             </v-avatar>
                                         </div>
                                     </div>
@@ -1164,6 +1173,14 @@ function parseData(): void {
             }
         });
     }
+}
+
+function batchApplyRules(): void {
+    if (importTransactionCheckDataTab.value?.isEditing) {
+        return;
+    }
+
+    importTransactionCheckDataTab.value?.showBatchApplyRulesDialog();
 }
 
 function submit(): void {

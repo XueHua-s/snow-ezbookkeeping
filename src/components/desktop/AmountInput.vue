@@ -1,6 +1,6 @@
 <template>
-    <v-text-field type="text" class="amount-input text-field-with-colored-label" :class="extraClass"
-                  :color="color" :base-color="color"
+    <v-text-field type="text" class="amount-input text-field-with-colored-label" autocomplete="off"
+                  :class="extraClass" :color="color" :base-color="color"
                   :density="density" :variant="variant" :autofocus="autofocus"
                   :readonly="!!readonly" :disabled="!!disabled"
                   :label="label" :placeholder="placeholder"
@@ -14,15 +14,15 @@
             <div class="text-no-wrap" v-if="currency && appendText">{{ appendText }}</div>
             <v-tooltip :text="tt('Enter formula mode')">
                 <template v-slot:activator="{ props }">
-                    <v-icon class="ms-2" :icon="mdiCalculatorVariantOutline"
+                    <v-icon class="ms-2" :aria-label="tt('Enter formula mode')" :icon="mdiCalculatorVariantOutline"
                             @keydown.enter="enterFormulaMode" @keydown.space="enterFormulaMode" @click="enterFormulaMode"
                             v-bind="props" v-if="enableFormula && !formulaMode"></v-icon>
                 </template>
             </v-tooltip>
         </template>
     </v-text-field>
-    <v-text-field type="text" class="text-field-with-colored-label" :class="extraClass"
-                  :color="color" :base-color="color"
+    <v-text-field type="text" class="text-field-with-colored-label" autocomplete="off"
+                  :class="extraClass" :color="color" :base-color="color"
                   :density="density" :readonly="!!readonly" :disabled="!!disabled"
                   :label="label" :placeholder="placeholder"
                   :persistent-placeholder="!!persistentPlaceholder"
@@ -35,22 +35,22 @@
             <div class="text-no-wrap" v-if="currency && appendText">{{ appendText }}</div>
             <v-tooltip :text="tt('Calculate formula result')">
                 <template v-slot:activator="{ props }">
-                    <v-icon class="ms-2" color="primary" :icon="mdiCheck"
+                    <v-icon class="ms-2" color="primary" :aria-label="tt('Calculate formula result')" :icon="mdiCheck"
                             @click="calculateFormula" v-bind="props"
                             v-if="formulaMode"></v-icon>
                 </template>
             </v-tooltip>
             <v-tooltip :text="tt('Exit formula mode')">
                 <template v-slot:activator="{ props }">
-                    <v-icon class="ms-2" color="secondary" :icon="mdiClose"
+                    <v-icon class="ms-2" color="secondary" :aria-label="tt('Exit formula mode')" :icon="mdiClose"
                             @click="exitFormulaMode" v-bind="props"
                             v-if="formulaMode"></v-icon>
                 </template>
             </v-tooltip>
         </template>
     </v-text-field>
-    <v-text-field type="password" class="text-field-with-colored-label" :class="extraClass"
-                  :color="color" :base-color="color"
+    <v-text-field type="password" class="text-field-with-colored-label" autocomplete="off"
+                  :class="extraClass" :color="color" :base-color="color"
                   :density="density" :readonly="!!readonly" :disabled="!!disabled"
                   :label="label" :placeholder="placeholder"
                   :persistent-placeholder="!!persistentPlaceholder"

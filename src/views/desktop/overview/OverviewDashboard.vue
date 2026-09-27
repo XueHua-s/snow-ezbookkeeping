@@ -5,7 +5,7 @@
         <div class="overview-dashboard-drop-placeholder" :style="getGridPositionStyle(draggingWidget)"
              v-if="draggingWidget"></div>
         <div class="overview-dashboard-item"
-             :class="{ 'overview-dashboard-item-editing': editing, 'overview-dashboard-item-dragging': draggingWidget?.id === widget.id }"
+             :class="{ 'overview-dashboard-item-editing': editing, 'overview-dashboard-item-dragging': draggingWidget?.id === widget.id, 'overview-dashboard-item-fixed-height': isFixedHeightWidget(widget) }"
              :style="getWidgetStyle(widget)" :key="widget.id" v-for="widget in sortedWidgets">
             <overview-widget class="overview-dashboard-widget" :widget="widget" :loading="loading" :editing="editing"
                              @refresh="$emit('refresh')" />
@@ -13,17 +13,19 @@
                 <div class="overview-dashboard-title-drag-area" :aria-label="tt('Move')"
                      @pointerdown="startPointerAction($event, widget, 'move')"></div>
                 <div class="overview-dashboard-editor-toolbar">
-                    <v-btn density="comfortable" color="default" variant="text" class="ma-2" :icon="true"
-                           :aria-label="tt('More')">
+                    <v-btn density="comfortable" color="default" variant="text" class="ma-1"
+                           :aria-label="tt('More')" :disabled="loading" :icon="true">
                         <v-icon :icon="mdiDotsVertical" />
                         <v-tooltip activator="parent">{{ tt('More') }}</v-tooltip>
                         <v-menu activator="parent">
                             <v-list>
-                                <template v-if="DESKTOP_OVERVIEW_WIDGET_DEFINITIONS[widget.type].supportsSettings.length">
+                                <template v-if="DESKTOP_OVERVIEW_WIDGET_DEFINITIONS[widget.type]?.supportsSettings?.length">
                                     <v-list-item :prepend-icon="mdiCogOutline" :title="tt('Settings')"
                                                  @click="$emit('configure', widget)" />
                                     <v-divider class="my-2" />
                                 </template>
+                                <v-list-item :prepend-icon="mdiContentDuplicate" :title="tt('Duplicate')"
+                                             @click="$emit('duplicate', widget)" />
                                 <v-list-item :prepend-icon="mdiDeleteOutline" :title="tt('Delete')"
                                              @click="$emit('remove', widget.id)" />
                             </v-list>
@@ -53,9 +55,9 @@ import OverviewWidget from './OverviewWidget.vue';
 import { useI18n } from '@/locales/helpers.ts';
 
 import {
-    type DesktopOverviewWidgetDefinition,
     type DesktopOverviewLayout,
-    type DesktopOverviewWidgetLayout
+    type DesktopOverviewWidgetLayout,
+    OverviewWidgetType
 } from '@/core/overview_layout.ts';
 import {
     DESKTOP_OVERVIEW_LAYOUT_COLUMNS,
@@ -63,12 +65,13 @@ import {
 } from '@/consts/overview_layout.ts';
 
 import {
-    resolveOverviewWidgetCollisions,
-    compactOverviewWidgets
+    resolveDesktopOverviewWidgetCollisions,
+    compactDesktopOverviewWidgets
 } from '@/lib/overview_layout.ts';
 
 import {
     mdiCogOutline,
+    mdiContentDuplicate,
     mdiDeleteOutline,
     mdiDotsVertical,
     mdiResizeBottomRight,
@@ -105,8 +108,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (e: 'update:layout', value: DesktopOverviewLayout): void;
-    (e: 'configure', value: DesktopOverviewWidgetLayout): void;
     (e: 'add'): void;
+    (e: 'configure', value: DesktopOverviewWidgetLayout): void;
+    (e: 'duplicate', value: DesktopOverviewWidgetLayout): void;
     (e: 'remove', value: string): void;
     (e: 'refresh'): void;
 }>();
@@ -130,6 +134,13 @@ const gridStyle = computed<Record<string, string>>(() => ({
     minHeight: props.layout.widgets.length ? `${rowCount.value * ROW_HEIGHT + (rowCount.value - 1) * GAP}px` : '360px'
 }));
 
+function isFixedHeightWidget(widget: DesktopOverviewWidgetLayout): boolean {
+    return widget.type === OverviewWidgetType.IncomeExpenseTrend ||
+        widget.type === OverviewWidgetType.NetAssetsTrend ||
+        widget.type === OverviewWidgetType.TransactionCalendar ||
+        widget.type === OverviewWidgetType.TransactionCalendarHeatmap;
+}
+
 function getGridPositionStyle(widget: DesktopOverviewWidgetLayout): Record<string, string> {
     return {
         gridColumn: `${widget.x + 1} / span ${widget.w}`,
@@ -141,6 +152,8 @@ function getWidgetStyle(widget: DesktopOverviewWidgetLayout): Record<string, str
     const style: Record<string, string> = getGridPositionStyle(widget);
     const preview: DraggingPreview | null = draggingPreview.value;
 
+    style['--overview-dashboard-item-height'] = `${widget.h * ROW_HEIGHT + (widget.h - 1) * GAP}px`;
+
     if (preview?.id === widget.id) {
         style['position'] = 'fixed';
         style['left'] = `${preview.left}px`;
@@ -149,11 +162,15 @@ function getWidgetStyle(widget: DesktopOverviewWidgetLayout): Record<string, str
         style['height'] = `${preview.height}px`;
     }
 
+    if (props.loading) {
+        style['pointerEvents'] = 'none';
+    }
+
     return style;
 }
 
 function startPointerAction(event: PointerEvent, widget: DesktopOverviewWidgetLayout, action: 'move' | 'resize'): void {
-    if (!props.editing || !grid.value) {
+    if (props.loading || !props.editing || !grid.value) {
         return;
     }
 
@@ -209,10 +226,16 @@ function handlePointerMove(event: PointerEvent): void {
         return;
     }
 
+    const definition = DESKTOP_OVERVIEW_WIDGET_DEFINITIONS[state.widget.type];
+
+    if (!definition) {
+        return;
+    }
+
     const columnWidth: number = (grid.value.clientWidth - GAP * (DESKTOP_OVERVIEW_LAYOUT_COLUMNS - 1)) / DESKTOP_OVERVIEW_LAYOUT_COLUMNS;
     const deltaColumns: number = Math.round((event.clientX - state.startX) / (columnWidth + GAP));
     const deltaRows: number = Math.round((event.clientY - state.startY) / (ROW_HEIGHT + GAP));
-    const definition: DesktopOverviewWidgetDefinition = DESKTOP_OVERVIEW_WIDGET_DEFINITIONS[state.widget.type];
+
     const nextWidget = { ...state.widget, settings: { ...state.widget.settings } };
 
     if (state.action === 'move') {
@@ -232,8 +255,8 @@ function handlePointerMove(event: PointerEvent): void {
     }
 
     const widgets = props.layout.widgets.map(widget => widget.id === nextWidget.id ? nextWidget : widget);
-    const resolvedWidgets = resolveOverviewWidgetCollisions(widgets, nextWidget.id);
-    emit('update:layout', { ...props.layout, widgets: compactOverviewWidgets(resolvedWidgets, nextWidget.id) });
+    const resolvedWidgets = resolveDesktopOverviewWidgetCollisions(widgets, nextWidget.id);
+    emit('update:layout', { ...props.layout, widgets: compactDesktopOverviewWidgets(resolvedWidgets, nextWidget.id) });
 }
 
 function finishPointerAction(event: PointerEvent): void {
@@ -248,7 +271,7 @@ function finishPointerAction(event: PointerEvent): void {
     window.removeEventListener('pointerup', finishPointerAction);
     window.removeEventListener('pointercancel', finishPointerAction);
 
-    emit('update:layout', { ...props.layout, widgets: compactOverviewWidgets(props.layout.widgets) });
+    emit('update:layout', { ...props.layout, widgets: compactDesktopOverviewWidgets(props.layout.widgets) });
 }
 
 onBeforeUnmount(() => {

@@ -5,14 +5,14 @@
                                   @cancel="cancel">
             <template #after-title>
                 <v-btn density="compact" color="default" variant="text" class="ms-2" :icon="true"
-                       :disabled="loading || submitting || recognizing"
+                       :aria-label="tt('Edit')" :disabled="loading || submitting || recognizing"
                        v-if="mode === TransactionEditPageMode.View && originalTransactionEditable"
                        @click="edit">
                     <v-icon :icon="mdiPencilOutline" size="22"/>
                     <v-tooltip activator="parent">{{ tt('Edit') }}</v-tooltip>
                 </v-btn>
                 <v-btn density="compact" color="default" variant="text" class="ms-2" :icon="true"
-                       :disabled="loading || submitting || recognizing"
+                       :aria-label="tt('AI Clipboard Text Recognition')" :disabled="loading || submitting || recognizing"
                        v-if="mode !== TransactionEditPageMode.View && type === TransactionEditPageType.Transaction && activeTab === 'basicInfo' && isTransactionFromAITextRecognitionEnabled()"
                        @click="recognizeFromClipboard">
                     <v-icon :icon="mdiMagicStaff" size="22" v-if="!recognizing"/>
@@ -24,7 +24,8 @@
 
             <template #toolbar>
                 <v-btn density="compact" color="default" variant="text" class="ms-2" :icon="true"
-                       :disabled="loading || submitting || recognizing" v-if="mode !== TransactionEditPageMode.View && (activeTab === 'basicInfo' || (activeTab === 'map' && isSupportGetGeoLocationByClick()))">
+                       :aria-label="tt('More')" :disabled="loading || submitting || recognizing"
+                       v-if="mode !== TransactionEditPageMode.View && (activeTab === 'basicInfo' || (activeTab === 'map' && isSupportGetGeoLocationByClick()))">
                     <v-icon :icon="mdiDotsVertical" size="22" />
                     <v-menu activator="parent">
                         <v-list v-if="activeTab === 'basicInfo'">
@@ -108,6 +109,7 @@
                                 <v-col cols="12" v-if="type === TransactionEditPageType.Template && transaction instanceof TransactionTemplate">
                                     <v-text-field
                                         type="text"
+                                        autocomplete="off"
                                         persistent-placeholder
                                         :disabled="loading || submitting || recognizing"
                                         :label="tt('Template Name')"
@@ -297,13 +299,7 @@
                                         :no-data-text="tt('No results')"
                                         :model-value="transaction.timeZone"
                                         @update:model-value="updateTransactionTimezone"
-                                    >
-                                        <template #selection="{ internalItem }">
-                                                <span class="text-truncate" v-if="transaction.timeZone || transaction.timeZone === ''">
-                                                    {{ internalItem.title }}
-                                                </span>
-                                        </template>
-                                    </v-autocomplete>
+                                    />
                                 </v-col>
                                 <v-col cols="12" md="6" v-if="type === TransactionEditPageType.Template && transaction instanceof TransactionTemplate && transaction.templateType === TemplateType.Schedule.type">
                                     <date-select
@@ -358,6 +354,7 @@
                                 <v-col cols="12" md="12">
                                     <v-textarea
                                         type="text"
+                                        autocomplete="off"
                                         persistent-placeholder
                                         rows="3"
                                         :readonly="mode === TransactionEditPageMode.View"
@@ -404,9 +401,9 @@
                                         </template>
                                     </v-img>
                                     <div class="picture-control-icon" :class="{ 'show-control-icon': pictureInfo.pictureId === removingPictureId }">
-                                        <v-icon size="64" :icon="mdiTrashCanOutline" v-if="(mode === TransactionEditPageMode.Add || mode === TransactionEditPageMode.Edit) && pictureInfo.pictureId !== removingPictureId"/>
+                                        <v-icon size="64" :icon="mdiTrashCanOutline" :aria-label="tt('Remove Picture')" v-if="(mode === TransactionEditPageMode.Add || mode === TransactionEditPageMode.Edit) && pictureInfo.pictureId !== removingPictureId"/>
                                         <v-progress-circular color="grey-500" indeterminate size="48" v-if="(mode === TransactionEditPageMode.Add || mode === TransactionEditPageMode.Edit) && pictureInfo.pictureId === removingPictureId"></v-progress-circular>
-                                        <v-icon size="64" :icon="mdiFullscreen" v-if="mode !== TransactionEditPageMode.Add && mode !== TransactionEditPageMode.Edit"/>
+                                        <v-icon size="64" :icon="mdiFullscreen" :aria-label="tt('View')" v-if="mode !== TransactionEditPageMode.Add && mode !== TransactionEditPageMode.Edit"/>
                                     </div>
                                 </v-avatar>
                             </v-col>
@@ -416,7 +413,7 @@
                                           :class="{ 'enabled': !submitting, 'cursor-pointer': !submitting }"
                                           color="rgba(0,0,0,0)" @click="showOpenPictureDialog">
                                     <v-tooltip activator="parent" v-if="!submitting">{{ tt('Add Picture') }}</v-tooltip>
-                                    <v-icon class="transaction-picture-add-icon" size="56" :icon="mdiImagePlusOutline" v-if="!uploadingPicture"/>
+                                    <v-icon class="transaction-picture-add-icon" size="56" :aria-label="tt('Add Picture')" :icon="mdiImagePlusOutline" v-if="!uploadingPicture"/>
                                     <v-progress-circular color="grey-500" indeterminate size="48" v-if="uploadingPicture"></v-progress-circular>
                                 </v-avatar>
                             </v-col>
@@ -441,7 +438,7 @@
                                     <v-progress-circular indeterminate size="22" class="ms-2" v-if="submitting"></v-progress-circular>
                                 </v-btn>
                                 <v-btn color="primary" density="compact"
-                                       :disabled="inputIsEmpty || loading || submitting || recognizing" :icon="true"
+                                       :aria-label="tt('More')" :disabled="inputIsEmpty || loading || submitting || recognizing" :icon="true"
                                        v-if="type === TransactionEditPageType.Transaction && mode === TransactionEditPageMode.Add">
                                     <v-icon :icon="mdiMenuDown" size="24" />
                                     <v-menu activator="parent">
@@ -461,7 +458,7 @@
                              v-if="mode === TransactionEditPageMode.View && transaction.type !== TransactionType.ModifyBalance">
                     <v-btn :disabled="loading || submitting || recognizing"
                            @click="duplicate(false, false)">{{ tt('Duplicate') }}</v-btn>
-                    <v-btn density="compact" :disabled="loading || submitting || recognizing" :icon="true">
+                    <v-btn density="compact" :aria-label="tt('More')" :disabled="loading || submitting || recognizing" :icon="true">
                         <v-icon :icon="mdiMenuDown" size="24" />
                         <v-menu activator="parent">
                             <v-list>
@@ -494,7 +491,7 @@
             <template #content>
                 <v-textarea no-resize persistent-placeholder
                             class="w-100 h-100 ps-4 always-cursor-text"
-                            rows="10" density="compact" variant="plain" :rounded="false"
+                            rows="10" autocomplete="off" density="compact" variant="plain" :rounded="false"
                             :disabled="recognizing"
                             :placeholder="tt('Click here to paste a transaction description')"
                             v-model="pastedText"></v-textarea>

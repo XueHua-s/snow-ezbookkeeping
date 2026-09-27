@@ -2,10 +2,11 @@ import { keys, keysIfValueEquals, values } from '@/core/base.ts';
 import { NormalizedText } from '@/core/text.ts';
 import { AccountType, AccountCategory } from '@/core/account.ts';
 
-import { PARENT_ACCOUNT_CURRENCY_PLACEHOLDER } from '@/consts/currency.ts';
+import { ACCOUNT_CURRENCY_NOT_SET_VALUE } from '@/consts/currency.ts';
 
 import { type AccountBalance, type CategorizedAccount, Account } from '@/models/account.ts';
 
+import { isDefined } from '@/lib/common.ts';
 import { parseBigDecimal } from '@/lib/numeral.ts';
 
 export function getCategorizedAccountsMap(allAccounts: Account[]): Record<number, CategorizedAccount> {
@@ -155,9 +156,21 @@ export function getAllFilteredAccountsBalance(categorizedAccounts: Record<number
                 continue;
             }
 
+            const creditCardLimit = account.category === AccountCategory.CreditCard.type && account.numericCreditCardLimit && account.numericCreditCardLimit > 0 ? {
+                amount: parseBigDecimal(account.creditCardLimit),
+                currency: account.currency,
+                shareByCount: 0
+            } : undefined;
+
             if (account.type === AccountType.SingleAccount.type) {
+                if (isDefined(creditCardLimit)) {
+                    creditCardLimit.shareByCount = 1;
+                }
+
                 ret.push({
                     balance: parseBigDecimal(account.balance),
+                    category: account.category,
+                    creditCardLimit: creditCardLimit,
                     isAsset: !!account.isAsset,
                     isLiability: !!account.isLiability,
                     currency: account.currency
@@ -168,8 +181,14 @@ export function getAllFilteredAccountsBalance(categorizedAccounts: Record<number
                         continue;
                     }
 
+                    if (isDefined(creditCardLimit)) {
+                        creditCardLimit.shareByCount++;
+                    }
+
                     ret.push({
                         balance: parseBigDecimal(subAccount.balance),
+                        category: account.category,
+                        creditCardLimit: creditCardLimit,
                         isAsset: !!subAccount.isAsset,
                         isLiability: !!subAccount.isLiability,
                         currency: subAccount.currency
@@ -218,7 +237,7 @@ export function getUnifiedSelectedAccountsCurrencyOrDefaultCurrency(allAccountsM
             continue;
         }
 
-        if (account.currency === PARENT_ACCOUNT_CURRENCY_PLACEHOLDER) {
+        if (account.currency === ACCOUNT_CURRENCY_NOT_SET_VALUE) {
             continue;
         }
 
@@ -284,43 +303,43 @@ export function selectAccountOrSubAccounts(filterAccountIds: Record<string, bool
     }
 }
 
-export function selectAll(filterAccountIds: Record<string, boolean>, allAccountsMap: Record<string, Account>): void {
-    for (const accountId of keys(filterAccountIds)) {
+export function selectAll(excludeAccountIds: Record<string, boolean>, allAccountsMap: Record<string, Account>): void {
+    for (const accountId of keys(excludeAccountIds)) {
         const account = allAccountsMap[accountId];
 
         if (account && account.type === AccountType.SingleAccount.type) {
-            filterAccountIds[account.id] = false;
+            excludeAccountIds[account.id] = false;
         }
     }
 }
 
-export function selectNone(filterAccountIds: Record<string, boolean>, allAccountsMap: Record<string, Account>): void {
-    for (const accountId of keys(filterAccountIds)) {
+export function selectNone(excludeAccountIds: Record<string, boolean>, allAccountsMap: Record<string, Account>): void {
+    for (const accountId of keys(excludeAccountIds)) {
         const account = allAccountsMap[accountId];
 
         if (account && account.type === AccountType.SingleAccount.type) {
-            filterAccountIds[account.id] = true;
+            excludeAccountIds[account.id] = true;
         }
     }
 }
 
-export function selectInvert(filterAccountIds: Record<string, boolean>, allAccountsMap: Record<string, Account>): void {
-    for (const accountId of keys(filterAccountIds)) {
+export function selectInvert(excludeAccountIds: Record<string, boolean>, allAccountsMap: Record<string, Account>): void {
+    for (const accountId of keys(excludeAccountIds)) {
         const account = allAccountsMap[accountId];
 
         if (account && account.type === AccountType.SingleAccount.type) {
-            filterAccountIds[account.id] = !filterAccountIds[account.id];
+            excludeAccountIds[account.id] = !excludeAccountIds[account.id];
         }
     }
 }
 
-export function isAccountOrSubAccountsAllChecked(account: Account, filterAccountIds: Record<string, boolean>): boolean {
+export function isAccountOrSubAccountsAllChecked(account: Account, excludeAccountIds: Record<string, boolean>): boolean {
     if (!account.subAccounts) {
-        return !filterAccountIds[account.id];
+        return !excludeAccountIds[account.id];
     }
 
     for (const subAccount of account.subAccounts) {
-        if (filterAccountIds[subAccount.id]) {
+        if (excludeAccountIds[subAccount.id]) {
             return false;
         }
     }
@@ -328,7 +347,7 @@ export function isAccountOrSubAccountsAllChecked(account: Account, filterAccount
     return true;
 }
 
-export function isAccountOrSubAccountsHasButNotAllChecked(account: Account, filterAccountIds: Record<string, boolean>): boolean {
+export function isAccountOrSubAccountsHasButNotAllChecked(account: Account, excludeAccountIds: Record<string, boolean>): boolean {
     if (!account.subAccounts) {
         return false;
     }
@@ -336,10 +355,32 @@ export function isAccountOrSubAccountsHasButNotAllChecked(account: Account, filt
     let checkedCount = 0;
 
     for (const subAccount of account.subAccounts) {
-        if (!filterAccountIds[subAccount.id]) {
+        if (!excludeAccountIds[subAccount.id]) {
             checkedCount++;
         }
     }
 
     return checkedCount > 0 && checkedCount < account.subAccounts.length;
+}
+
+export function isAllAccountsChecked(allAccounts: Account[], includeAccountIds: Record<string, boolean>): boolean {
+    if (!allAccounts || !allAccounts.length) {
+        return true;
+    }
+
+    for (const account of allAccounts) {
+        if (account.type === AccountType.SingleAccount.type) {
+            if (!includeAccountIds[account.id]) {
+                return false;
+            }
+        } else if (account.type === AccountType.MultiSubAccounts.type && account.subAccounts) {
+            for (const subAccount of account.subAccounts) {
+                if (!includeAccountIds[subAccount.id]) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
 }

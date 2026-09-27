@@ -9,7 +9,7 @@
                 ]" v-model="queryAnalysisType" />
             </div>
             <v-divider class="my-2" />
-            <div class="mt-2">
+            <div class="my-2">
                 <span class="mx-3 text-body-medium">{{ tt('Chart Type') }}</span>
                 <v-select
                     item-title="displayName"
@@ -65,7 +65,7 @@
                                 <span>{{ tt('Statistics & Analysis') }}</span>
                                 <v-btn-group class="ms-4" color="default" density="comfortable" variant="outlined" divided>
                                     <v-btn class="button-icon-with-direction" :icon="mdiArrowLeft"
-                                           :disabled="loading || !canShiftDateRange"
+                                           :aria-label="tt('Previous Period')" :disabled="loading || !canShiftDateRange"
                                            @click="shiftDateRange(-1)"/>
                                     <v-menu location="bottom" max-height="500">
                                         <template #activator="{ props }">
@@ -92,7 +92,7 @@
                                         </v-list>
                                     </v-menu>
                                     <v-btn class="button-icon-with-direction" :icon="mdiArrowRight"
-                                           :disabled="loading || !canShiftDateRange"
+                                           :aria-label="tt('Next Period')" :disabled="loading || !canShiftDateRange"
                                            @click="shiftDateRange(1)"/>
                                 </v-btn-group>
 
@@ -128,8 +128,8 @@
                                     </v-list>
                                 </v-menu>
 
-                                <v-btn density="compact" color="default" variant="text"
-                                       class="ms-2" :icon="true" :loading="loading" @click="reload(true)">
+                                <v-btn density="compact" color="default" variant="text" class="ms-2"
+                                       :aria-label="tt('Refresh')" :icon="true" :loading="loading" @click="reload(true)">
                                     <template #loader>
                                         <v-progress-circular indeterminate size="20"/>
                                     </template>
@@ -138,7 +138,7 @@
                                 </v-btn>
                                 <v-spacer/>
                                 <div class="transaction-keyword-filter ms-2">
-                                    <v-text-field density="compact" :disabled="loading"
+                                    <v-text-field autocomplete="off" density="compact" :disabled="loading"
                                                   :prepend-inner-icon="mdiMagnify"
                                                   :append-inner-icon="filterKeyword !== query.keyword ? mdiCheck : undefined"
                                                   :placeholder="tt('Filter transaction description')"
@@ -149,7 +149,7 @@
                                     />
                                 </div>
                                 <v-btn density="comfortable" color="default" variant="text" class="ms-2"
-                                       :disabled="loading" :icon="true">
+                                       :aria-label="tt('More')" :disabled="loading" :icon="true">
                                     <v-icon :icon="mdiDotsVertical" />
                                     <v-menu activator="parent">
                                         <v-list>
@@ -174,7 +174,7 @@
                                                          @click="exportResults"
                                                          v-if="!isQuerySpecialChartType"></v-list-item>
                                             <v-divider class="my-2"/>
-                                            <v-list-item to="/app/settings/statistics"
+                                            <v-list-item to="/settings/statistics"
                                                          :prepend-icon="mdiFilterCogOutline"
                                                          :title="tt('Settings')"></v-list-item>
                                         </v-list>
@@ -323,28 +323,33 @@
                         <v-card-text class="py-0" :class="{ 'readonly': loading }" v-if="queryAnalysisType === StatisticsAnalysisType.CategoricalAnalysis && !isQuerySpecialChartType && query.categoricalChartType === CategoricalChartType.Radar.type">
                             <radar-chart
                                 :items="[
-                                    {name: '---', value: 10},
-                                    {name: '---', value: 10},
-                                    {name: '---', value: 10},
-                                    {name: '---', value: 10},
-                                    {name: '---', value: 10},
-                                    {name: '---', value: 10}
+                                    {
+                                        name: '---',
+                                        values: Array.from({ length: 6 }, () => parseBigDecimal(10)),
+                                        displayOrders: [ 0, 1, 2, 3, 4, 5 ]
+                                    }
                                 ]"
+                                :all-category-names="[ '---', '---', '---', '---', '---', '---' ]"
                                 :value-type="ChartValueType.Amount"
                                 :skeleton="true"
+                                :hide-legend="true"
+                                category-type-name=""
                                 v-if="initing"
                             />
                             <radar-chart
-                                :items="categoricalAnalysisData && categoricalAnalysisData.items && categoricalAnalysisData.items.length ? categoricalAnalysisData.items : []"
+                                :items="radarChartData"
+                                :all-category-names="radarChartCategoryNames"
                                 :value-type="ChartValueType.Amount"
                                 :show-value="showAmountInChart"
                                 :show-percent="showPercentInCategoricalChart"
                                 :default-currency="defaultCurrency"
+                                :category-type-name="tt('Name')"
+                                :hide-legend="true"
                                 v-else-if="!initing"
                             />
                         </v-card-text>
 
-                        <v-card-text class="py-0" :class="{ 'readonly': loading }" v-if="queryAnalysisType === StatisticsAnalysisType.TrendAnalysis">
+                        <v-card-text class="py-0 mt-2" :class="{ 'readonly': loading }" v-if="queryAnalysisType === StatisticsAnalysisType.TrendAnalysis">
                             <trends-chart
                                 chart-mode="monthly"
                                 :type="queryChartType"
@@ -388,7 +393,7 @@
                             />
                         </v-card-text>
 
-                        <v-card-text class="py-0" :class="{ 'readonly': loading }" v-if="queryAnalysisType === StatisticsAnalysisType.AssetTrends">
+                        <v-card-text class="py-0 mt-2" :class="{ 'readonly': loading }" v-if="queryAnalysisType === StatisticsAnalysisType.AssetTrends">
                             <trends-chart
                                 chart-mode="daily"
                                 :type="queryChartType"
@@ -464,7 +469,7 @@
                                             v-model:show="showFilterTagDialog"
                                             @settings:change="setTagFilter" />
 
-    <export-dialog ref="exportDialog" />
+    <data-export-dialog ref="dataExportDialog" />
 
     <snack-bar ref="snackbar" />
 </template>
@@ -472,10 +477,10 @@
 <script setup lang="ts">
 import SnackBar from '@/components/desktop/SnackBar.vue';
 import TrendsChart from '@/components/desktop/TrendsChart.vue';
+import DataExportDialog from '@/components/desktop/DataExportDialog.vue';
 import AccountFilterSettingsDialog from '@/views/desktop/common/dialogs/AccountFilterSettingsDialog.vue';
 import CategoryFilterSettingsDialog from '@/views/desktop/common/dialogs/CategoryFilterSettingsDialog.vue';
 import TransactionTagFilterSettingsDialog from '@/views/desktop/common/dialogs/TransactionTagFilterSettingsDialog.vue';
-import ExportDialog from '@/views/desktop/statistics/transaction/dialogs/ExportDialog.vue';
 
 import { ref, computed, useTemplateRef } from 'vue';
 import { useRouter, onBeforeRouteUpdate } from 'vue-router';
@@ -540,7 +545,7 @@ import {
 
 type SnackBarType = InstanceType<typeof SnackBar>;
 type TrendsChartType = InstanceType<typeof TrendsChart>;
-type ExportDialogType = InstanceType<typeof ExportDialog>;
+type DataExportDialogType = InstanceType<typeof DataExportDialog>;
 
 interface TransactionStatisticsProps {
     initAnalysisType?: string,
@@ -606,6 +611,8 @@ const {
     categoricalOverviewAnalysisData,
     categoricalAnalysisData,
     trendsAnalysisData,
+    radarChartCategoryNames,
+    radarChartData,
     assetTrendsData,
     canShowCustomDateRange,
     getTransactionCategoricalAnalysisDataItemDisplayColor,
@@ -619,7 +626,7 @@ const statisticsStore = useStatisticsStore();
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
 const monthlyTrendsChart = useTemplateRef<TrendsChartType>('monthlyTrendsChart');
 const dailyTrendsChart = useTemplateRef<TrendsChartType>('dailyTrendsChart');
-const exportDialog = useTemplateRef<ExportDialogType>('exportDialog');
+const dataExportDialog = useTemplateRef<DataExportDialogType>('dataExportDialog');
 
 const activeTab = ref<string>('statisticsPage');
 const initing = ref<boolean>(true);
@@ -884,7 +891,9 @@ function reload(force: boolean): Promise<unknown> | null {
             });
         }
     } else if (query.value.chartDataType === ChartDataType.AccountTotalAssets.type ||
-        query.value.chartDataType === ChartDataType.AccountTotalLiabilities.type) {
+        query.value.chartDataType === ChartDataType.AccountTotalLiabilities.type ||
+        query.value.chartDataType === ChartDataType.TotalAssetsByCurrency.type ||
+        query.value.chartDataType === ChartDataType.TotalLiabilitiesByCurrency.type) {
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             dispatchPromise = accountsStore.loadAllAccounts({
                 force: force
@@ -1223,7 +1232,7 @@ function exportResults(): void {
             supportedMermaidCharts = [ ExportMermaidChartType.PieChart ];
         }
 
-        exportDialog.value?.open({
+        dataExportDialog.value?.open({
             headers: [
                 tt('Name'),
                 tt('Amount') + ` (${defaultCurrency.value})`,
@@ -1248,7 +1257,7 @@ function exportResults(): void {
             supportedMermaidCharts = [ ExportMermaidChartType.XYChartLine ];
         }
 
-        exportDialog.value?.open({
+        dataExportDialog.value?.open({
             headers: exportData.headers || [],
             data: exportData.data || [],
             supportedMermaidCharts: supportedMermaidCharts
@@ -1263,7 +1272,7 @@ function exportResults(): void {
             supportedMermaidCharts = [ ExportMermaidChartType.XYChartLine ];
         }
 
-        exportDialog.value?.open({
+        dataExportDialog.value?.open({
             headers: exportData.headers || [],
             data: exportData.data || [],
             supportedMermaidCharts: supportedMermaidCharts

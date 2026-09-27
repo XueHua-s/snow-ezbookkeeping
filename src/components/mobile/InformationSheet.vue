@@ -8,6 +8,7 @@
                     <b>{{ title }}</b>
                     <f7-link class="margin-inline-start-half icon-after-text"
                              icon-only icon-f7="doc_on_doc"
+                             :aria-label="tt('Copy')"
                              @click="copyBackupCodes"
                              v-if="!hint && enableCopy"
                     ></f7-link>
@@ -18,6 +19,7 @@
                     <span>{{ hint }}</span>
                     <f7-link class="icon-after-text"
                              icon-only icon-f7="doc_on_doc"
+                             :aria-label="tt('Copy')"
                              @click="copyBackupCodes"
                              v-if="enableCopy"
                     ></f7-link>
@@ -65,3 +67,9 @@ function onSheetClosed(): void {
     close();
 }
 </script>
+
+<style>
+.code-information-sheet .information-content {
+    font-family: monospace;
+}
+</style>

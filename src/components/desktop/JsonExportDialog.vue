@@ -5,12 +5,12 @@
                                   @cancel="cancel">
             <template #after-title>
                 <div ref="buttonContainer">
-                    <v-btn density="compact" color="default" variant="text" class="ms-2" :icon="true"
+                    <v-btn density="compact" color="default" variant="text" class="ms-2" :aria-label="tt('Copy')" :icon="true"
                            :disabled="!json" @click="copy">
                         <v-icon :icon="mdiContentCopy" size="20" />
                         <v-tooltip activator="parent">{{ tt('Copy') }}</v-tooltip>
                     </v-btn>
-                    <v-btn density="compact" color="default" variant="text" class="ms-1" :icon="true"
+                    <v-btn density="compact" color="default" variant="text" class="ms-1" :aria-label="tt('Save')" :icon="true"
                            :disabled="!json" @click="save">
                         <v-icon :icon="mdiContentSaveOutline" size="22" />
                         <v-tooltip activator="parent">{{ tt('Save') }}</v-tooltip>
@@ -19,11 +19,8 @@
             </template>
 
             <template #content>
-                <div class="w-100 h-100 code-container">
-                    <v-textarea no-resize class="w-100 h-100 ps-3 always-cursor-text"
-                                density="compact" variant="plain"
-                                :readonly="true" :rounded="false"
-                                :value="json"></v-textarea>
+                <div class="w-100 h-100">
+                    <code-editor language="json" :readonly="true" :model-value="json" />
                 </div>
             </template>
         </one-column-dialog-layout>

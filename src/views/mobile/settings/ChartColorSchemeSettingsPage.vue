@@ -4,33 +4,34 @@
             <f7-nav-left :back-link="tt('Back')"></f7-nav-left>
             <f7-nav-title :title="tt('Chart Color Scheme')"></f7-nav-title>
             <f7-nav-right class="navbar-compact-icons">
-                <f7-link icon-f7="ellipsis" @click="showMoreActionSheet = true"></f7-link>
-                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': !canSaveColorScheme }" @click="saveChartColors"></f7-link>
+                <f7-link icon-f7="ellipsis" :aria-label="tt('More')" @click="showMoreActionSheet = true"></f7-link>
+                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': !canSaveColorScheme }" :aria-label="tt('Save')" @click="saveChartColors"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
-        <f7-list ref="colorSchemeList" strong inset dividers sortable sortable-enabled class="margin-top-half chart-color-list"
-                 @sortable:sort="onSort">
-            <f7-list-item :id="getColorDomId(color)"
-                          :key="`${color}_${index}`"
-                          v-for="(color, index) in chartColors">
-                <template #media>
-                    <div class="color-preview-wrapper">
-                        <input type="color" class="color-picker-input"
-                               :value="'#' + color" @input="onColorInput(index, $event)" />
-                        <div class="color-preview-box" :style="{ backgroundColor: '#' + color }"></div>
+        <f7-list ref="colorSchemeList" strong inset dividers sortable sortable-enabled
+                 class="margin-top-half chart-color-list" @sortable:sort="onSort">
+            <f7-list-input readonly type="colorpicker"
+                           :id="`chart_color_${chartColorIds[index]}`"
+                           :key="chartColorIds[index]"
+                           :color-picker-params="{
+                               modules: ['sb-spectrum', 'hue-slider', 'hex'],
+                               hexLabel: false,
+                               hexValueEditable: true
+                           }"
+                           :value="{ hex: '#' + color }"
+                           @colorpicker:change="updateChartColor(index, $event.hex ?? '')"
+                           v-for="(color, index) in chartColors">
+                <template #inner-start>
+                    <ItemIcon icon-type="fixed-f7" icon-id="app_fill" size="36px" :color="color" @click="openColorPicker"></ItemIcon>
+                </template>
+                <template #inner-end>
+                    <div class="chart-color-actions">
+                        <f7-link icon-f7="minus_circle_fill" color="red" :aria-label="tt('Remove')"
+                                 @click="removeColor(index)"></f7-link>
                     </div>
                 </template>
-                <template #title>
-                    <span class="always-ltr">{{ '#' + color.toLowerCase() }}</span>
-                </template>
-                <template #after>
-                    <div class="display-flex align-items-center">
-                        <f7-link icon-f7="minus_circle_fill" color="red"
-                                 @click="removeChartColor(index)"></f7-link>
-                    </div>
-                </template>
-            </f7-list-item>
+            </f7-list-input>
         </f7-list>
 
         <f7-actions close-by-outside-click close-on-escape :opened="showMoreActionSheet" @actions:closed="showMoreActionSheet = false">
@@ -59,6 +60,7 @@
                         <f7-list-input
                             type="textarea"
                             class="import-chart-color-scheme-textarea code-textarea"
+                            autocomplete="off"
                             :placeholder="tt('Each line should be a hex color value (e.g. c67e48 or #c67e48)')"
                             :value="importText"
                             @input="importText = $event.target.value"
@@ -76,7 +78,7 @@
             </f7-page-content>
         </f7-sheet>
 
-        <information-sheet class="backup-code-sheet"
+        <information-sheet class="code-information-sheet"
                            :title="tt('Export')"
                            :information="textualChartColors"
                            :row-count="15"
@@ -97,6 +99,8 @@ import { useChartColorSchemeSettingsPageBase } from '@/views/base/settings/Chart
 
 import type { ColorValue } from '@/core/color.ts';
 
+import { isInteger } from '@/lib/common.ts';
+
 const props = defineProps<{
     f7router: Router.Router;
 }>();
@@ -111,10 +115,10 @@ const {
     filterValidColors,
     addChartColor,
     removeChartColor,
+    updateChartColor,
     resetChartColorsToDefault,
     loadChartColorsFromSettings,
-    saveChartColorsToSettings,
-    onColorInput
+    saveChartColorsToSettings
 } = useChartColorSchemeSettingsPageBase();
 
 const colorSchemeList = useTemplateRef<{ $el: HTMLElement }>('colorSchemeList');
@@ -122,26 +126,27 @@ const colorSchemeList = useTemplateRef<{ $el: HTMLElement }>('colorSchemeList');
 const showMoreActionSheet = ref<boolean>(false);
 const showImportSheet = ref<boolean>(false);
 const showExportSheet = ref<boolean>(false);
+const chartColorIds = ref<number[]>([]);
+const nextChartColorId = ref<number>(0);
 const importText = ref<string>('');
 
-function getColorDomId(color: ColorValue): string {
-    return 'chart_color_' + color;
-}
-
-function parseColorFromDomId(domId: string): string | null {
-    if (!domId || domId.indexOf('chart_color_') !== 0) {
-        return null;
-    }
-
-    return domId.substring(12); // chart_color_
+function resetChartColorIds(): void {
+    chartColorIds.value = chartColors.value.map(() => nextChartColorId.value++);
 }
 
 function init(): void {
     loadChartColorsFromSettings();
+    resetChartColorIds();
+}
+
+function openColorPicker(event: Event): void {
+    const colorInput = (event.currentTarget as HTMLElement | null)?.closest('.item-inner')?.querySelector<HTMLInputElement>('input');
+    colorInput?.click();
 }
 
 function addNewColor(): void {
     addChartColor();
+    chartColorIds.value.push(nextChartColorId.value++);
 
     nextTick(() => {
         colorSchemeList.value?.$el?.querySelector('ul > li:last-child')?.scrollIntoView({
@@ -149,6 +154,11 @@ function addNewColor(): void {
             block: 'nearest'
         });
     });
+}
+
+function removeColor(index: number): void {
+    removeChartColor(index);
+    chartColorIds.value.splice(index, 1);
 }
 
 function saveChartColors(): void {
@@ -159,6 +169,7 @@ function saveChartColors(): void {
 
 function resetToDefault(): void {
     resetChartColorsToDefault();
+    resetChartColorIds();
     showMoreActionSheet.value = false;
 }
 
@@ -171,39 +182,26 @@ function doImport(): void {
     }
 
     textualChartColors.value = importText.value;
+    resetChartColorIds();
     showImportSheet.value = false;
     importText.value = '';
     showToast('Chart color scheme imported');
 }
 
-function onSort(event: { el: { id: string }, from: number, to: number }): void {
-    if (!event || !event.el || !event.el.id) {
+function onSort(event: { from: number, to: number }): void {
+    if (!event || !isInteger(event.from) || !isInteger(event.to) ||
+        event.from < 0 || event.from >= chartColors.value.length ||
+        event.to < 0 || event.to >= chartColors.value.length) {
         showToast('Unable to move color');
         return;
     }
 
-    const colorStr = parseColorFromDomId(event.el.id);
-
-    if (!colorStr) {
-        showToast('Unable to move color');
-        return;
-    }
-
-    let currentColor: ColorValue | null = null;
-
-    for (const color of chartColors.value) {
-        if (color === colorStr) {
-            currentColor = color;
-            break;
-        }
-    }
-
-    if (!currentColor || !chartColors.value[event.to]) {
-        showToast('Unable to move color');
+    if (event.from === event.to) {
         return;
     }
 
     chartColors.value.splice(event.to, 0, chartColors.value.splice(event.from, 1)[0] as ColorValue);
+    chartColorIds.value.splice(event.to, 0, chartColorIds.value.splice(event.from, 1)[0] as number);
 }
 
 function onColorsCopied(): void {
@@ -214,22 +212,6 @@ init();
 </script>
 
 <style>
-.color-preview-wrapper {
-    position: relative;
-    width: 28px;
-    height: 28px;
-}
-
-.color-picker-input {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-}
-
 .color-preview-box {
     width: 28px;
     height: 28px;
@@ -238,8 +220,39 @@ init();
     pointer-events: none;
 }
 
-.chart-color-list .item-content > .item-inner > .item-title {
-    font-family: monospace;
+.chart-color-list {
+    > ul {
+        > li {
+            > .item-input {
+                > .item-inner {
+                    --f7-list-item-padding-vertical: 0px;
+                    flex-direction: row;
+                    align-items: center;
+
+                    input.input-with-value {
+                        margin-inline: 4px;
+                        font-family: monospace;
+                        font-size: var(--f7-list-item-title-font-size);
+                    }
+                }
+            }
+        }
+    }
+}
+
+html[dir="rtl"] .chart-color-list {
+    > ul {
+        > li {
+            > .item-input {
+                > .item-inner {
+                    input.input-with-value {
+                        direction: ltr;
+                        text-align: right;
+                    }
+                }
+            }
+        }
+    }
 }
 
 .import-chart-color-scheme-textarea textarea {

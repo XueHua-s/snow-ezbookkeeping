@@ -1,12 +1,17 @@
 <template>
     <axis-chart class="trends-chart-container" ref="axisChart" values-field="values"
-                :skeleton="skeleton" :type="chartDisplayType" :stacked="stacked" :sorting-type="sortingType"
+                :skeleton="skeleton" :no-animation="noAnimation" :type="chartDisplayType" :stacked="stacked" :sorting-type="sortingType"
                 :show-value="showValue"
                 :show-total-amount-in-tooltip="showTotalAmountInTooltip" :total-name-in-tooltip="tt('Total Amount')"
                 :category-type-name="tt('Date')" :all-category-names="allDisplayDateRanges"
                 :items="allSeriesData" :value-type="valueType"
                 :hide-legend="hideLegend" :legend-position="legendPosition"
-                :hide-x-axis-labels="hideXAxisLabels" :hide-y-axis-labels="hideYAxisLabels"
+                :hide-x-axis-labels="hideXAxisLabels" :hide-x-axis-line="hideXAxisLine"
+                :hide-y-axis-labels="hideYAxisLabels"
+                :hide-horizontal-grid-lines="hideHorizontalGridLines"
+                :hide-line-symbols="hideLineSymbols"
+                :no-margin="noMargin"
+                :smooth-curve="smoothCurve"
                 :translate-name="translateName"
                 :default-currency="defaultCurrency" :use-custom-color="useCustomColor"
                 :enable-click-item="enableClickItem"
@@ -86,13 +91,19 @@ type AxisChartType = InstanceType<typeof AxisChart>;
 
 interface DesktopTrendsChartProps<T extends TrendsChartDateType> extends CommonTrendsChartProps<T> {
     skeleton?: boolean;
+    noAnimation?: boolean;
     type?: number;
     showValue?: boolean;
     showTotalAmountInTooltip?: boolean;
     showYearOverYear?: boolean;
     showPeriodOverPeriod?: boolean;
     hideXAxisLabels?: boolean;
+    hideXAxisLine?: boolean;
     hideYAxisLabels?: boolean;
+    hideHorizontalGridLines?: boolean;
+    hideLineSymbols?: boolean;
+    noMargin?: boolean;
+    smoothCurve?: boolean;
     hideLegend?: boolean;
     legendPosition?: 'top' | 'bottom';
 }
@@ -485,13 +496,12 @@ defineExpose({
 <style scoped>
 .trends-chart-container {
     width: 100%;
-    height: 640px;
-    margin-top: 10px;
+    height: 650px;
 }
 
 @media (min-width: 600px) {
     .trends-chart-container {
-        height: 690px;
+        height: 700px;
     }
 }
 </style>

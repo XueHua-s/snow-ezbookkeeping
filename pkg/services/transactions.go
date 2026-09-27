@@ -842,8 +842,12 @@ func (s *TransactionService) CreateScheduledTransactions(c core.Context, current
 			continue
 		}
 
+		templateTimeZone := time.FixedZone("Template Timezone", int(template.ScheduledTimezoneUtcOffset)*60)
+		transactionUnixTime := todayFirstUnixTimeInUTC + int64(template.ScheduledAt)*60
+		transactionTime := time.Unix(transactionUnixTime, 0).In(templateTimeZone)
+
 		if template.ScheduledFrequencyType == models.TRANSACTION_SCHEDULE_FREQUENCY_TYPE_MONTHLY {
-			maxDayInMonth := utils.GetMaxDayOfMonth(currentTime.Year(), currentTime.Month())
+			maxDayInMonth := utils.GetMaxDayOfMonth(transactionTime.Year(), transactionTime.Month())
 
 			for i := 0; i < len(frequencyValues); i++ {
 				if frequencyValues[i] < 0 {
@@ -853,9 +857,6 @@ func (s *TransactionService) CreateScheduledTransactions(c core.Context, current
 		}
 
 		frequencyValueSet := utils.ToSet(frequencyValues)
-		templateTimeZone := time.FixedZone("Template Timezone", int(template.ScheduledTimezoneUtcOffset)*60)
-		transactionUnixTime := todayFirstUnixTimeInUTC + int64(template.ScheduledAt)*60
-		transactionTime := time.Unix(transactionUnixTime, 0).In(templateTimeZone)
 
 		if template.ScheduledFrequencyType == models.TRANSACTION_SCHEDULE_FREQUENCY_TYPE_WEEKLY && !frequencyValueSet[int64(transactionTime.Weekday())] {
 			skipCount++
@@ -2298,7 +2299,7 @@ func (s *TransactionService) GetRelatedTransferTransaction(originalTransaction *
 }
 
 // GetAccountsTotalIncomeAndExpense returns the every accounts total income and expense amount by specific date range
-func (s *TransactionService) GetAccountsTotalIncomeAndExpense(c core.Context, uid int64, startUnixTime int64, endUnixTime int64, excludeAccountIds []int64, excludeCategoryIds []int64, clientTimezone *time.Location, useTransactionTimezone bool) (map[int64]*big.Int, map[int64]*big.Int, error) {
+func (s *TransactionService) GetAccountsTotalIncomeAndExpense(c core.Context, uid int64, startUnixTime int64, endUnixTime int64, excludeAccountIds []int64, excludeCategoryIds []int64, tagFilters []*models.TransactionTagFilter, clientTimezone *time.Location, useTransactionTimezone bool) (map[int64]*big.Int, map[int64]*big.Int, error) {
 	if uid <= 0 {
 		return nil, nil, errs.ErrUserIdInvalid
 	}
@@ -2306,7 +2307,7 @@ func (s *TransactionService) GetAccountsTotalIncomeAndExpense(c core.Context, ui
 	startLocalDateTime := utils.FormatUnixTimeToNumericLocalDateTime(startUnixTime, clientTimezone)
 	endLocalDateTime := utils.FormatUnixTimeToNumericLocalDateTime(endUnixTime, clientTimezone)
 
-	allTransactions, err := s.getAllTransactionsInSpecifiedDateRange(c, uid, startUnixTime, endUnixTime, excludeAccountIds, excludeCategoryIds, clientTimezone)
+	allTransactions, err := s.getAllTransactionsInSpecifiedDateRange(c, uid, startUnixTime, endUnixTime, excludeAccountIds, excludeCategoryIds, tagFilters, clientTimezone)
 
 	if err != nil {
 		return nil, nil, err
@@ -2351,7 +2352,7 @@ func (s *TransactionService) GetAccountsTotalIncomeAndExpense(c core.Context, ui
 }
 
 // GetAccountsDailyIncomeAndExpense returns daily income and expense amounts grouped by account
-func (s *TransactionService) GetAccountsDailyIncomeAndExpense(c core.Context, uid int64, startUnixTime int64, endUnixTime int64, excludeAccountIds []int64, excludeCategoryIds []int64, clientTimezone *time.Location, useTransactionTimezone bool) (map[int32]map[int64]*big.Int, map[int32]map[int64]*big.Int, error) {
+func (s *TransactionService) GetAccountsDailyIncomeAndExpense(c core.Context, uid int64, startUnixTime int64, endUnixTime int64, excludeAccountIds []int64, excludeCategoryIds []int64, tagFilters []*models.TransactionTagFilter, clientTimezone *time.Location, useTransactionTimezone bool) (map[int32]map[int64]*big.Int, map[int32]map[int64]*big.Int, error) {
 	if uid <= 0 {
 		return nil, nil, errs.ErrUserIdInvalid
 	}
@@ -2359,7 +2360,7 @@ func (s *TransactionService) GetAccountsDailyIncomeAndExpense(c core.Context, ui
 	startLocalDateTime := utils.FormatUnixTimeToNumericLocalDateTime(startUnixTime, clientTimezone)
 	endLocalDateTime := utils.FormatUnixTimeToNumericLocalDateTime(endUnixTime, clientTimezone)
 
-	allTransactions, err := s.getAllTransactionsInSpecifiedDateRange(c, uid, startUnixTime, endUnixTime, excludeAccountIds, excludeCategoryIds, clientTimezone)
+	allTransactions, err := s.getAllTransactionsInSpecifiedDateRange(c, uid, startUnixTime, endUnixTime, excludeAccountIds, excludeCategoryIds, tagFilters, clientTimezone)
 
 	if err != nil {
 		return nil, nil, err
@@ -2986,7 +2987,7 @@ func (s *TransactionService) updateAccountBalance(sess *xorm.Session, account *m
 	return updatedRows, err
 }
 
-func (s *TransactionService) getAllTransactionsInSpecifiedDateRange(c core.Context, uid int64, startUnixTime int64, endUnixTime int64, excludeAccountIds []int64, excludeCategoryIds []int64, clientTimezone *time.Location) ([]*models.Transaction, error) {
+func (s *TransactionService) getAllTransactionsInSpecifiedDateRange(c core.Context, uid int64, startUnixTime int64, endUnixTime int64, excludeAccountIds []int64, excludeCategoryIds []int64, tagFilters []*models.TransactionTagFilter, clientTimezone *time.Location) ([]*models.Transaction, error) {
 	startUnixTime = utils.GetMinUnixTimeWithSameLocalDateTime(startUnixTime, utils.GetTimezoneOffsetMinutes(startUnixTime, clientTimezone))
 	endUnixTime = utils.GetMaxUnixTimeWithSameLocalDateTime(endUnixTime, utils.GetTimezoneOffsetMinutes(endUnixTime, clientTimezone))
 
@@ -3048,7 +3049,10 @@ func (s *TransactionService) getAllTransactionsInSpecifiedDateRange(c core.Conte
 		finalConditionParams = append(finalConditionParams, minTransactionTime)
 		finalConditionParams = append(finalConditionParams, maxTransactionTime)
 
-		err := s.UserDataDB(uid).NewSession(c).Select("type, account_id, transaction_time, timezone_utc_offset, amount").Where(condition, finalConditionParams...).Limit(pageCountForLoadTransactionAmounts, 0).OrderBy("transaction_time desc").Find(&transactions)
+		sess := s.UserDataDB(uid).NewSession(c).Select("type, account_id, transaction_time, timezone_utc_offset, amount").Where(condition, finalConditionParams...)
+		sess = s.appendFilterTagIdsConditionToQuery(sess, uid, maxTransactionTime, minTransactionTime, tagFilters, false)
+
+		err := sess.Limit(pageCountForLoadTransactionAmounts, 0).OrderBy("transaction_time desc").Find(&transactions)
 
 		if err != nil {
 			return nil, err

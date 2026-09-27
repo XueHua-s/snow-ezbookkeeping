@@ -1,30 +1,65 @@
+import type { PartialRecord } from '@/core/base.ts';
 import { DateRange } from '@/core/datetime.ts';
-import { AccountCategory } from '@/core/account.ts';
 import { TransactionType } from '@/core/transaction.ts';
+import { TrendChartType } from '@/core/statistics.ts';
+import { TransactionCalendarHeatmapOutlierColorMode } from '@/core/chart.ts';
 import {
+    type OverviewWidgetSettingValue,
+    type OverviewWidgetSwitchSettingItem,
+    type OverviewWidgetColorSettingItem,
+    type OverviewWidgetTextboxSettingItem,
     type DesktopOverviewLayout,
     type DesktopOverviewWidgetDefinition,
-    type DesktopOverviewWidgetTextboxSetting,
+    type MobileOverviewLayout,
+    type MobileOverviewWidgetDefinition,
     OverviewWidgetType,
     OverviewWidgetDataRequirement
 } from '@/core/overview_layout.ts';
 
+import {
+    DEFAULT_MOBILE_OVERVIEW_WIDGET_DARK_BACKGROUND_COLOR,
+    DEFAULT_MOBILE_OVERVIEW_WIDGET_LIGHT_BACKGROUND_COLOR
+} from '@/consts/color.ts';
+
 export const DESKTOP_OVERVIEW_LAYOUT_COLUMNS: number = 12;
 export const DESKTOP_OVERVIEW_LAYOUT_MAX_WIDGETS: number = 100;
 export const DESKTOP_OVERVIEW_LAYOUT_MAX_ROWS: number = 1000;
+export const MOBILE_OVERVIEW_LAYOUT_MAX_WIDGETS: number = 100;
+export const RECENT_TRANSACTIONS_WIDGET_DEFAULT_ITEM_COUNT: number = 3;
 
-const WIDGET_TITLE_SETTING: DesktopOverviewWidgetTextboxSetting = {
+const WIDGET_TITLE_SETTING: OverviewWidgetTextboxSettingItem = {
     settingType: 'textbox',
     settingName: 'title',
     displayName: 'Widget Title',
     placeholder: 'Widget Title'
 };
 
-export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, DesktopOverviewWidgetDefinition> = {
+const WIDGET_SHOW_TITLE_SETTING: OverviewWidgetSwitchSettingItem = {
+    settingType: 'switch',
+    settingName: 'showTitle',
+    displayName: 'Show Title'
+};
+
+const WIDGET_BACKGROUND_COLOR_SETTINGS: OverviewWidgetColorSettingItem[] = [
+    {
+        settingType: 'color',
+        settingName: 'lightBackgroundColor',
+        displayName: 'Light Mode Background Color'
+    },
+    {
+        settingType: 'color',
+        settingName: 'darkBackgroundColor',
+        displayName: 'Dark Mode Background Color'
+    }
+];
+
+export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: PartialRecord<OverviewWidgetType, DesktopOverviewWidgetDefinition> = {
     [OverviewWidgetType.AssetSummary]: {
         type: OverviewWidgetType.AssetSummary,
         name: 'Asset Summary',
-        supportsSettings: [WIDGET_TITLE_SETTING],
+        supportsSettings: [
+            WIDGET_TITLE_SETTING
+        ],
         defaultSettings: {},
         defaultWidth: 8,
         defaultHeight: 3,
@@ -40,19 +75,10 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
         supportsSettings: [
             WIDGET_TITLE_SETTING,
             {
-                settingType: 'customSelect',
-                settingName: 'accountCategories',
-                displayName: 'Account Category',
-                selectValues: [
-                    { name: 'All', value: 0 },
-                    ...AccountCategory.values().map(category => ({
-                        name: category.name,
-                        value: category.type
-                    }))
-                ],
-                multiple: true,
-                allValue: 0,
-                selectValueSource: 'accountCategories'
+                settingType: 'accountSelect',
+                settingName: 'accountIds',
+                displayName: 'Account',
+                disableHiddenAccounts: true
             },
             {
                 settingType: 'itemCountSelect',
@@ -74,12 +100,24 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
                         value: 'balance'
                     }
                 ]
+            },
+            {
+                settingType: 'switch',
+                settingName: 'alwaysShowAmount',
+                displayName: 'Always Show Amount'
+            },
+            {
+                settingType: 'switch',
+                settingName: 'showAvailableCreditForCreditCard',
+                displayName: 'Show Available Credit for Credit Cards'
             }
         ],
         defaultSettings: {
-            accountCategories: [0],
+            accountIds: [],
             itemCount: 4,
             sortBy: 'displayOrder',
+            alwaysShowAmount: false,
+            showAvailableCreditForCreditCard: false
         },
         defaultWidth: 3,
         defaultHeight: 3,
@@ -105,7 +143,9 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
     [OverviewWidgetType.CurrentMonthExpenseProgress]: {
         type: OverviewWidgetType.CurrentMonthExpenseProgress,
         name: 'This Month\'s Expense Progress',
-        supportsSettings: [WIDGET_TITLE_SETTING],
+        supportsSettings: [
+            WIDGET_TITLE_SETTING
+        ],
         defaultSettings: {},
         defaultWidth: 3,
         defaultHeight: 3,
@@ -183,10 +223,50 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
         supportsSettings: [
             WIDGET_TITLE_SETTING,
             {
+                settingType: 'customSelect',
+                settingName: 'transactionTypes',
+                displayName: 'Transaction Type',
+                selectValues: [
+                    {
+                        name: 'Income',
+                        value: TransactionType.Income
+                    },
+                    {
+                        name: 'Expense',
+                        value: TransactionType.Expense
+                    }
+                ],
+                multiple: true,
+                minSelections: 1
+            },
+            {
+                settingType: 'customSelect',
+                settingName: 'chartType',
+                displayName: 'Chart Type',
+                selectValues: [
+                    {
+                        name: TrendChartType.Column.name,
+                        value: TrendChartType.Column.type
+                    },
+                    {
+                        name: TrendChartType.Area.name,
+                        value: TrendChartType.Area.type
+                    }
+                ]
+            },
+            {
                 settingType: 'monthSelect',
                 settingName: 'months',
                 displayName: 'Date Range',
                 monthValues: [6, 12]
+            },
+            {
+                settingType: 'switch',
+                settingName: 'smoothCurve',
+                displayName: 'Smooth Curve',
+                condition: (settings?: Record<string, OverviewWidgetSettingValue>) => {
+                    return settings?.['chartType'] === TrendChartType.Area.type;
+                }
             },
             {
                 settingType: 'switch',
@@ -200,7 +280,13 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
             }
         ],
         defaultSettings: {
+            chartType: TrendChartType.Column.type,
+            transactionTypes: [
+                TransactionType.Income,
+                TransactionType.Expense
+            ],
             months: 12,
+            smoothCurve: false,
             showXAxisLabels: true,
             showLegend: true
         },
@@ -225,6 +311,11 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
             },
             {
                 settingType: 'switch',
+                settingName: 'smoothCurve',
+                displayName: 'Smooth Curve'
+            },
+            {
+                settingType: 'switch',
                 settingName: 'showXAxisLabels',
                 displayName: 'Show Horizontal Axis Labels'
             },
@@ -236,6 +327,7 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
         ],
         defaultSettings: {
             months: 12,
+            smoothCurve: false,
             showXAxisLabels: true,
             showLegend: true
         },
@@ -312,10 +404,42 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
                 settingName: 'itemCount',
                 displayName: 'Item Count',
                 itemCountValues: [3, 4, 5, 6, 7, 8, 9, 10]
+            },
+            {
+
+                settingType: 'accountSelect',
+                settingName: 'accountIds',
+                displayName: 'Account'
+            },
+            {
+                settingType: 'categorySelect',
+                settingName: 'categoryIds',
+                displayName: 'Category'
+            },
+            {
+                settingType: 'tagSelect',
+                settingName: 'tagFilter',
+                displayName: 'Tags'
+            },
+            {
+                settingType: 'amountFilter',
+                settingName: 'amountFilter',
+                displayName: 'Amount'
+            },
+            {
+                settingType: 'textbox',
+                settingName: 'keyword',
+                displayName: 'Description',
+                placeholder: 'Filter Description'
             }
         ],
         defaultSettings: {
-            itemCount: 3
+            itemCount: RECENT_TRANSACTIONS_WIDGET_DEFAULT_ITEM_COUNT,
+            accountIds: [],
+            categoryIds: [],
+            tagFilter: '',
+            amountFilter: '',
+            keyword: ''
         },
         defaultWidth: 3,
         defaultHeight: 3,
@@ -323,6 +447,55 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
         minHeight: 3,
         dataRequirements: [
             OverviewWidgetDataRequirement.RecentTransactions
+        ]
+    },
+    [OverviewWidgetType.TransactionCalendar]: {
+        type: OverviewWidgetType.TransactionCalendar,
+        name: 'Transaction Calendar',
+        supportsSettings: [
+            WIDGET_TITLE_SETTING,
+            {
+                settingType: 'customSelect',
+                settingName: 'transactionTypes',
+                displayName: 'Transaction Type',
+                selectValues: [
+                    {
+                        name: 'Income',
+                        value: TransactionType.Income
+                    },
+                    {
+                        name: 'Expense',
+                        value: TransactionType.Expense
+                    }
+                ],
+                multiple: true,
+                minSelections: 1
+            },
+            {
+                settingType: 'switch',
+                settingName: 'showAlternateDate',
+                displayName: 'Show Alternate Date'
+            },
+            {
+                settingType: 'switch',
+                settingName: 'showAmount',
+                displayName: 'Show Amount'
+            }
+        ],
+        defaultSettings: {
+            transactionTypes: [
+                TransactionType.Income,
+                TransactionType.Expense
+            ],
+            showAlternateDate: true,
+            showAmount: true
+        },
+        defaultWidth: 6,
+        defaultHeight: 6,
+        minWidth: 3,
+        minHeight: 6,
+        dataRequirements: [
+            OverviewWidgetDataRequirement.CurrentMonthTransactions
         ]
     },
     [OverviewWidgetType.TransactionCalendarHeatmap]: {
@@ -350,11 +523,50 @@ export const DESKTOP_OVERVIEW_WIDGET_DEFINITIONS: Record<OverviewWidgetType, Des
                 settingName: 'months',
                 displayName: 'Date Range',
                 monthValues: [6, 12]
+            },
+            {
+                settingType: 'customSelect',
+                settingName: 'outlierColorMode',
+                displayName: 'Color Outliers Separately',
+                selectValues: [
+                    {
+                        name: 'Disabled',
+                        value: TransactionCalendarHeatmapOutlierColorMode.Disabled
+                    },
+                    {
+                        name: 'Days with Highest Amounts',
+                        value: TransactionCalendarHeatmapOutlierColorMode.TopCount
+                    },
+                    {
+                        name: 'Amount Threshold',
+                        value: TransactionCalendarHeatmapOutlierColorMode.AboveAmount
+                    }
+                ]
+            },
+            {
+                settingType: 'itemCountSelect',
+                settingName: 'outlierTopCount',
+                displayName: 'Outlier Day Count',
+                itemCountValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                condition: (settings?: Record<string, OverviewWidgetSettingValue>) => {
+                    return settings?.['outlierColorMode'] === TransactionCalendarHeatmapOutlierColorMode.TopCount;
+                }
+            },
+            {
+                settingType: 'amount',
+                settingName: 'outlierAmountThreshold',
+                displayName: 'Outlier Amount Threshold',
+                condition: (settings?: Record<string, OverviewWidgetSettingValue>) => {
+                    return settings?.['outlierColorMode'] === TransactionCalendarHeatmapOutlierColorMode.AboveAmount;
+                }
             }
         ],
         defaultSettings: {
             transactionType: TransactionType.Expense,
-            months: 12
+            months: 12,
+            outlierColorMode: TransactionCalendarHeatmapOutlierColorMode.Disabled,
+            outlierTopCount: 1,
+            outlierAmountThreshold: 0
         },
         defaultWidth: 6,
         defaultHeight: 3,
@@ -387,10 +599,69 @@ export const DEFAULT_DESKTOP_OVERVIEW_LAYOUT: DesktopOverviewLayout = {
             settings: {}
         },
         {
-            id: 'default-period-today',
-            type: OverviewWidgetType.PeriodIncomeExpense,
+            id: 'default-transaction-calendar-heatmap',
+            type: OverviewWidgetType.TransactionCalendarHeatmap,
             x: 0,
             y: 3,
+            w: 8,
+            h: 3,
+            settings: {
+                transactionType: TransactionType.Expense,
+                months: 12
+            }
+        },
+        {
+            id: 'default-transaction-calendar',
+            type: OverviewWidgetType.TransactionCalendar,
+            x: 8,
+            y: 3,
+            w: 4,
+            h: 6,
+            settings: {
+                transactionTypes: [
+                    TransactionType.Income,
+                    TransactionType.Expense
+                ],
+                showAlternateDate: false,
+                showAmount: true
+            }
+        },
+        {
+            id: 'default-expense-category-ranking',
+            type: OverviewWidgetType.ExpenseCategoryRanking,
+            x: 0,
+            y: 6,
+            w: 4,
+            h: 3,
+            settings: {
+                dateRange: DateRange.ThisMonth.type,
+                categoryLevel: 'primary',
+                itemCount: 3
+            }
+        },
+        {
+            id: 'default-expense-trend',
+            type: OverviewWidgetType.IncomeExpenseTrend,
+            x: 4,
+            y: 6,
+            w: 4,
+            h: 3,
+            settings: {
+                chartType: TrendChartType.Area.type,
+                transactionTypes: [
+                    TransactionType.Expense
+                ],
+                months: 12,
+                smoothCurve: true,
+                showXAxisLabels: false,
+                showLegend: false
+            }
+        },
+        {
+            id: 'default-today-income-expense',
+            type: OverviewWidgetType.PeriodIncomeExpense,
+            x: 0,
+            y: 9,
             w: 3,
             h: 3,
             settings: {
@@ -398,10 +669,10 @@ export const DEFAULT_DESKTOP_OVERVIEW_LAYOUT: DesktopOverviewLayout = {
             }
         },
         {
-            id: 'default-period-week',
+            id: 'default-week-income-expense',
             type: OverviewWidgetType.PeriodIncomeExpense,
             x: 3,
-            y: 3,
+            y: 9,
             w: 3,
             h: 3,
             settings: {
@@ -409,10 +680,10 @@ export const DEFAULT_DESKTOP_OVERVIEW_LAYOUT: DesktopOverviewLayout = {
             }
         },
         {
-            id: 'default-period-month',
+            id: 'default-month-income-expense',
             type: OverviewWidgetType.PeriodIncomeExpense,
-            x: 0,
-            y: 6,
+            x: 6,
+            y: 9,
             w: 3,
             h: 3,
             settings: {
@@ -420,27 +691,374 @@ export const DEFAULT_DESKTOP_OVERVIEW_LAYOUT: DesktopOverviewLayout = {
             }
         },
         {
-            id: 'default-period-year',
+            id: 'default-year-income-expense',
             type: OverviewWidgetType.PeriodIncomeExpense,
-            x: 3,
-            y: 6,
+            x: 9,
+            y: 9,
             w: 3,
             h: 3,
             settings: {
                 dateRange: DateRange.ThisYear.type
             }
+        }
+    ]
+};
+
+export const MOBILE_OVERVIEW_WIDGET_DEFINITIONS: PartialRecord<OverviewWidgetType, MobileOverviewWidgetDefinition> = {
+    [OverviewWidgetType.AssetSummary]: {
+        type: OverviewWidgetType.AssetSummary,
+        name: 'Asset Summary',
+        supportsSettings: [
+            {
+                settingType: 'customSelect',
+                settingName: 'height',
+                displayName: 'Widget Height',
+                selectValues: [
+                    { name: 'Small', value: 1 },
+                    { name: 'Medium', value: 2 },
+                    { name: 'Large', value: 3 }
+                ]
+            },
+            ...WIDGET_BACKGROUND_COLOR_SETTINGS
+        ],
+        defaultSettings: {
+            height: 3,
+            lightBackgroundColor: DEFAULT_MOBILE_OVERVIEW_WIDGET_LIGHT_BACKGROUND_COLOR,
+            darkBackgroundColor: DEFAULT_MOBILE_OVERVIEW_WIDGET_DARK_BACKGROUND_COLOR
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.Accounts
+        ]
+    },
+    [OverviewWidgetType.AccountBalanceList]: {
+        type: OverviewWidgetType.AccountBalanceList,
+        name: 'Account Balance List',
+        supportsSettings: [
+            WIDGET_TITLE_SETTING,
+            WIDGET_SHOW_TITLE_SETTING,
+            {
+                settingType: 'accountSelect',
+                settingName: 'accountIds',
+                displayName: 'Account',
+                disableHiddenAccounts: true
+            },
+            {
+                settingType: 'itemCountSelect',
+                settingName: 'itemCount',
+                displayName: 'Item Count',
+                itemCountValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            },
+            {
+                settingType: 'customSelect',
+                settingName: 'sortBy',
+                displayName: 'Sort By',
+                selectValues: [
+                    {
+                        name: 'Display Order',
+                        value: 'displayOrder'
+                    },
+                    {
+                        name: 'Balance',
+                        value: 'balance'
+                    }
+                ]
+            },
+            {
+                settingType: 'switch',
+                settingName: 'alwaysShowAmount',
+                displayName: 'Always Show Amount'
+            },
+            {
+                settingType: 'switch',
+                settingName: 'showAvailableCreditForCreditCard',
+                displayName: 'Show Available Credit for Credit Cards'
+            }
+        ],
+        defaultSettings: {
+            showTitle: false,
+            accountIds: [],
+            itemCount: 4,
+            sortBy: 'displayOrder',
+            alwaysShowAmount: false,
+            showAvailableCreditForCreditCard: false
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.Accounts
+        ]
+    },
+    [OverviewWidgetType.CurrentMonthOverview]: {
+        type: OverviewWidgetType.CurrentMonthOverview,
+        name: 'This Month\'s Income and Expense Overview',
+        supportsSettings: [
+            {
+                settingType: 'customSelect',
+                settingName: 'height',
+                displayName: 'Widget Height',
+                selectValues: [
+                    { name: 'Small', value: 1 },
+                    { name: 'Medium', value: 2 },
+                    { name: 'Large', value: 3 }
+                ]
+            },
+            ...WIDGET_BACKGROUND_COLOR_SETTINGS
+        ],
+        defaultSettings: {
+            height: 3,
+            lightBackgroundColor: DEFAULT_MOBILE_OVERVIEW_WIDGET_LIGHT_BACKGROUND_COLOR,
+            darkBackgroundColor: DEFAULT_MOBILE_OVERVIEW_WIDGET_DARK_BACKGROUND_COLOR
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.TransactionOverview
+        ]
+    },
+    [OverviewWidgetType.CurrentMonthExpenseProgress]: {
+        type: OverviewWidgetType.CurrentMonthExpenseProgress,
+        name: 'This Month\'s Expense Progress',
+        supportsSettings: [
+            WIDGET_TITLE_SETTING,
+            WIDGET_SHOW_TITLE_SETTING
+        ],
+        defaultSettings: {
+            showTitle: false
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.TransactionOverviewLast2Months
+        ]
+    },
+    [OverviewWidgetType.PeriodIncomeExpense]: {
+        type: OverviewWidgetType.PeriodIncomeExpense,
+        name: 'Period Income and Expense',
+        supportsSettings: [
+            {
+                settingType: 'customSelect',
+                settingName: 'dateRanges',
+                displayName: 'Date Range',
+                selectValues: [
+                    DateRange.Today,
+                    DateRange.ThisWeek,
+                    DateRange.ThisMonth,
+                    DateRange.ThisYear
+                ].map(dateRange => ({
+                    name: dateRange.name,
+                    value: dateRange.type
+                })),
+                multiple: true
+            }
+        ],
+        defaultSettings: {
+            dateRanges: [
+                DateRange.Today.type,
+                DateRange.ThisWeek.type,
+                DateRange.ThisMonth.type,
+                DateRange.ThisYear.type
+            ]
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.TransactionOverview
+        ]
+    },
+    [OverviewWidgetType.PeriodNetIncomeAndSavingsRate]: {
+        type: OverviewWidgetType.PeriodNetIncomeAndSavingsRate,
+        name: 'Period Net Income and Savings Rate',
+        supportsSettings: [
+            WIDGET_TITLE_SETTING,
+            WIDGET_SHOW_TITLE_SETTING,
+            {
+                settingType: 'customSelect',
+                settingName: 'dateRange',
+                displayName: 'Date Range',
+                selectValues: [
+                    DateRange.Today,
+                    DateRange.ThisWeek,
+                    DateRange.ThisMonth,
+                    DateRange.ThisYear
+                ].map(dateRange => ({ name: dateRange.name, value: dateRange.type }))
+            }
+        ],
+        defaultSettings: {
+            showTitle: false,
+            dateRange: DateRange.ThisMonth.type
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.TransactionOverview
+        ]
+    },
+    [OverviewWidgetType.ExpenseCategoryRanking]: {
+        type: OverviewWidgetType.ExpenseCategoryRanking,
+        name: 'Expense Category Ranking',
+        supportsSettings: [
+            WIDGET_TITLE_SETTING,
+            WIDGET_SHOW_TITLE_SETTING,
+            {
+                settingType: 'customSelect',
+                settingName: 'dateRange',
+                displayName: 'Date Range',
+                selectValues: [
+                    DateRange.ThisMonth,
+                    DateRange.ThisYear
+                ].map(dateRange => ({
+                    name: dateRange.name,
+                    value: dateRange.type
+                }))
+            },
+            {
+                settingType: 'customSelect',
+                settingName: 'categoryLevel',
+                displayName: 'Category Level',
+                selectValues: [
+                    {
+                        name: 'Primary Category',
+                        value: 'primary'
+                    },
+                    {
+                        name: 'Secondary Category',
+                        value: 'secondary'
+                    }
+                ]
+            },
+            {
+                settingType: 'itemCountSelect',
+                settingName: 'itemCount',
+                displayName: 'Item Count',
+                itemCountValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            }
+        ],
+        defaultSettings: {
+            showTitle: false,
+            dateRange: DateRange.ThisMonth.type,
+            categoryLevel: 'primary',
+            itemCount: 4
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.Accounts,
+            OverviewWidgetDataRequirement.TransactionCategories,
+            OverviewWidgetDataRequirement.TransactionCategoryStatistics
+        ]
+    },
+    [OverviewWidgetType.RecentTransactions]: {
+        type: OverviewWidgetType.RecentTransactions,
+        name: 'Recent Transactions',
+        supportsSettings: [
+            WIDGET_TITLE_SETTING,
+            WIDGET_SHOW_TITLE_SETTING,
+            {
+                settingType: 'itemCountSelect',
+                settingName: 'itemCount',
+                displayName: 'Item Count',
+                itemCountValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            },
+            {
+                settingType: 'accountSelect',
+                settingName: 'accountIds',
+                displayName: 'Account'
+            },
+            {
+                settingType: 'categorySelect',
+                settingName: 'categoryIds',
+                displayName: 'Category'
+            },
+            {
+                settingType: 'tagSelect',
+                settingName: 'tagFilter',
+                displayName: 'Tags'
+            },
+            {
+                settingType: 'amountFilter',
+                settingName: 'amountFilter',
+                displayName: 'Amount'
+            },
+            {
+                settingType: 'textbox',
+                settingName: 'keyword',
+                displayName: 'Description',
+                placeholder: 'Filter Description'
+            }
+        ],
+        defaultSettings: {
+            showTitle: false,
+            itemCount: RECENT_TRANSACTIONS_WIDGET_DEFAULT_ITEM_COUNT,
+            accountIds: [],
+            categoryIds: [],
+            tagFilter: '',
+            amountFilter: '',
+            keyword: ''
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.RecentTransactions
+        ]
+    },
+    [OverviewWidgetType.TransactionCalendar]: {
+        type: OverviewWidgetType.TransactionCalendar,
+        name: 'Transaction Calendar',
+        supportsSettings: [
+            {
+                settingType: 'customSelect',
+                settingName: 'transactionTypes',
+                displayName: 'Transaction Type',
+                selectValues: [
+                    {
+                        name: 'Income',
+                        value: TransactionType.Income
+                    },
+                    {
+                        name: 'Expense',
+                        value: TransactionType.Expense
+                    }
+                ],
+                multiple: true,
+                minSelections: 1
+            },
+            {
+                settingType: 'switch',
+                settingName: 'showAlternateDate',
+                displayName: 'Show Alternate Date'
+            },
+            {
+                settingType: 'switch',
+                settingName: 'showAmount',
+                displayName: 'Show Amount'
+            }
+        ],
+        defaultSettings: {
+            transactionTypes: [
+                TransactionType.Income,
+                TransactionType.Expense
+            ],
+            showAlternateDate: true,
+            showAmount: true
+        },
+        dataRequirements: [
+            OverviewWidgetDataRequirement.CurrentMonthTransactions
+        ]
+    },
+    [OverviewWidgetType.AddTransactionButton]: {
+        type: OverviewWidgetType.AddTransactionButton,
+        name: 'Add Transaction Button',
+        supportsSettings: [],
+        defaultSettings: {},
+        dataRequirements: []
+    }
+};
+
+export const DEFAULT_MOBILE_OVERVIEW_LAYOUT: MobileOverviewLayout = {
+    widgets: [
+        {
+            id: 'default-current-month-overview',
+            type: OverviewWidgetType.CurrentMonthOverview,
+            settings: {
+                height: 3
+            }
         },
         {
-            id: 'default-income-expense-trend',
-            type: OverviewWidgetType.IncomeExpenseTrend,
-            x: 6,
-            y: 3,
-            w: 6,
-            h: 6,
+            id: 'default-period-income-expense',
+            type: OverviewWidgetType.PeriodIncomeExpense,
             settings: {
-                months: 12,
-                showXAxisLabels: true,
-                showLegend: true
+                dateRanges: [
+                    DateRange.Today.type,
+                    DateRange.ThisWeek.type,
+                    DateRange.ThisMonth.type,
+                    DateRange.ThisYear.type
+                ]
             }
         }
     ]

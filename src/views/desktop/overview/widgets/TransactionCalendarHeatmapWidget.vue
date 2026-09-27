@@ -1,13 +1,16 @@
 <template>
-    <v-card class="transaction-calendar-heatmap-card h-100" :class="{ disabled: loading }">
+    <v-card class="overview-widget transaction-calendar-heatmap-card h-100" :class="{ disabled: loading }">
         <template #title>
-            <span class="text-title-medium">{{ title || tt('Transaction Calendar Heatmap') }}</span>
+            <overview-widget-header :title="title || tt('Transaction Calendar Heatmap')" :icon="mdiCalendarMonthOutline" />
         </template>
 
         <v-card-text class="transaction-calendar-heatmap-body pa-0 overflow-hidden">
             <date-range-calendar-heat-map-chart :start-time="startTime" :end-time="endTime"
                                                 :items="items" :value-type="ChartValueType.Amount"
                                                 :value-type-name="tt(transactionTypeName)" :default-currency="defaultCurrency"
+                                                :outlier-color-mode="outlierColorMode"
+                                                :outlier-top-count="outlierTopCount"
+                                                :outlier-amount-threshold="outlierAmountThreshold"
                                                 :show-value="showAmountInHomePage" :enable-click-item="!editing"
                                                 @click="clickDate" />
         </v-card-text>
@@ -15,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import OverviewWidgetHeader from './OverviewWidgetHeader.vue';
+
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -27,7 +32,11 @@ import { useExchangeRatesStore } from '@/stores/exchangeRates.ts';
 
 import type { BigDecimal } from '@/core/numeral.ts';
 import { DateRange, KnownDateTimeFormat } from '@/core/datetime.ts';
-import { ChartValueType, type CalendarChartSourceDataItem } from '@/core/chart.ts';
+import {
+    type CalendarChartSourceDataItem,
+    ChartValueType,
+    TransactionCalendarHeatmapOutlierColorMode
+} from '@/core/chart.ts';
 import { TransactionType } from '@/core/transaction.ts';
 
 import { BIG_DECIMAL_ZERO, parseBigDecimal } from '@/lib/numeral.ts';
@@ -37,10 +46,17 @@ import {
     getUnixTimeAfterUnixTime
 } from '@/lib/datetime.ts';
 
+import {
+    mdiCalendarMonthOutline
+} from '@mdi/js';
+
 const props = defineProps<{
     loading: boolean;
     months: number;
     transactionType: TransactionType;
+    outlierColorMode?: TransactionCalendarHeatmapOutlierColorMode;
+    outlierTopCount?: number;
+    outlierAmountThreshold?: number;
     editing?: boolean;
     title?: string
 }>();

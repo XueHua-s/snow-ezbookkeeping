@@ -3,12 +3,14 @@ import { defineStore } from 'pinia';
 
 import { useSettingsStore } from './setting.ts';
 import { useUserStore } from './user.ts';
+import { useOverviewStore } from '@/stores/overview.ts';
 import { useExchangeRatesStore } from './exchangeRates.ts';
 
 import { type BeforeResolveFunction, itemAndIndex, reversed, entries, values } from '@/core/base.ts';
 import type { BigDecimal, HiddenAmount, BigDecimalWithSuffix } from '@/core/numeral.ts';
 import { AccountType, AccountCategory } from '@/core/account.ts';
 import { DISPLAY_HIDDEN_AMOUNT, INCOMPLETE_AMOUNT_SUFFIX } from '@/consts/numeral.ts';
+import { ACCOUNT_CURRENCY_NOT_SET_VALUE } from '@/consts/currency.ts';
 
 import {
     type AccountNewDisplayOrderRequest,
@@ -18,8 +20,8 @@ import {
     Account
 } from '@/models/account.ts';
 
-import { isEquals } from '@/lib/common.ts';
-import { BIG_DECIMAL_ZERO, parseBigDecimal } from '@/lib/numeral.ts';
+import { isDefined, isArray, isEquals, arrayItemToObjectField } from '@/lib/common.ts';
+import { BIG_DECIMAL_ZERO, isBigDecimal, parseBigDecimal } from '@/lib/numeral.ts';
 import { getCategorizedAccountsMap, getAllFilteredAccountsBalance } from '@/lib/account.ts';
 import services from '@/lib/services.ts';
 import logger from '@/lib/logger.ts';
@@ -27,7 +29,10 @@ import logger from '@/lib/logger.ts';
 export const useAccountsStore = defineStore('accounts', () => {
     const settingsStore = useSettingsStore();
     const userStore = useUserStore();
+    const overviewStore = useOverviewStore();
     const exchangeRatesStore = useExchangeRatesStore();
+
+    let loadingPromise: Promise<Account[]> | null = null;
 
     const allAccounts = ref<Account[]>([]);
     const allAccountsMap = ref<Record<string, Account>>({});
@@ -352,6 +357,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
 
     function resetAccounts(): void {
+        loadingPromise = null;
         allAccounts.value = [];
         allAccountsMap.value = {};
         allCategorizedAccountsMap.value = {};
@@ -469,13 +475,13 @@ export const useAccountsStore = defineStore('accounts', () => {
         return null;
     }
 
-    function getNetAssets(showAccountBalance: boolean): BigDecimal | HiddenAmount | BigDecimalWithSuffix {
+    function getNetAssets(showAccountBalance: boolean, excludedAccountIds: Record<string, boolean>): BigDecimal | HiddenAmount | BigDecimalWithSuffix {
         if (!showAccountBalance) {
             return DISPLAY_HIDDEN_AMOUNT;
         }
 
         const accountsBalance = getAllFilteredAccountsBalance(allCategorizedAccountsMap.value, settingsStore.appSettings.accountCategoryOrders,
-            account => !(account.type === AccountType.SingleAccount.type && settingsStore.appSettings.totalAmountExcludeAccountIds[account.id])
+            account => !(account.type === AccountType.SingleAccount.type && excludedAccountIds[account.id])
         );
         let netAssets: BigDecimal = BIG_DECIMAL_ZERO;
         let hasUnCalculatedAmount = false;
@@ -505,13 +511,13 @@ export const useAccountsStore = defineStore('accounts', () => {
         }
     }
 
-    function getTotalAssets(showAccountBalance: boolean): BigDecimal | HiddenAmount | BigDecimalWithSuffix {
+    function getTotalAssets(showAccountBalance: boolean, excludedAccountIds: Record<string, boolean>): BigDecimal | HiddenAmount | BigDecimalWithSuffix {
         if (!showAccountBalance) {
             return DISPLAY_HIDDEN_AMOUNT;
         }
 
         const accountsBalance = getAllFilteredAccountsBalance(allCategorizedAccountsMap.value, settingsStore.appSettings.accountCategoryOrders,
-            account => (account.isAsset || false) && !(account.type === AccountType.SingleAccount.type && settingsStore.appSettings.totalAmountExcludeAccountIds[account.id])
+            account => (account.isAsset || false) && !(account.type === AccountType.SingleAccount.type && excludedAccountIds[account.id])
         );
         let totalAssets: BigDecimal = BIG_DECIMAL_ZERO;
         let hasUnCalculatedAmount = false;
@@ -541,13 +547,13 @@ export const useAccountsStore = defineStore('accounts', () => {
         }
     }
 
-    function getTotalLiabilities(showAccountBalance: boolean): BigDecimal | HiddenAmount | BigDecimalWithSuffix {
+    function getTotalLiabilities(showAccountBalance: boolean, excludedAccountIds: Record<string, boolean>): BigDecimal | HiddenAmount | BigDecimalWithSuffix {
         if (!showAccountBalance) {
             return DISPLAY_HIDDEN_AMOUNT;
         }
 
         const accountsBalance = getAllFilteredAccountsBalance(allCategorizedAccountsMap.value, settingsStore.appSettings.accountCategoryOrders,
-            account => (account.isLiability || false) && !(account.type === AccountType.SingleAccount.type && settingsStore.appSettings.totalAmountExcludeAccountIds[account.id])
+            account => (account.isLiability || false) && !(account.type === AccountType.SingleAccount.type && excludedAccountIds[account.id])
         );
         let totalLiabilities: BigDecimal = BIG_DECIMAL_ZERO;
         let hasUnCalculatedAmount = false;
@@ -577,7 +583,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         }
     }
 
-    function getAccountCategoryTotalBalance(showAccountBalance: boolean, accountCategory: AccountCategory): BigDecimal | HiddenAmount | BigDecimalWithSuffix {
+    function getAccountCategoryTotalBalance(showAccountBalance: boolean, accountCategory: AccountCategory, showAvailableCreditForCreditCard: boolean): BigDecimal | HiddenAmount | BigDecimalWithSuffix | undefined {
         if (!showAccountBalance) {
             return DISPLAY_HIDDEN_AMOUNT;
         }
@@ -585,42 +591,76 @@ export const useAccountsStore = defineStore('accounts', () => {
         const accountsBalance = getAllFilteredAccountsBalance(allCategorizedAccountsMap.value, settingsStore.appSettings.accountCategoryOrders,
             account => account.category === accountCategory.type);
         let totalBalance: BigDecimal = BIG_DECIMAL_ZERO;
+        let totalCreditCardAvailableCredit: BigDecimal = BIG_DECIMAL_ZERO;
         let hasUnCalculatedAmount = false;
+        let hasUnCalculatedAvailableCredit = false;
+        let hasCalculatedAvailableCredit = false;
 
         for (const accountBalance of accountsBalance) {
+            let balance: BigDecimal | null = null;
+
             if (accountBalance.currency === userStore.currentUserDefaultCurrency) {
-                if (accountBalance.isAsset) {
-                    totalBalance = totalBalance.add(accountBalance.balance);
-                } else if (accountBalance.isLiability) {
-                    totalBalance = totalBalance.subtract(accountBalance.balance);
-                } else {
-                    totalBalance = totalBalance.add(accountBalance.balance);
-                }
+                balance = accountBalance.balance;
             } else {
-                const balance = exchangeRatesStore.getExchangedAmount(accountBalance.balance, accountBalance.currency, userStore.currentUserDefaultCurrency);
+                balance = exchangeRatesStore.getExchangedAmount(accountBalance.balance, accountBalance.currency, userStore.currentUserDefaultCurrency);
 
                 if (!balance) {
                     hasUnCalculatedAmount = true;
                     continue;
                 }
+            }
 
-                if (accountBalance.isAsset) {
-                    totalBalance = totalBalance.add(balance);
-                } else if (accountBalance.isLiability) {
-                    totalBalance = totalBalance.subtract(balance);
+            if (accountBalance.isAsset) {
+                totalBalance = totalBalance.add(balance);
+            } else if (accountBalance.isLiability) {
+                totalBalance = totalBalance.subtract(balance);
+            } else {
+                totalBalance = totalBalance.add(balance);
+            }
+
+            if (accountBalance.category === AccountCategory.CreditCard.type && showAvailableCreditForCreditCard) {
+                if (isDefined(accountBalance.creditCardLimit) && isBigDecimal(accountBalance.creditCardLimit.amount) && accountBalance.creditCardLimit.shareByCount > 0) {
+                    const amount = accountBalance.creditCardLimit.amount.divide(accountBalance.creditCardLimit.shareByCount);
+
+                    if (accountBalance.creditCardLimit.currency === userStore.currentUserDefaultCurrency) {
+                        totalCreditCardAvailableCredit = totalCreditCardAvailableCredit.add(amount).add(balance);
+                        hasCalculatedAvailableCredit = true;
+                    } else {
+                        const limit = exchangeRatesStore.getExchangedAmount(amount, accountBalance.creditCardLimit.currency, userStore.currentUserDefaultCurrency);
+
+                        if (limit) {
+                            totalCreditCardAvailableCredit = totalCreditCardAvailableCredit.add(limit).add(balance);
+                            hasCalculatedAvailableCredit = true;
+                        } else {
+                            hasUnCalculatedAvailableCredit = true;
+                        }
+                    }
                 } else {
-                    totalBalance = totalBalance.add(balance);
+                    hasUnCalculatedAvailableCredit = true;
                 }
             }
         }
 
-        if (hasUnCalculatedAmount) {
-            return {
-                value: totalBalance,
-                suffix: INCOMPLETE_AMOUNT_SUFFIX
-            };
+        if (accountCategory.type === AccountCategory.CreditCard.type && showAvailableCreditForCreditCard) {
+            if (hasUnCalculatedAmount || !hasCalculatedAvailableCredit) {
+                return undefined;
+            } else if (hasUnCalculatedAvailableCredit) {
+                return {
+                    value: totalCreditCardAvailableCredit,
+                    suffix: INCOMPLETE_AMOUNT_SUFFIX
+                };
+            } else {
+                return totalCreditCardAvailableCredit;
+            }
         } else {
-            return totalBalance;
+            if (hasUnCalculatedAmount) {
+                return {
+                    value: totalBalance,
+                    suffix: INCOMPLETE_AMOUNT_SUFFIX
+                };
+            } else {
+                return totalBalance;
+            }
         }
     }
 
@@ -642,12 +682,18 @@ export const useAccountsStore = defineStore('accounts', () => {
         }
     }
 
-    function getAccountSubAccountBalance(showAccountBalance: boolean, showHidden: boolean, account: Account, subAccountId?: string): AccountDisplayBalance | null {
+    function getAccountSubAccountBalance(showAccountBalance: boolean, showHidden: boolean, account: Account, subAccountId?: string, onlyShowSelectedAccountIds?: string[]): AccountDisplayBalance | null {
         if (account.type !== AccountType.MultiSubAccounts.type) {
             return null;
         }
 
         let resultCurrency = userStore.currentUserDefaultCurrency;
+        let parentHasSetCurrency = false;
+
+        if (account.category === AccountCategory.CreditCard.type && account.currency && account.currency !== ACCOUNT_CURRENCY_NOT_SET_VALUE) {
+            resultCurrency = account.currency;
+            parentHasSetCurrency = true;
+        }
 
         if (!account.subAccounts || !account.subAccounts.length) {
             return {
@@ -656,6 +702,7 @@ export const useAccountsStore = defineStore('accounts', () => {
             };
         }
 
+        const selectedAccountIds: Record<string, boolean> = isArray(onlyShowSelectedAccountIds) ? arrayItemToObjectField(onlyShowSelectedAccountIds, true) : {};
         const allSubAccountCurrenciesMap: Record<string, boolean> = {};
         const allSubAccountCurrencies: string[] = [];
         let totalBalance: BigDecimal = BIG_DECIMAL_ZERO;
@@ -678,7 +725,7 @@ export const useAccountsStore = defineStore('accounts', () => {
             };
         }
 
-        if (allSubAccountCurrencies.length === 1) {
+        if (allSubAccountCurrencies.length === 1 && !parentHasSetCurrency) {
             resultCurrency = allSubAccountCurrencies[0] as string;
         }
 
@@ -696,6 +743,10 @@ export const useAccountsStore = defineStore('accounts', () => {
                         currency: subAccount.currency
                     };
                 }
+            }
+
+            if (onlyShowSelectedAccountIds && onlyShowSelectedAccountIds.length > 0 && !selectedAccountIds[subAccount.id]) {
+                continue;
             }
 
             if (subAccount.currency === resultCurrency) {
@@ -739,6 +790,73 @@ export const useAccountsStore = defineStore('accounts', () => {
         };
     }
 
+    function getSortedAccounts(accountIds: string[] | undefined, sortBy: 'displayOrder' | 'balance' | string, count: number): Account[] {
+        const selectedAccountIds: Record<string, boolean> = isArray(accountIds) ? arrayItemToObjectField(accountIds, true) : {};
+        const accounts: Account[] = allAccounts.value.filter(account => {
+            if (account.hidden) {
+                return false;
+            }
+
+            if (account.type === AccountType.MultiSubAccounts.type && account.subAccounts) {
+                for (const subAccount of account.subAccounts) {
+                    if (!subAccount.hidden && selectedAccountIds[subAccount.id]) {
+                        return true;
+                    }
+                }
+            }
+
+            return !accountIds || accountIds.length < 1 || !!selectedAccountIds[account.id];
+        });
+
+        if (sortBy === 'balance') {
+            const accountBalances: Record<string, BigDecimal> = {};
+
+            for (const account of accounts) {
+                let totalBalance: BigDecimal = BIG_DECIMAL_ZERO;
+
+                if (account.type === AccountType.SingleAccount.type) {
+                    totalBalance = parseBigDecimal(account.balance);
+
+                    if (account.currency !== userStore.currentUserDefaultCurrency) {
+                        const exchangedBalance = exchangeRatesStore.getExchangedAmount(totalBalance, account.currency, userStore.currentUserDefaultCurrency);
+
+                        if (exchangedBalance) {
+                            totalBalance = exchangedBalance.truncate();
+                        }
+                    }
+                } else if (account.type === AccountType.MultiSubAccounts.type && account.subAccounts) {
+                    for (const subAccount of account.subAccounts) {
+                        if (!selectedAccountIds[subAccount.id]) {
+                            continue;
+                        }
+
+                        let subAccountBalance = parseBigDecimal(subAccount.balance);
+
+                        if (subAccount.currency !== userStore.currentUserDefaultCurrency) {
+                            const exchangedBalance = exchangeRatesStore.getExchangedAmount(subAccountBalance, subAccount.currency, userStore.currentUserDefaultCurrency);
+
+                            if (exchangedBalance) {
+                                subAccountBalance = exchangedBalance.truncate();
+                            }
+                        }
+
+                        totalBalance = totalBalance.add(subAccountBalance);
+                    }
+                }
+
+                accountBalances[account.id] = totalBalance;
+            }
+
+            accounts.sort((a, b) => {
+                const balanceA = accountBalances[a.id] ?? BIG_DECIMAL_ZERO;
+                const balanceB = accountBalances[b.id] ?? BIG_DECIMAL_ZERO;
+                return balanceB.compareTo(balanceA);
+            });
+        }
+
+        return accounts.slice(0, count);
+    }
+
     function hasAccount(accountCategory: AccountCategory, visibleOnly: boolean): boolean {
         const categorizedAccounts = allCategorizedAccountsMap.value[accountCategory.type];
 
@@ -772,19 +890,30 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
 
     function loadAllAccounts({ force }: { force: boolean }): Promise<Account[]> {
+        if (loadingPromise) {
+            return loadingPromise;
+        }
+
         if (!force && !accountListStateInvalid.value) {
             return new Promise((resolve) => {
                 resolve(allAccounts.value);
             });
         }
 
-        return new Promise((resolve, reject) => {
+        const currentPromise = loadingPromise = new Promise((resolve, reject) => {
             services.getAllAccounts({
                 visibleOnly: false
             }).then(response => {
+                if (!loadingPromise || loadingPromise !== currentPromise) {
+                    logger.error('loadingPromise is invalid after retrieving account list');
+                    reject({ message: 'An error occurred' });
+                    return;
+                }
+
                 const data = response.data;
 
                 if (!data || !data.success || !data.result) {
+                    loadingPromise = null;
                     reject({ message: 'Unable to retrieve account list' });
                     return;
                 }
@@ -796,14 +925,20 @@ export const useAccountsStore = defineStore('accounts', () => {
                 const accounts = Account.sortAccounts(Account.ofMulti(data.result), settingsStore.accountCategoryDisplayOrders);
 
                 if (force && data.result && isEquals(allAccounts.value, accounts)) {
+                    loadingPromise = null;
                     reject({ message: 'Account list is up to date', isUpToDate: true });
                     return;
                 }
 
                 loadAccountList(accounts);
+                loadingPromise = null;
 
                 resolve(accounts);
             }).catch(error => {
+                if (loadingPromise === currentPromise) {
+                    loadingPromise = null;
+                }
+
                 if (force) {
                     logger.error('failed to force load account list', error);
                 } else {
@@ -819,6 +954,8 @@ export const useAccountsStore = defineStore('accounts', () => {
                 }
             });
         });
+
+        return loadingPromise;
     }
 
     function getAccount({ accountId }: { accountId: string }): Promise<Account> {
@@ -884,6 +1021,8 @@ export const useAccountsStore = defineStore('accounts', () => {
                         updateAccountListInvalidState(true);
                     }
                 }
+
+                overviewStore.updateTransactionOverviewInvalidState(true);
 
                 resolve(newAccount);
             }).catch(error => {
@@ -1065,6 +1204,8 @@ export const useAccountsStore = defineStore('accounts', () => {
                     removeAccountFromAccountList(account);
                 }
 
+                overviewStore.updateTransactionOverviewInvalidState(true);
+
                 resolve(data.result);
             }).catch(error => {
                 logger.error('failed to delete account', error);
@@ -1099,6 +1240,8 @@ export const useAccountsStore = defineStore('accounts', () => {
                 } else {
                     removeSubAccountFromAccountList(subAccount);
                 }
+
+                overviewStore.updateTransactionOverviewInvalidState(true);
 
                 resolve(data.result);
             }).catch(error => {
@@ -1140,6 +1283,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         getAccountCategoryTotalBalance,
         getAccountBalance,
         getAccountSubAccountBalance,
+        getSortedAccounts,
         hasAccount,
         hasVisibleSubAccount,
         loadAllAccounts,

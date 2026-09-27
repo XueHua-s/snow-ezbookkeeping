@@ -1,34 +1,39 @@
 <template>
-    <v-card class="h-100" :class="{ disabled: loading }">
+    <v-card class="overview-widget overview-widget--list h-100" :class="{ disabled: loading }">
         <template #title>
-            <span class="text-title-medium">{{ title || tt('Recent Transactions') }}</span>
+            <overview-widget-header :title="title || tt('Recent Transactions')" :icon="mdiHistory" />
         </template>
 
-        <v-card-text class="pt-0 px-2">
+        <v-card-text class="overview-widget__body overview-widget__list-body">
             <v-list class="py-0" density="compact" v-if="transactions.length">
-                <v-list-item class="ps-2 pe-3 mb-h1" :key="transaction.id"
+                <v-list-item class="overview-widget__list-item" :key="transaction.id"
                              :title="getTransactionCategoryName(transaction)"
                              v-for="transaction in transactions"
                              @click="showTransaction(transaction)">
                     <template #prepend>
-                        <ItemIcon class="me-2" size="24px" :icon-type="getCategoryIconType(getTransactionCategory(transaction)?.iconType)"
-                                  :icon-id="getTransactionCategory(transaction)?.icon ?? ''"
-                                  :color="getTransactionCategory(transaction)?.color"
-                                  v-if="getTransactionCategory(transaction) && getTransactionCategory(transaction)?.color" />
-                        <v-icon size="24" :icon="mdiPencilBoxOutline" v-else-if="!getTransactionCategory(transaction) || !getTransactionCategory(transaction)?.color" />
+                        <span class="overview-widget__item-icon">
+                            <ItemIcon size="24px" :icon-type="getCategoryIconType(getTransactionCategory(transaction)?.iconType)"
+                                      :icon-id="getTransactionCategory(transaction)?.icon ?? ''"
+                                      :color="getTransactionCategory(transaction)?.color"
+                                      v-if="getTransactionCategory(transaction) && getTransactionCategory(transaction)?.color" />
+                            <v-icon size="24" :icon="mdiPencilBoxOutline" v-else-if="!getTransactionCategory(transaction) || !getTransactionCategory(transaction)?.color" />
+                        </span>
                     </template>
 
                     <template #append>
-                        <div :class="getAmountClass(transaction)">{{ getDisplayTransactionAmount(transaction) }}</div>
+                        <div class="overview-widget__list-amount overview-widget__amount" :class="getAmountClass(transaction)">{{ getDisplayTransactionAmount(transaction) }}</div>
                     </template>
 
-                    <div class="text-truncate text-medium-emphasis mt-h1">{{ getDisplayDescription(transaction) }}</div>
+                    <div class="text-truncate overview-widget__caption text-body-small mt-h1" :title="getDisplayDescription(transaction)">{{ getDisplayDescription(transaction) }}</div>
                 </v-list-item>
             </v-list>
             <div v-if="loading && !transactions.length">
-                <v-skeleton-loader class="py-2" type="text" :key="idx" :loading="true" v-for="idx in props.itemCount"></v-skeleton-loader>
+                <v-skeleton-loader class="skeleton-no-margin mx-2 py-4 my-1" type="text" :key="idx" :loading="true" v-for="idx in props.itemCount"></v-skeleton-loader>
             </div>
-            <div class="text-medium-emphasis text-center pt-4" v-else-if="!loading && !transactions.length">{{ tt('No data') }}</div>
+            <div class="overview-widget__empty" v-else-if="!loading && !transactions.length">
+                <v-icon :icon="mdiHistory" size="32" />
+                <span>{{ tt('No data') }}</span>
+            </div>
         </v-card-text>
 
         <edit-dialog ref="editDialog" :type="TransactionEditPageType.Transaction" />
@@ -38,6 +43,8 @@
 </template>
 
 <script setup lang="ts">
+import OverviewWidgetHeader from './OverviewWidgetHeader.vue';
+
 import SnackBar from '@/components/desktop/SnackBar.vue';
 import EditDialog from '@/views/desktop/transactions/list/dialogs/EditDialog.vue';
 
@@ -53,6 +60,7 @@ import { useOverviewStore } from '@/stores/overview.ts';
 
 import { TransactionType } from '@/core/transaction.ts';
 import { DISPLAY_HIDDEN_AMOUNT } from '@/consts/numeral.ts';
+import type { OverviewRecentTransactionsQuery } from '@/core/overview_layout.ts';
 
 import type { TransactionCategory } from '@/models/transaction_category.ts';
 import { type TransactionInfoResponse, Transaction } from '@/models/transaction.ts';
@@ -60,8 +68,10 @@ import { type TransactionInfoResponse, Transaction } from '@/models/transaction.
 import { parseBigDecimal } from '@/lib/numeral.ts';
 import { parseDateTimeFromUnixTime } from '@/lib/datetime.ts';
 import { getCategoryIconType } from '@/lib/icon.ts';
+import { getOverviewRecentTransactionsQuery } from '@/lib/overview_layout.ts';
 
 import {
+    mdiHistory,
     mdiPencilBoxOutline
 } from '@mdi/js';
 
@@ -71,8 +81,13 @@ type EditDialogType = InstanceType<typeof EditDialog>;
 const props = defineProps<{
     loading: boolean;
     title?: string;
+    editing?: boolean;
     itemCount: number;
-    editing?: boolean
+    accountIds?: string[];
+    categoryIds?: string[];
+    tagFilter?: string;
+    amountFilter?: string;
+    keyword?: string;
 }>();
 
 const emit = defineEmits<{
@@ -90,7 +105,15 @@ const snackbar = useTemplateRef<SnackBarType>('snackbar');
 const editDialog = useTemplateRef<EditDialogType>('editDialog');
 
 const showAmountInHomePage = computed<boolean>(() => settingsStore.appSettings.showAmountInHomePage);
-const transactions = computed<TransactionInfoResponse[]>(() => overviewStore.recentTransactions.slice(0, props.itemCount));
+const recentTransactionsQuery = computed<OverviewRecentTransactionsQuery>(() => getOverviewRecentTransactionsQuery({
+    itemCount: props.itemCount,
+    accountIds: props.accountIds ?? [],
+    categoryIds: props.categoryIds ?? [],
+    tagFilter: props.tagFilter ?? '',
+    amountFilter: props.amountFilter ?? '',
+    keyword: props.keyword ?? ''
+}));
+const transactions = computed<TransactionInfoResponse[]>(() => overviewStore.getRecentTransactions(recentTransactionsQuery.value).slice(0, props.itemCount));
 
 function getDisplayDescription(transaction: TransactionInfoResponse): string {
     const accountName = accountsStore.allAccountsMap[transaction.sourceAccountId]?.name ?? '';

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"time"
 
@@ -319,7 +319,7 @@ func (a *AuthorizationsApi) TwoFactorAuthorizeByRecoveryCodeHandler(c *core.WebC
 		return nil, errs.ErrEmailIsNotVerified
 	}
 
-	err = a.twoFactorAuthorizations.GetAndUseUserTwoFactorRecoveryCode(c, uid, credential.RecoveryCode, user.Salt)
+	err = a.twoFactorAuthorizations.UseUserTwoFactorRecoveryCode(c, uid, credential.RecoveryCode, user.Salt)
 
 	if errs.IsCustomError(err) {
 		failureCheckErr := a.CheckAndIncreaseFailureCount(c, uid)
@@ -517,7 +517,11 @@ func (a *AuthorizationsApi) OAuth2CallbackAuthorizeHandler(c *core.WebContext) (
 			return nil, errs.ErrInvalidToken
 		}
 
-		if claims.Uid != user.Uid {
+		if claims.Type != core.USER_TOKEN_TYPE_NORMAL {
+			log.Warnf(c, "[authorizations.OAuth2CallbackAuthorizeHandler] token type \"%d\" is not allowed to login via oauth 2.0", claims.Type)
+			token = ""
+			claims = nil
+		} else if claims.Uid != user.Uid {
 			log.Warnf(c, "[authorizations.OAuth2CallbackAuthorizeHandler] oauth 2.0 user \"uid:%d\" does not match current user \"uid:%d\"", user.Uid, claims.Uid)
 			token = ""
 			claims = nil

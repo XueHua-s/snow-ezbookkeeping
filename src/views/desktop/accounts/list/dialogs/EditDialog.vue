@@ -30,7 +30,7 @@
                             <v-tab :key="idx" :value="idx" v-for="(subAccount, idx) in subAccounts">
                                 <span>{{ tt('Sub Account') + ' #' + (idx + 1) }}</span>
                                 <v-btn class="ms-2" color="error" size="24" variant="text"
-                                       :icon="mdiDeleteOutline"
+                                       :aria-label="tt('Remove')" :icon="mdiDeleteOutline"
                                        @click="removeSubAccount(subAccount)"></v-btn>
                             </v-tab>
                         </template>
@@ -52,6 +52,7 @@
                                 <v-col cols="12" md="12">
                                     <v-text-field
                                         type="text"
+                                        autocomplete="off"
                                         persistent-placeholder
                                         :disabled="loading || submitting"
                                         :label="currentAccountIndex < 0 ? tt('Account Name') : tt('Sub-account Name')"
@@ -102,13 +103,31 @@
                                                   :disabled="loading || submitting"
                                                   v-model="selectedAccount.color" />
                                 </v-col>
-                                <v-col cols="12" :md="currentAccountIndex < 0 && isAccountSupportCreditCardStatementDate ? 6 : 12" v-if="account.type === AccountType.SingleAccount.type || currentAccountIndex >= 0">
-                                    <currency-select :disabled="loading || submitting || (!!editAccountId && !isNewAccount(selectedAccount))"
-                                                     :label="tt('Currency')"
-                                                     :placeholder="tt('Currency')"
+                                <v-col cols="12" md="12" v-if="account.type === AccountType.SingleAccount.type || currentAccountIndex >= 0 || (account.type === AccountType.MultiSubAccounts.type && account.category === AccountCategory.CreditCard.type && currentAccountIndex < 0)">
+                                    <currency-select :disabled="loading || submitting || (!!editAccountId && !isNewAccount(selectedAccount) && !(account.type === AccountType.MultiSubAccounts.type && account.category === AccountCategory.CreditCard.type && currentAccountIndex < 0))"
+                                                     :label="(account.type === AccountType.MultiSubAccounts.type && account.category === AccountCategory.CreditCard.type && currentAccountIndex < 0) ? tt('Default Currency') : tt('Currency')"
+                                                     :placeholder="(account.type === AccountType.MultiSubAccounts.type && account.category === AccountCategory.CreditCard.type && currentAccountIndex < 0) ? tt('Default Currency') : tt('Currency')"
+                                                     :with-not-set="account.type === AccountType.MultiSubAccounts.type && account.category === AccountCategory.CreditCard.type && currentAccountIndex < 0"
                                                      v-model="selectedAccount.currency" />
                                 </v-col>
-                                <v-col cols="12" :md="account.type === AccountType.SingleAccount.type || currentAccountIndex >= 0 ? 6 : 12" v-if="currentAccountIndex < 0 && isAccountSupportCreditCardStatementDate">
+                                <v-col cols="12" md="6" v-if="currentAccountIndex < 0 && account.category === AccountCategory.CreditCard.type">
+                                    <amount-input :disabled="loading || submitting"
+                                                  :persistent-placeholder="true"
+                                                  :currency="account.currency"
+                                                  :show-currency="true"
+                                                  :label="tt('Credit Limit')"
+                                                  :placeholder="tt('Credit Limit')"
+                                                  v-model="account.numericCreditCardLimit"
+                                                  v-if="account.currency && account.currency !== ACCOUNT_CURRENCY_NOT_SET_VALUE" />
+                                    <v-text-field disabled
+                                                  persistent-placeholder
+                                                  type="text"
+                                                  :label="tt('Credit Limit')"
+                                                  :placeholder="tt('Credit Limit')"
+                                                  :model-value="getAccountCreditCardCreditLimitDisplayValue(account.numericCreditCardLimit, account.currency)"
+                                                  v-else-if="!account.currency || account.currency === ACCOUNT_CURRENCY_NOT_SET_VALUE" />
+                                </v-col>
+                                <v-col cols="12" md="6" v-if="currentAccountIndex < 0 && account.category === AccountCategory.CreditCard.type">
                                     <v-autocomplete
                                         item-title="displayName"
                                         item-value="type"
@@ -157,6 +176,7 @@
                                 <v-col cols="12" md="12">
                                     <v-textarea
                                         type="text"
+                                        autocomplete="off"
                                         persistent-placeholder
                                         rows="3"
                                         :disabled="loading || submitting"
@@ -211,6 +231,8 @@ import { itemAndIndex } from '@/core/base.ts';
 import { AccountType, AccountCategory } from '@/core/account.ts';
 import { ALL_ACCOUNT_ICONS } from '@/consts/icon.ts';
 import { ALL_ACCOUNT_COLORS } from '@/consts/color.ts';
+import { ACCOUNT_CURRENCY_NOT_SET_VALUE } from '@/consts/currency.ts';
+
 import { Account } from '@/models/account.ts';
 
 import { isNumber, isEquals } from '@/lib/common.ts';
@@ -246,9 +268,9 @@ const {
     allAccountCategories,
     allAccountTypes,
     allAvailableMonthDays,
-    isAccountSupportCreditCardStatementDate,
     getCurrentUnixTimeForNewAccount,
     getDefaultTimezoneOffsetMinutes,
+    getAccountCreditCardCreditLimitDisplayValue,
     updateAccountBalanceTime,
     updateAccountLastReconciledTime,
     isNewAccount,
@@ -412,9 +434,13 @@ function onShowDateTimeError(error: string): void {
     snackbar.value?.showError(error);
 }
 
-watch(() => account.value.type, () => {
+watch(() => account.value.type, (newValue) => {
     if (subAccounts.value.length < 1) {
         addSubAccount();
+    }
+
+    if (newValue === AccountType.SingleAccount.type) {
+        currentAccountIndex.value = -1;
     }
 });
 

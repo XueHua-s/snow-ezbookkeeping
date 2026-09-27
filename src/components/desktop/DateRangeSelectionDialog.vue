@@ -4,14 +4,12 @@
                                   @cancel="cancel">
             <template #toolbar>
                 <v-btn class="mx-2" density="comfortable" variant="outlined"
-                       :disabled="!dateRange[0] || !dateRange[1]" @click="confirm">{{ tt('OK') }}</v-btn>
+                       :disabled="!dateRange[0] || !dateRange[1]" @click="confirm">{{ tt('Apply') }}</v-btn>
             </template>
 
             <template #content>
                 <div class="text-body-large" v-if="beginDateTime && endDateTime">
-                    <span>{{ beginDateTime }}</span>
-                    <span> - </span>
-                    <span>{{ endDateTime }}</span>
+                    <span>{{ formatRange(beginDateTime, endDateTime) }}</span>
                 </div>
 
                 <div class="text-body-large text-wrap mt-3" v-if="hint">
@@ -57,7 +55,7 @@ const emit = defineEmits<{
 
 const theme = useTheme();
 
-const { tt } = useI18n();
+const { tt, formatRange } = useI18n();
 const {
     dateRange,
     beginDateTime,

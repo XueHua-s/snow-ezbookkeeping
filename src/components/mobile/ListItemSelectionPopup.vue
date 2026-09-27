@@ -1,9 +1,9 @@
 <template>
-    <f7-popup push :opened="show" @popup:open="onPopupOpen" @popup:closed="onPopupClosed">
+    <f7-popup push swipe-to-close :opened="show" @popup:open="onPopupOpen" @popup:closed="onPopupClosed">
         <f7-page>
             <f7-navbar :outline="false">
                 <f7-nav-left>
-                    <f7-link popup-close icon-f7="xmark"></f7-link>
+                    <f7-link popup-close icon-f7="xmark" :aria-label="tt('Close')"></f7-link>
                 </f7-nav-left>
 
                 <f7-searchbar ref="searchbar" custom-searchs
@@ -18,7 +18,7 @@
                 <f7-nav-title :title="title" v-if="title && !showSearchbar"></f7-nav-title>
 
                 <f7-nav-right v-if="enableFilter && !showSearchbar">
-                    <f7-link icon-f7="search" @click="showSearchbar = true"></f7-link>
+                    <f7-link icon-f7="search" :aria-label="tt('Search')" @click="showSearchbar = true"></f7-link>
                 </f7-nav-right>
             </f7-navbar>
 
@@ -67,7 +67,7 @@ import { type Framework7Dom } from '@/lib/ui/mobile.ts';
 const props = defineProps<{
     modelValue: unknown;
     title?: string;
-    valueType: string; // item or index
+    valueType: 'item' | 'index'; // item or index
     keyField?: string; // for value type == item
     valueField?: string; // for value type == item
     titleField: string;
@@ -91,7 +91,7 @@ const emit = defineEmits<{
     (e: 'update:show', value: boolean): void;
 }>();
 
-const { ti } = useI18n();
+const { tt, ti } = useI18n();
 
 const searchbar = useTemplateRef<Searchbar.Searchbar>('searchbar');
 
@@ -152,7 +152,7 @@ function isSelected(item: unknown, index: number): boolean {
     }
 }
 
-function getItemValue(item: unknown, index: number, fieldName: string | undefined, valueType: string): unknown {
+function getItemValue(item: unknown, index: number, fieldName: string | undefined, valueType: 'item' | 'index'): unknown {
     if (valueType === 'index') {
         return index;
     } else if (fieldName) {

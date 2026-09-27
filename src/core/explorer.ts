@@ -1,4 +1,4 @@
-import { type NameValue } from '@/core/base.ts';
+import { type NameValue, type TypeAndName } from '@/core/base.ts';
 import { DateRange } from '@/core/datetime.ts';
 import { ChartValueType } from '@/core/chart.ts';
 import { ChartSortingType } from '@/core/statistics.ts';
@@ -280,6 +280,7 @@ export enum TransactionExplorerValueMetricType {
     TransactionCount = 'transactionCount',
     ActiveTransactionDays = 'activeTransactionDays',
     TransactionsPerActiveDay = 'transactionsPerActiveDay',
+    AverageAmountPerActiveDay = 'averageAmountPerActiveDay',
     SourceAmountSum = 'sourceAmountSum',
     SourceIncomeAmountSum = 'sourceIncomeAmountSum',
     SourceExpenseAmountSum = 'sourceExpenseAmountSum',
@@ -323,6 +324,7 @@ export class TransactionExplorerValueMetric implements NameValue {
     public static readonly TransactionCount = new TransactionExplorerValueMetric('Transaction Count', TransactionExplorerValueMetricType.TransactionCount, ChartValueType.Number, true);
     public static readonly ActiveTransactionDays = new TransactionExplorerValueMetric('Active Transaction Days', TransactionExplorerValueMetricType.ActiveTransactionDays, ChartValueType.Number, true);
     public static readonly TransactionsPerDay = new TransactionExplorerValueMetric('Transactions per Active Day', TransactionExplorerValueMetricType.TransactionsPerActiveDay, ChartValueType.Number, true);
+    public static readonly AverageAmountPerActiveDay = new TransactionExplorerValueMetric('Average Amount per Active Day', TransactionExplorerValueMetricType.AverageAmountPerActiveDay, ChartValueType.Amount, true);
     public static readonly SourceAmountSum = new TransactionExplorerValueMetric('Total Amount', TransactionExplorerValueMetricType.SourceAmountSum, ChartValueType.Amount, true);
     public static readonly SourceIncomeAmountSum = new TransactionExplorerValueMetric('Total Income', TransactionExplorerValueMetricType.SourceIncomeAmountSum, ChartValueType.Amount, true);
     public static readonly SourceExpenseAmountSum = new TransactionExplorerValueMetric('Total Expense', TransactionExplorerValueMetricType.SourceExpenseAmountSum, ChartValueType.Amount, true);
@@ -386,18 +388,24 @@ export class TransactionExplorerValueMetric implements NameValue {
 
 export enum TransactionExplorerChartTypeValue {
     Pie = 'pie',
+    Donut = 'donut',
+    NightingaleRose = 'nightingaleRose',
     ColumnStacked = 'columnStacked',
     Column100PercentStacked = 'column100%Stacked',
     ColumnGrouped = 'columnGrouped',
     LineGrouped = 'lineGrouped',
+    SmoothLineGrouped = 'smoothLineGrouped',
     AreaStacked = 'areaStacked',
     Area100PercentStacked = 'area100%Stacked',
+    SmoothAreaStacked = 'smoothAreaStacked',
+    SmoothArea100PercentStacked = 'smoothArea100%Stacked',
     BubbleGrouped = 'bubbleGrouped',
     Radar = 'radar',
     Treemap = 'treemap',
     Sunburst = 'sunburst',
     Heatmap = 'heatmap',
-    CalendarHeatmap = 'calendarHeatmap'
+    CalendarHeatmap = 'calendarHeatmap',
+    Custom = 'custom'
 }
 
 export class TransactionExplorerChartType implements NameValue {
@@ -405,18 +413,24 @@ export class TransactionExplorerChartType implements NameValue {
     private static readonly allInstancesByValue: Record<string, TransactionExplorerChartType> = {};
 
     public static readonly Pie = new TransactionExplorerChartType('Pie Chart', TransactionExplorerChartTypeValue.Pie, undefined, false, undefined);
-    public static readonly Radar = new TransactionExplorerChartType('Radar Chart', TransactionExplorerChartTypeValue.Radar, undefined, false, undefined);
+    public static readonly Donut = new TransactionExplorerChartType('Donut Chart', TransactionExplorerChartTypeValue.Donut, undefined, false, undefined);
+    public static readonly NightingaleRose = new TransactionExplorerChartType('Nightingale Rose Chart', TransactionExplorerChartTypeValue.NightingaleRose, undefined, false, undefined);
+    public static readonly Radar = new TransactionExplorerChartType('Radar Chart', TransactionExplorerChartTypeValue.Radar, undefined, true, undefined);
     public static readonly ColumnStacked = new TransactionExplorerChartType('Column Chart (Stacked)', TransactionExplorerChartTypeValue.ColumnStacked, undefined, true, undefined);
     public static readonly Column100PercentStacked = new TransactionExplorerChartType('Column Chart (100% Stacked)', TransactionExplorerChartTypeValue.Column100PercentStacked, undefined, true, undefined);
     public static readonly ColumnGrouped = new TransactionExplorerChartType('Column Chart (Grouped)', TransactionExplorerChartTypeValue.ColumnGrouped, undefined, true, undefined);
     public static readonly LineGrouped = new TransactionExplorerChartType('Line Chart (Grouped)', TransactionExplorerChartTypeValue.LineGrouped, undefined, true, undefined);
+    public static readonly SmoothLineGrouped = new TransactionExplorerChartType('Smooth Line Chart (Grouped)', TransactionExplorerChartTypeValue.SmoothLineGrouped, undefined, true, undefined);
     public static readonly AreaStacked = new TransactionExplorerChartType('Area Chart (Stacked)', TransactionExplorerChartTypeValue.AreaStacked, undefined, true, undefined);
     public static readonly Area100PercentStacked = new TransactionExplorerChartType('Area Chart (100% Stacked)', TransactionExplorerChartTypeValue.Area100PercentStacked, undefined, true, undefined);
+    public static readonly SmoothAreaStacked = new TransactionExplorerChartType('Smooth Area Chart (Stacked)', TransactionExplorerChartTypeValue.SmoothAreaStacked, undefined, true, undefined);
+    public static readonly SmoothArea100PercentStacked = new TransactionExplorerChartType('Smooth Area Chart (100% Stacked)', TransactionExplorerChartTypeValue.SmoothArea100PercentStacked, undefined, true, undefined);
     public static readonly BubbleGrouped = new TransactionExplorerChartType('Bubble Chart (Grouped)', TransactionExplorerChartTypeValue.BubbleGrouped, undefined, true, undefined);
     public static readonly Treemap = new TransactionExplorerChartType('Treemap Chart', TransactionExplorerChartTypeValue.Treemap, undefined, true, undefined);
     public static readonly Sunburst = new TransactionExplorerChartType('Sunburst Chart', TransactionExplorerChartTypeValue.Sunburst, undefined, true, undefined);
     public static readonly Heatmap = new TransactionExplorerChartType('Heatmap Chart', TransactionExplorerChartTypeValue.Heatmap, undefined, true, undefined);
     public static readonly CalendarHeatmap = new TransactionExplorerChartType('Calendar Heatmap Chart', TransactionExplorerChartTypeValue.CalendarHeatmap, TransactionExplorerDataDimensionType.DateTimeByYearMonthDay, false, ChartSortingType.DisplayOrder.type);
+    public static readonly Custom = new TransactionExplorerChartType('Custom Chart', TransactionExplorerChartTypeValue.Custom, undefined, false, undefined);
 
     public static readonly Default = TransactionExplorerChartType.Pie;
 
@@ -443,6 +457,43 @@ export class TransactionExplorerChartType implements NameValue {
 
     public static valueOf(value: string): TransactionExplorerChartType | undefined {
         return TransactionExplorerChartType.allInstancesByValue[value];
+    }
+}
+
+export class TransactionExplorerCustomChartDisplayLayout implements TypeAndName {
+    private static readonly allInstances: TransactionExplorerCustomChartDisplayLayout[] = [];
+    private static readonly allInstancesByType: Record<number, TransactionExplorerCustomChartDisplayLayout> = {};
+
+    public static readonly CodeAndChart = new TransactionExplorerCustomChartDisplayLayout(0, 'Code and Chart', true, true, false);
+    public static readonly CodeAndChartData = new TransactionExplorerCustomChartDisplayLayout(1, 'Code and Chart Data', true, false, true);
+    public static readonly Chart = new TransactionExplorerCustomChartDisplayLayout(2, 'Chart', false, true, false);
+    public static readonly Code = new TransactionExplorerCustomChartDisplayLayout(3, 'Code', true, false, false);
+
+    public static readonly Default = TransactionExplorerCustomChartDisplayLayout.CodeAndChart;
+
+    public readonly type: number;
+    public readonly name: string;
+    public readonly showCode: boolean;
+    public readonly showChart: boolean;
+    public readonly showChartData: boolean;
+
+    private constructor(type: number, name: string, showCode: boolean = true, showChart: boolean = true, showChartData: boolean = false) {
+        this.type = type;
+        this.name = name;
+        this.showCode = showCode;
+        this.showChart = showChart;
+        this.showChartData = showChartData;
+
+        TransactionExplorerCustomChartDisplayLayout.allInstances.push(this);
+        TransactionExplorerCustomChartDisplayLayout.allInstancesByType[type] = this;
+    }
+
+    public static values(): TransactionExplorerCustomChartDisplayLayout[] {
+        return TransactionExplorerCustomChartDisplayLayout.allInstances;
+    }
+
+    public static valueOf(type: number): TransactionExplorerCustomChartDisplayLayout | undefined {
+        return TransactionExplorerCustomChartDisplayLayout.allInstancesByType[type];
     }
 }
 

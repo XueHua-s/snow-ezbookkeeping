@@ -4,7 +4,7 @@
             <f7-nav-left :class="{ 'disabled': loading }" :back-link="tt('Back')"></f7-nav-left>
             <f7-nav-title :title="tt(title)"></f7-nav-title>
             <f7-nav-right :class="{ 'disabled': loading }">
-                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': inputIsEmpty || submitting }" @click="save"></f7-link>
+                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': inputIsEmpty || submitting }" :aria-label="tt('Save')" @click="save"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
@@ -56,6 +56,7 @@
         <f7-list form strong inset dividers class="margin-top-half" v-else-if="!loading">
             <f7-list-input
                 type="text"
+                autocomplete="off"
                 clear-button
                 :label="tt('Category Name')"
                 :placeholder="tt('Your category name')"
@@ -139,6 +140,7 @@
             <f7-list-input
                 type="textarea"
                 style="height: auto"
+                autocomplete="off"
                 :label="tt('Description')"
                 :placeholder="tt('Your category description (optional)')"
                 v-textarea-auto-size

@@ -14,6 +14,7 @@
             :no-data-text="tt('No data to import')"
             v-model:items-per-page="countPerPage"
             v-model:page="currentPage"
+            @click="focusTableScrollContainer"
         >
             <template #headers="{ columns }">
                 <tr>
@@ -64,7 +65,7 @@
                                         <td>{{ typeName }}</td>
                                         <td>
                                             <v-btn-toggle class="toggle-buttons" density="compact" variant="outlined"
-                                                          color="default" mandatory="force" divided
+                                                          color="default" mandatory="force"
                                                           v-model="parsedFileDataColumnMapping.transactionTypeMapping[typeName]">
                                                 <v-btn :value="undefined">{{ tt('None') }}</v-btn>
                                                 <v-btn :value="TransactionType.ModifyBalance">{{ tt('Modify Balance') }}</v-btn>
@@ -256,6 +257,7 @@ import {
     openTextFileContent,
     startDownloadFile
 } from '@/lib/ui/common.ts';
+import { focusTableScrollContainer } from '@/lib/ui/desktop.ts';
 import logger from '@/lib/logger.ts';
 
 import {

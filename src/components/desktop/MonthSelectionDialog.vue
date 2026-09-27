@@ -5,7 +5,7 @@
                                   @cancel="cancel">
             <template #toolbar>
                 <v-btn class="mx-2" density="comfortable" variant="outlined"
-                       :disabled="!monthValue" @click="confirm">{{ tt('OK') }}</v-btn>
+                       :disabled="!monthValue" @click="confirm">{{ tt('Apply') }}</v-btn>
             </template>
 
             <template #content>
@@ -90,7 +90,7 @@ watch(() => props.show, (newValue) => {
 .month-selection-dialog .dp--main {
     .dp--menu {
         border: 0;
-        padding-left: 3px;
+        padding-inline-start: 3px;
     }
 
     .dp--instance-calendar .dp--overlay.dp--overlay-relative {

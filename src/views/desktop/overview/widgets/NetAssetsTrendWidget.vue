@@ -1,10 +1,11 @@
 <template>
-    <v-card class="net-assets-trend-card h-100" :class="{ disabled: loading }">
+    <v-card class="overview-widget net-assets-trend-card h-100" :class="{ disabled: loading }">
         <template #title>
-            <span class="text-title-medium">{{ title || tt('Net Assets Trends') }}</span>
+            <overview-widget-header :title="title || tt('Net Assets Trends')" :icon="mdiChartTimelineVariant" />
         </template>
 
-        <trends-chart hide-y-axis-labels class="mb-2" chart-mode="daily" :type="TrendChartType.Area.type"
+        <trends-chart hide-x-axis-line hide-y-axis-labels hide-horizontal-grid-lines hide-line-symbols no-animation
+                      chart-mode="daily" :type="TrendChartType.Area.type"
                       :start-time="startTime" :end-time="endTime"
                       :start-year-month="undefined" :end-year-month="undefined"
                       :sorting-type="ChartSortingType.Amount.type"
@@ -13,13 +14,21 @@
                       :fiscal-year-start="fiscalYearStart" :items="items"
                       :value-type="ChartValueType.Amount" :show-value="showAmountInHomePage"
                       :default-currency="defaultCurrency"
+                      :smooth-curve="smoothCurve"
                       :hide-legend="!showLegend" legend-position="bottom"
-                      :hide-x-axis-labels="!showXAxisLabels" />
+                      :hide-x-axis-labels="!showXAxisLabels"
+                      :no-margin="!showLegend && !showXAxisLabels"
+                      :enable-click-item="true"
+                      @click="clickMonth" />
     </v-card>
 </template>
 
 <script setup lang="ts">
+import OverviewWidgetHeader from './OverviewWidgetHeader.vue';
+import type { TrendsBarChartClickEvent } from '@/components/base/TrendsChartBase.ts';
+
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { useI18n } from '@/locales/helpers.ts';
 
@@ -38,13 +47,20 @@ import type { TransactionAssetTrendsAnalysisDataItem, TransactionAssetTrendsAnal
 import { BIG_DECIMAL_ZERO, parseBigDecimal } from '@/lib/numeral.ts';
 import { getUnixTimeBeforeUnixTime } from '@/lib/datetime.ts';
 
+import {
+    mdiChartTimelineVariant
+} from '@mdi/js';
+
 const props = defineProps<{
     loading: boolean;
     title?: string;
     months: number;
+    smoothCurve: boolean;
     showLegend: boolean;
     showXAxisLabels: boolean;
 }>();
+
+const router = useRouter();
 
 const { tt } = useI18n();
 
@@ -121,6 +137,14 @@ const items = computed<TransactionAssetTrendsAnalysisDataItem[]>(() => {
         items: amounts
     }];
 });
+
+function clickMonth(e: TrendsBarChartClickEvent): void {
+    router.push(`/transaction/list?${overviewStore.getTransactionListPageParams({
+        dateType: e.dateRange.dateType,
+        minTime: e.dateRange.minTime,
+        maxTime: e.dateRange.maxTime
+    })}`);
+}
 </script>
 
 <style scoped>

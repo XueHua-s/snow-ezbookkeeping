@@ -9,7 +9,7 @@
                 </f7-link>
             </f7-nav-title>
             <f7-nav-right :class="{ 'disabled': loading }">
-                <f7-link icon-f7="ellipsis" @click="showMoreActionSheet = true"></f7-link>
+                <f7-link icon-f7="ellipsis" :aria-label="tt('More')" @click="showMoreActionSheet = true"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
@@ -130,8 +130,8 @@
                 </div>
             </f7-card-header>
             <f7-card-content style="margin-top: -14px" :padding="false">
-                <f7-list class="statistics-list-item skeleton-text" v-if="loading">
-                    <f7-list-item link="#" :key="itemIdx" v-for="itemIdx in [ 1, 2, 3 ]">
+                <f7-list strong inset dividers class="statistics-list-item skeleton-text" v-if="loading">
+                    <f7-list-item class="item-no-divider" link="#" :key="itemIdx" v-for="itemIdx in [ 1, 2, 3 ]">
                         <template #media>
                             <div class="display-flex no-padding-horizontal">
                                 <div class="display-flex align-items-center statistics-icon">
@@ -158,45 +158,46 @@
                     </f7-list-item>
                 </f7-list>
 
-                <f7-list v-else-if="!loading && (!categoricalAnalysisData || !categoricalAnalysisData.items || !categoricalAnalysisData.items.length)">
+                <f7-list strong inset dividers v-else-if="!loading && (!categoricalAnalysisData || !categoricalAnalysisData.items || !categoricalAnalysisData.items.length)">
                     <f7-list-item :title="tt('No transaction data')"></f7-list-item>
                 </f7-list>
 
-                <f7-list v-else-if="!loading && categoricalAnalysisData && categoricalAnalysisData.items && categoricalAnalysisData.items.length">
-                    <f7-list-item class="statistics-list-item"
-                                  :link="getTransactionItemLinkUrl(item.id)"
-                                  :key="idx"
-                                  v-for="(item, idx) in categoricalAnalysisData.items"
-                                  v-show="!item.hidden"
-                    >
-                        <template #media>
-                            <div class="display-flex no-padding-horizontal">
-                                <div class="display-flex align-items-center statistics-icon">
-                                    <ItemIcon :icon-type="getIconType(queryChartDataCategory, item.iconType)" :icon-id="item.icon" :color="item.color" v-if="item.icon"></ItemIcon>
-                                    <f7-icon f7="pencil_ellipsis_rectangle" v-else-if="!item.icon"></f7-icon>
+                <f7-list strong inset dividers v-else-if="!loading && categoricalAnalysisData && categoricalAnalysisData.items && categoricalAnalysisData.items.length">
+                    <f7-list-item class="item-no-divider display-none"></f7-list-item>
+                    <template v-for="(item, idx) in categoricalAnalysisData.items">
+                        <f7-list-item class="statistics-list-item item-no-divider"
+                                      :link="getTransactionItemLinkUrl(item.id)"
+                                      :key="idx"
+                                      v-if="!item.hidden">
+                            <template #media>
+                                <div class="display-flex no-padding-horizontal">
+                                    <div class="display-flex align-items-center statistics-icon">
+                                        <ItemIcon :icon-type="getIconType(queryChartDataCategory, item.iconType)" :icon-id="item.icon" :color="item.color" v-if="item.icon"></ItemIcon>
+                                        <f7-icon f7="pencil_ellipsis_rectangle" v-else-if="!item.icon"></f7-icon>
+                                    </div>
                                 </div>
-                            </div>
-                        </template>
+                            </template>
 
-                        <template #title>
-                            <div class="statistics-list-item-text">
-                                <span>{{ item.name }}</span>
-                                <small class="statistics-percent" v-if="showPercentInCategoricalChart && item.percent >= 0 && item.value.isPositiveOrZero()">{{ formatPercentToLocalizedNumerals(item.percent, 2, '<0.01') }}</small>
-                            </div>
-                        </template>
-
-                        <template #after>
-                            <span>{{ getDisplayAmount(item.value, defaultCurrency) }}</span>
-                        </template>
-
-                        <template #inner-end>
-                            <div class="statistics-item-end">
-                                <div class="statistics-percent-line">
-                                    <f7-progressbar :progress="item.percent >= 0 ? item.percent : 0" :style="{ '--f7-progressbar-progress-color': (item.color ? getTransactionCategoricalAnalysisDataItemDisplayColor(item) : '') } "></f7-progressbar>
+                            <template #title>
+                                <div class="statistics-list-item-text">
+                                    <span>{{ item.name }}</span>
+                                    <small class="statistics-percent" v-if="showPercentInCategoricalChart && item.percent >= 0 && item.value.isPositiveOrZero()">{{ formatPercentToLocalizedNumerals(item.percent, 2, '<0.01') }}</small>
                                 </div>
-                            </div>
-                        </template>
-                    </f7-list-item>
+                            </template>
+
+                            <template #after>
+                                <span>{{ getDisplayAmount(item.value, defaultCurrency) }}</span>
+                            </template>
+
+                            <template #inner-end>
+                                <div class="statistics-item-end">
+                                    <div class="statistics-percent-line">
+                                        <f7-progressbar :progress="item.percent >= 0 ? item.percent : 0" :style="{ '--f7-progressbar-progress-color': (item.color ? getTransactionCategoricalAnalysisDataItemDisplayColor(item) : '') } "></f7-progressbar>
+                                    </div>
+                                </div>
+                            </template>
+                        </f7-list-item>
+                    </template>
                 </f7-list>
             </f7-card-content>
         </f7-card>
@@ -281,13 +282,13 @@
         </f7-popover>
 
         <f7-toolbar tabbar bottom :class="{ 'compact-tabbar': true, 'toolbar-item-auto-size': true, 'disabled': loading }">
-            <f7-link :class="{ 'disabled': reloading || !canShiftDateRange }" @click="shiftDateRange(-1)">
+            <f7-link :class="{ 'disabled': reloading || !canShiftDateRange }" :aria-label="tt('Previous Period')" @click="shiftDateRange(-1)">
                 <f7-icon class="icon-with-direction" f7="arrow_left_square"></f7-icon>
             </f7-link>
             <f7-link :class="{ 'tabbar-text-with-ellipsis': true, 'disabled': reloading || !canChangeDateRange }" popover-open=".date-popover-menu">
                 <span :class="{ 'tabbar-item-changed': isQueryDateRangeChanged }">{{ queryDateRangeName }}</span>
             </f7-link>
-            <f7-link :class="{ 'disabled': reloading || !canShiftDateRange }" @click="shiftDateRange(1)">
+            <f7-link :class="{ 'disabled': reloading || !canShiftDateRange }" :aria-label="tt('Next Period')" @click="shiftDateRange(1)">
                 <f7-icon class="icon-with-direction" f7="arrow_right_square"></f7-icon>
             </f7-link>
             <f7-link :class="{ 'tabbar-text-with-ellipsis': true, 'disabled': reloading }" popover-open=".date-aggregation-popover-menu"
@@ -592,7 +593,9 @@ function reload(done?: () => void): void {
             });
         }
     } else if (query.value.chartDataType === ChartDataType.AccountTotalAssets.type ||
-        query.value.chartDataType === ChartDataType.AccountTotalLiabilities.type) {
+        query.value.chartDataType === ChartDataType.AccountTotalLiabilities.type ||
+        query.value.chartDataType === ChartDataType.TotalAssetsByCurrency.type ||
+        query.value.chartDataType === ChartDataType.TotalLiabilitiesByCurrency.type) {
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             dispatchPromise = accountsStore.loadAllAccounts({
                 force: force

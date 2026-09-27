@@ -4,7 +4,7 @@
                                   :title="tt(title)" :cancel-button-title="tt('Cancel')"
                                   @cancel="cancel">
             <template #toolbar>
-                <v-text-field class="mx-2" density="compact"
+                <v-text-field class="mx-2" autocomplete="off" density="compact"
                               :disabled="loading || !hasAnyAvailableAccount"
                               :prepend-inner-icon="mdiMagnify"
                               :placeholder="tt('Find account')"
@@ -14,7 +14,7 @@
                        :disabled="!hasAnyAvailableAccount" @click="save">{{ tt(applyText) }}</v-btn>
 
                 <v-btn density="compact" color="default" variant="text" class="ms-2"
-                       :disabled="loading || !hasAnyAvailableAccount" :icon="true">
+                       :aria-label="tt('More')" :disabled="loading || !hasAnyAvailableAccount" :icon="true">
                     <v-icon :icon="mdiDotsVertical" />
                     <v-menu activator="parent">
                         <v-list>
@@ -53,7 +53,8 @@
                 </div>
 
                 <div v-else-if="!loading && hasAnyVisibleAccount">
-                    <v-expansion-panels class="account-categories" multiple v-model="expandAccountCategories">
+                    <v-expansion-panels class="account-categories" multiple v-model="expandAccountCategories"
+                                        @click="focusParentWhenClicked($event, 'v-list', '.v-card-text')">
                         <v-expansion-panel :key="accountCategory.category"
                                            :value="accountCategory.category"
                                            class="border"
@@ -141,6 +142,7 @@ import {
     isAccountOrSubAccountsAllChecked,
     isAccountOrSubAccountsHasButNotAllChecked
 } from '@/lib/account.ts';
+import { focusParentWhenClicked } from '@/lib/ui/desktop.ts';
 
 import {
     mdiMagnify,
@@ -157,6 +159,7 @@ type SnackBarType = InstanceType<typeof SnackBar>;
 const props = defineProps<{
     type: AccountFilterType;
     selectedAccountIds?: string[];
+    disableHiddenAccount?: boolean;
     autoSave?: boolean;
     show: boolean;
 }>();
@@ -184,7 +187,7 @@ const {
     isAccountChecked,
     loadFilterAccountIds,
     saveFilterAccountIds
-} = useAccountFilterSettingPageBase(props.type, props.selectedAccountIds);
+} = useAccountFilterSettingPageBase(props.type, computed(() => props.disableHiddenAccount));
 
 const accountsStore = useAccountsStore();
 
@@ -203,7 +206,7 @@ function init(): void {
     }).then(() => {
         loading.value = false;
 
-        if (!loadFilterAccountIds()) {
+        if (!loadFilterAccountIds(props.selectedAccountIds)) {
             snackbar.value?.showError('Parameter Invalid');
         }
     }).catch(error => {
@@ -266,7 +269,7 @@ function cancel(): void {
 
 watch(() => props.show, (newValue) => {
     if (newValue) {
-        loadFilterAccountIds();
+        loadFilterAccountIds(props.selectedAccountIds);
         showHidden.value = false;
         filterContent.value = '';
     }

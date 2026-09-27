@@ -6,6 +6,7 @@
             <f7-nav-right :class="{ 'disabled': loading }">
                 <f7-link icon-f7="checkmark_alt"
                          :class="{ 'disabled': !fromAccount || !toAccountId || fromAccount?.id === toAccountId || !toAccountName || !isToAccountNameValid || moving }"
+                         :aria-label="tt('Confirm')"
                          @click="confirm"></f7-link>
             </f7-nav-right>
         </f7-navbar>
@@ -46,6 +47,7 @@
 
             <f7-list-input
                 type="text"
+                autocomplete="off"
                 clear-button
                 :label="tt('Confirm Target Account Name')"
                 :placeholder="tt('Please re-enter the target account name to confirm')"

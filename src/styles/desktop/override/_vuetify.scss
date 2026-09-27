@@ -246,33 +246,56 @@
         &:not(:first-child) {
             border-start-start-radius: 0;
             border-end-start-radius: 0;
-            border-inline-start: 0;
+            margin-inline-start: -1px;
         }
 
         &:not(:last-child) {
             border-start-end-radius: 0;
             border-end-end-radius: 0;
+
+            &:not(.v-btn--active) {
+                border-inline-end-color: transparent;
+            }
+        }
+
+        &.v-btn--active {
+            z-index: 1;
+
+            + .v-btn {
+                border-inline-start-color: transparent;
+            }
         }
     }
 }
 
 .v-btn-group {
     &.v-btn-group--density-compact {
-        height: 1.8rem !important;
+        height: 1.8rem;
     }
 
     &.v-btn-group--density-comfortable {
         height: 2.375rem;
     }
 
-    &.v-btn-group--divided .v-btn:not(:last-child) {
+    > .v-btn--variant-outlined {
+        &.text-primary {
+            border-color: currentColor;
+        }
+    }
+
+    &.v-btn-group--divided > .v-btn--variant-outlined:not(:last-child) {
         border-inline-end-color: rgba(var(--v-border-color), var(--v-border-opacity));
+
+        &.text-primary {
+            border-inline-end-color: currentColor;
+        }
     }
 }
 
 .dialog-layout-card {
     > .dialog-layout-card-title {
-        .v-btn {
+        .v-btn,
+        .v-btn-group {
             min-height: 30px;
         }
 
@@ -349,6 +372,15 @@
 
 .v-chip {
     border-radius: var(--ebk-radius-sm);
+
+    &.v-chip--size-x-small {
+        font-size: 0.75rem;
+    }
+
+    .v-chip__prepend .v-icon {
+        font-size: inherit;
+        margin-inline-end: 0.2em;
+    }
 }
 
 .v-switch {

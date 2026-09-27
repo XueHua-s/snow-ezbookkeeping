@@ -4,7 +4,7 @@
                                   :title="tt(title)" :cancel-button-title="tt('Cancel')"
                                   @cancel="cancel">
             <template #toolbar>
-                <v-text-field class="mx-2" density="compact"
+                <v-text-field class="mx-2" autocomplete="off" density="compact"
                               :disabled="loading || !hasAnyAvailableTag"
                               :prepend-inner-icon="mdiMagnify"
                               :placeholder="tt('Find tag')"
@@ -14,7 +14,7 @@
                        :disabled="!hasAnyAvailableTag" @click="save">{{ tt(applyText) }}</v-btn>
 
                 <v-btn density="compact" color="default" variant="text" class="ms-2"
-                       :disabled="loading || !hasAnyAvailableTag" :icon="true">
+                       :aria-label="tt('More')" :disabled="loading || !hasAnyAvailableTag" :icon="true">
                     <v-icon :icon="mdiDotsVertical" />
                     <v-menu activator="parent">
                         <v-list>
@@ -53,7 +53,8 @@
                 </div>
 
                 <div v-else-if="!loading && hasAnyVisibleTag">
-                    <v-expansion-panels class="tag-categories" multiple v-model="expandTagGroups">
+                    <v-expansion-panels class="tag-categories" multiple v-model="expandTagGroups"
+                                        @click="focusParentWhenClicked($event, 'v-list', '.v-card-text')">
                         <template :key="tagGroup.id" v-for="tagGroup in allTagGroupsWithDefault">
                             <v-expansion-panel class="border" :value="tagGroup.id" v-if="allVisibleTags[tagGroup.id] && allVisibleTags[tagGroup.id]!.length > 0">
                                 <v-expansion-panel-title class="expand-panel-title-with-bg py-0">
@@ -102,7 +103,7 @@
                                                 </template>
                                                 <template #append>
                                                     <v-btn-toggle class="toggle-buttons" style="min-height: 30px"
-                                                                  density="compact" variant="outlined" mandatory="force" divided
+                                                                  density="compact" variant="outlined" mandatory="force"
                                                                   :model-value="tagFilterStateMap[transactionTag.id]"
                                                                   @update:model-value="updateTransactionTagState(transactionTag, $event)">
                                                         <v-btn :value="TransactionTagFilterState.Include">{{ tt('Included') }}</v-btn>
@@ -144,6 +145,8 @@ import { TransactionTagFilterType } from '@/core/transaction.ts';
 import type { TransactionTagGroup } from '@/models/transaction_tag_group.ts';
 import type { TransactionTag } from '@/models/transaction_tag.ts';
 
+import { focusParentWhenClicked } from '@/lib/ui/desktop.ts';
+
 import {
     mdiMagnify,
     mdiCheck,
@@ -158,12 +161,13 @@ type SnackBarType = InstanceType<typeof SnackBar>;
 
 const props = defineProps<{
     type: string;
+    tagFilter?: string;
     autoSave?: boolean;
     show: boolean;
 }>();
 
 const emit = defineEmits<{
-    (e: 'settings:change', changed: boolean): void;
+    (e: 'settings:change', changed: boolean, tagFilter?: string): void;
     (e: 'update:show', value: boolean): void;
 }>();
 
@@ -205,7 +209,7 @@ function init(): void {
         loading.value = false;
         expandTagGroups.value = allVisibleTagGroupIds.value;
 
-        if (!loadFilterTagIds()) {
+        if (!loadFilterTagIds(props.tagFilter)) {
             snackbar.value?.showError('Parameter Invalid');
         }
     }).catch(error => {
@@ -266,8 +270,8 @@ function setAllTagsState(value: TransactionTagFilterState): void {
 }
 
 function save(): void {
-    const changed = saveFilterTagIds();
-    emit('settings:change', changed);
+    const [changed, textualTagFilter] = saveFilterTagIds();
+    emit('settings:change', changed, textualTagFilter);
 }
 
 function cancel(): void {
@@ -276,7 +280,7 @@ function cancel(): void {
 
 watch(() => props.show, (newValue) => {
     if (newValue) {
-        loadFilterTagIds();
+        loadFilterTagIds(props.tagFilter);
         showHidden.value = false;
         filterContent.value = '';
     }

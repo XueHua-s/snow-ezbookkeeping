@@ -1,30 +1,24 @@
 <template>
-    <v-card class="overview-monthly-chart-card" :class="{ 'disabled': disabled }">
-        <template #title>
-            <span class="text-title-medium">{{ title || tt('Income and Expense Trends') }}</span>
-        </template>
-
-        <div class="overview-monthly-chart-body">
-            <v-card-text class="overview-monthly-chart-container overview-monthly-chart-overlay" v-if="loading && !hasAnyData">
-                <div class="overview-monthly-chart-skeleton-container h-100" style="margin-top: -30px">
-                    <div class="d-flex w-100 h-100 align-center justify-center"
-                         :key="itemIdx" v-for="itemIdx in [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ]">
-                        <v-skeleton-loader width="16" height="200" :loading="true"></v-skeleton-loader>
-                    </div>
+    <div class="overview-monthly-chart">
+        <v-card-text class="overview-monthly-chart-container overview-monthly-chart-overlay" v-if="loading && !hasAnyData">
+            <div class="overview-monthly-chart-skeleton-container h-100" style="margin-top: -10px">
+                <div class="d-flex w-100 h-100 align-center justify-center"
+                     :key="itemIdx" v-for="itemIdx in [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ]">
+                    <v-skeleton-loader class="overview-monthly-chart-skeleton" width="16" :loading="true"></v-skeleton-loader>
                 </div>
-            </v-card-text>
+            </div>
+        </v-card-text>
 
-            <v-card-text class="overview-monthly-chart-container overview-monthly-chart-overlay" v-else-if="!loading && !hasAnyData">
-                <div class="d-flex flex-column align-center justify-center w-100 h-100">
-                    <span class="text-title-medium mt-n13">{{ tt('No data') }}</span>
-                </div>
-            </v-card-text>
+        <v-card-text class="overview-monthly-chart-container overview-monthly-chart-overlay" v-else-if="!loading && !hasAnyData">
+            <div class="d-flex flex-column align-center justify-center w-100 h-100">
+                <span class="text-title-medium mt-n13">{{ tt('No data') }}</span>
+            </div>
+        </v-card-text>
 
-            <v-chart autoresize class="overview-monthly-chart-container" :class="{ 'readonly': !hasAnyData }"
-                     :option="chartOptions" :update-options="{ notMerge: true }"
-                     @click="clickItem"/>
-        </div>
-    </v-card>
+        <v-chart autoresize class="overview-monthly-chart-container" :class="{ 'readonly': !hasAnyData }"
+                 :option="chartOptions" :update-options="{ notMerge: true }"
+                 @click="clickItem"/>
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -39,6 +33,7 @@ import { useUserStore } from '@/stores/user.ts';
 
 import { TextDirection } from '@/core/text.ts';
 import type { BigDecimal, HiddenAmount } from '@/core/numeral.ts';
+import { TrendChartType } from '@/core/statistics.ts';
 import { TransactionType } from '@/core/transaction.ts';
 import { DISPLAY_HIDDEN_AMOUNT, INCOMPLETE_AMOUNT_SUFFIX } from '@/consts/numeral.ts';
 
@@ -56,12 +51,15 @@ export interface MonthlyIncomeAndExpenseCardClickEvent {
 const props = defineProps<{
     loading: boolean;
     data: TransactionMonthlyIncomeAndExpenseData[];
+    chartType: number;
+    transactionTypes: number[];
     disabled: boolean;
-    title?: string;
     isDarkMode?: boolean;
     enableClickItem?: boolean;
     hideLegend?: boolean;
     hideXAxisLabels?: boolean;
+    noMargin?: boolean;
+    smoothCurve?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -81,13 +79,16 @@ const userStore = useUserStore();
 const textDirection = computed<TextDirection>(() => getCurrentLanguageTextDirection());
 const showAmountInHomePage = computed<boolean>(() => settingsStore.appSettings.showAmountInHomePage);
 const defaultCurrency = computed<string>(() => userStore.currentUserDefaultCurrency);
+const showIncome = computed<boolean>(() => props.transactionTypes.includes(TransactionType.Income));
+const showExpense = computed<boolean>(() => props.transactionTypes.includes(TransactionType.Expense));
+const showIncomeAndExpense = computed<boolean>(() => showIncome.value && showExpense.value);
 const hasAnyData = computed<boolean>(() => {
     if (!props.data || !props.data.length || props.data.length < 1) {
         return false;
     }
 
     for (const item of props.data) {
-        if (!item.incomeAmount.isZero() || !item.expenseAmount.isZero()) {
+        if ((showIncome.value && !item.incomeAmount.isZero()) || (showExpense.value && !item.expenseAmount.isZero())) {
             return true;
         }
     }
@@ -110,23 +111,30 @@ const chartOptions = computed<object>(() => {
             const monthShortName = formatDateTimeToGregorianLikeShortMonth(monthStartDateTime);
 
             monthNames.push(monthShortName);
-            incomeAmounts.push(item.incomeAmount.toDoubleNumber());
-            expenseAmounts.push(item.expenseAmount.negate().toDoubleNumber());
 
-            if (item.incomeAmount.greaterThan(maxAmount)) {
-                maxAmount = item.incomeAmount;
+            if (showIncome.value) {
+                incomeAmounts.push(item.incomeAmount.toDoubleNumber());
+
+                if (item.incomeAmount.greaterThan(maxAmount)) {
+                    maxAmount = item.incomeAmount;
+                }
+
+                if (item.incomeAmount.lessThan(minAmount)) {
+                    minAmount = item.incomeAmount;
+                }
             }
 
-            if (item.expenseAmount.negate().greaterThan(maxAmount)) {
-                maxAmount = item.expenseAmount.negate();
-            }
+            if (showExpense.value) {
+                const expenseAmount = showIncomeAndExpense.value ? item.expenseAmount.negate() : item.expenseAmount;
+                expenseAmounts.push(expenseAmount.toDoubleNumber());
 
-            if (item.incomeAmount.lessThan(minAmount)) {
-                minAmount = item.incomeAmount;
-            }
+                if (expenseAmount.greaterThan(maxAmount)) {
+                    maxAmount = expenseAmount;
+                }
 
-            if (item.expenseAmount.negate().lessThan(minAmount)) {
-                minAmount = item.expenseAmount.negate();
+                if (expenseAmount.lessThan(minAmount)) {
+                    minAmount = expenseAmount;
+                }
             }
         }
     }
@@ -136,7 +144,14 @@ const chartOptions = computed<object>(() => {
     return {
         tooltip: {
             trigger: 'axis',
-            axisPointer: {
+            axisPointer: props.chartType === TrendChartType.Area.type ? {
+                type: 'cross',
+                label: {
+                    show: showAmountInHomePage.value,
+                    backgroundColor: props.isDarkMode ? '#333' : '#fff',
+                    color: props.isDarkMode ? '#eee' : '#333'
+                }
+            } : {
                 type: 'shadow',
                 shadowStyle: {
                     color: props.isDarkMode ? 'rgba(210, 210, 210, 0.05)' : 'rgba(120, 120, 120, 0.05)'
@@ -189,25 +204,31 @@ const chartOptions = computed<object>(() => {
         },
         legend: {
             show: !props.hideLegend,
-            bottom: 10,
+            bottom: 5,
             itemWidth: 14,
             itemHeight: 14,
             textStyle: {
                 color: props.isDarkMode ? '#eee' : '#333'
             },
             icon: 'circle',
-            data: [ tt('Income'), tt('Expense') ]
+            data: [
+                ...(showIncome.value ? [tt('Income')] : []),
+                ...(showExpense.value ? [tt('Expense')] : [])
+            ]
         },
         grid: {
-            left: 10,
-            right: 10,
-            top: 10,
-            bottom: !props.hideLegend && !props.hideXAxisLabels ? 90 : (!props.hideLegend || !props.hideXAxisLabels ? 50 : 20)
+            left: props.noMargin ? 0 : 10,
+            right: props.noMargin ? 0 : 10,
+            top: props.noMargin ? 5 : (showIncomeAndExpense.value ? 10 : 5),
+            bottom: props.chartType === TrendChartType.Area.type
+                ? props.noMargin ? 0 : (!props.hideXAxisLabels ? 30 : 10) + (!props.hideLegend ? 25 : 0)
+                : props.noMargin ? 10 : ((!props.hideXAxisLabels ? 20 : 0) + (!props.hideLegend ? 25 : 0) + (showIncomeAndExpense.value ? 20 : 10)),
         },
         xAxis: [
             {
                 type: 'category',
                 data: monthNames,
+                boundaryGap: props.chartType !== TrendChartType.Area.type,
                 inverse: textDirection.value === TextDirection.RTL,
                 axisLine: {
                     show: false
@@ -217,11 +238,24 @@ const chartOptions = computed<object>(() => {
                 },
                 axisLabel: {
                     show: !props.hideXAxisLabels,
-                    padding: [ 20, 0, 0, 0 ]
+                    padding: [ (props.chartType === TrendChartType.Column.type && showIncomeAndExpense.value ? 10 : 0), 0, 0, 0 ]
                 }
             }
         ],
-        yAxis: [
+        yAxis: props.chartType === TrendChartType.Area.type || !showIncomeAndExpense.value ? [
+            {
+                type: 'value',
+                min: minAmount.toDoubleNumber(),
+                max: maxAmount.toDoubleNumber(),
+                splitNumber: 10,
+                axisLabel: {
+                    show: false
+                },
+                splitLine: {
+                    show: false
+                }
+            }
+        ] : [
             {
                 type: 'value',
                 min: minAmount.subtract(amountGap.divide(20)).toDoubleNumber(),
@@ -248,15 +282,18 @@ const chartOptions = computed<object>(() => {
             }
         ],
         series: [
-            {
-                type: 'bar',
+            ...(showIncome.value ? [{
+                type: props.chartType === TrendChartType.Area.type ? 'line' : 'bar',
                 id: 'seriesIncome',
                 name: tt('Income'),
                 yAxisIndex: 0,
-                stack: 'Total',
+                stack: props.chartType === TrendChartType.Column.type && showIncomeAndExpense.value ? 'Total' : undefined,
+                areaStyle: props.chartType === TrendChartType.Area.type ? {} : undefined,
+                smooth: props.smoothCurve,
+                showSymbol: false,
                 itemStyle: {
                     color: expenseIncomeAmountColor.incomeAmountColor,
-                    borderRadius: 16
+                    borderRadius: props.chartType === TrendChartType.Area.type ? undefined : 16
                 },
                 emphasis: {
                     focus: 'series',
@@ -264,18 +301,21 @@ const chartOptions = computed<object>(() => {
                         show: false
                     }
                 },
-                barMaxWidth: 16,
+                barMaxWidth: props.chartType === TrendChartType.Area.type ? undefined : 16,
                 data: incomeAmounts
-            },
-            {
-                type: 'bar',
+            }] : []),
+            ...(showExpense.value ? [{
+                type: props.chartType === TrendChartType.Area.type ? 'line' : 'bar',
                 id: 'seriesExpense',
                 name: tt('Expense'),
-                yAxisIndex: 1,
-                stack: 'Total',
+                yAxisIndex: props.chartType === TrendChartType.Column.type && showIncomeAndExpense.value ? 1 : 0,
+                stack: props.chartType === TrendChartType.Column.type && showIncomeAndExpense.value ? 'Total' : undefined,
+                areaStyle: props.chartType === TrendChartType.Area.type ? {} : undefined,
+                smooth: props.smoothCurve,
+                showSymbol: false,
                 itemStyle: {
                     color: expenseIncomeAmountColor.expenseAmountColor,
-                    borderRadius: 16
+                    borderRadius: props.chartType === TrendChartType.Area.type ? undefined : 16
                 },
                 emphasis: {
                     focus: 'series',
@@ -283,9 +323,9 @@ const chartOptions = computed<object>(() => {
                         show: false
                     }
                 },
-                barMaxWidth: 16,
+                barMaxWidth: props.chartType === TrendChartType.Area.type ? undefined : 16,
                 data: expenseAmounts
-            }
+            }] : [])
         ]
     };
 });
@@ -332,12 +372,7 @@ function clickItem(e: ECElementEvent): void {
 </script>
 
 <style>
-.overview-monthly-chart-card {
-    display: flex;
-    flex-direction: column;
-}
-
-.overview-monthly-chart-body {
+.overview-monthly-chart {
     flex: 1 1 0;
     min-height: 0;
     position: relative;
@@ -352,6 +387,10 @@ function clickItem(e: ECElementEvent): void {
 .overview-monthly-chart-skeleton-container {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.overview-monthly-chart-skeleton {
+    height: 80%;
 }
 
 .overview-monthly-chart-tooltip-indicator {

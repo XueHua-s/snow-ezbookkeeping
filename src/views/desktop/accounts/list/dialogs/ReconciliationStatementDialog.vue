@@ -7,8 +7,8 @@
                                   :title="tt('Reconciliation Statement')" :cancel-button-title="tt('Close')"
                                   @cancel="close">
             <template #after-title>
-                <v-btn density="compact" color="default" variant="text"
-                       class="ms-2" :icon="true" :disabled="updatingLastReconciledTime"
+                <v-btn density="compact" color="default" variant="text" class="ms-2"
+                       :aria-label="tt('Refresh')" :icon="true" :disabled="updatingLastReconciledTime"
                        :loading="loading" @click="reload(true)">
                     <template #loader>
                         <v-progress-circular indeterminate size="20"/>
@@ -30,7 +30,7 @@
                                :false-name="tt('Transaction List')" :true-name="tt('Account Balance Trends')"
                                v-model="showAccountBalanceTrendsCharts"/>
 
-                <v-btn density="compact" color="default" variant="text" class="ms-2"
+                <v-btn density="compact" color="default" variant="text" class="ms-2" :aria-label="tt('Settings')"
                        :icon="true" :disabled="loading || updatingLastReconciledTime || !showAccountBalanceTrendsCharts">
                     <v-icon :icon="mdiTuneVertical" size="22" />
                     <v-menu activator="parent">
@@ -61,7 +61,7 @@
                         </v-list>
                     </v-menu>
                 </v-btn>
-                <v-btn density="compact" color="default" variant="text" class="ms-2"
+                <v-btn density="compact" color="default" variant="text" class="ms-2" :aria-label="tt('More')"
                        :icon="true" :disabled="loading || updatingLastReconciledTime">
                     <v-icon :icon="mdiDotsVertical" size="22" />
                     <v-menu activator="parent">
@@ -101,9 +101,7 @@
                         <span>{{ tt('All') }}</span>
                     </div>
                     <div class="text-body-large text-wrap" v-if="startTime || endTime">
-                        <span>{{ displayStartDateTime }}</span>
-                        <span> - </span>
-                        <span>{{ displayEndDateTime }}</span>
+                        <span>{{ formatRange(displayStartDateTime, displayEndDateTime) }}</span>
                     </div>
 
                     <div class="d-flex align-center mt-1 overflow-x-auto">
@@ -181,13 +179,16 @@
                     :no-data-text="loading ? '' : tt('No transaction data')"
                     v-model:items-per-page="countPerPage"
                     v-model:page="currentPage"
+                    @click="focusTableScrollContainer"
                     v-if="!showAccountBalanceTrendsCharts"
                 >
                     <template #item.time="{ item }">
-                        <span>{{ getDisplayDateTime(item) }}</span>
-                        <v-chip class="ms-1" variant="flat" color="grey" size="x-small"
-                                v-if="!isSameAsDefaultTimezoneOffsetMinutes(item)">{{ getDisplayTimezone(item) }}</v-chip>
-                        <v-tooltip activator="parent" v-if="!isSameAsDefaultTimezoneOffsetMinutes(item)">{{ getDisplayTimeInDefaultTimezone(item) }}</v-tooltip>
+                        <div class="d-flex align-center">
+                            <span>{{ getDisplayDateTime(item) }}</span>
+                            <v-chip class="ms-1" variant="flat" color="grey" size="x-small"
+                                    v-if="!isSameAsDefaultTimezoneOffsetMinutes(item)">{{ getDisplayTimezone(item) }}</v-chip>
+                            <v-tooltip activator="parent" v-if="!isSameAsDefaultTimezoneOffsetMinutes(item)">{{ getDisplayTimeInDefaultTimezone(item) }}</v-tooltip>
+                        </div>
                     </template>
                     <template #item.type="{ item }">
                         <v-chip label variant="outlined" size="x-small"
@@ -201,10 +202,10 @@
                                       :color="item.category?.color ?? ''"
                                       v-if="item.category && item.category?.color"></ItemIcon>
                             <v-icon size="24" :icon="mdiPencilBoxOutline" v-else-if="!item.category || !item.category?.color" />
-                            <span class="ms-2" v-if="item.type === TransactionType.ModifyBalance">
+                            <span class="ms-1" v-if="item.type === TransactionType.ModifyBalance">
                                 {{ tt('Modify Balance') }}
                             </span>
-                            <span class="ms-2" v-else-if="item.type !== TransactionType.ModifyBalance && item.category">
+                            <span class="ms-1" v-else-if="item.type !== TransactionType.ModifyBalance && item.category">
                                 {{ item.category?.name }}
                             </span>
                         </div>
@@ -349,6 +350,7 @@ import { BIG_DECIMAL_ZERO, parseBigDecimal } from '@/lib/numeral.ts';
 import { getCurrentUnixTime } from '@/lib/datetime.ts';
 import { getCategoryIconType } from '@/lib/icon.ts';
 import { startDownloadFile } from '@/lib/ui/common.ts';
+import { focusTableScrollContainer } from '@/lib/ui/desktop.ts';
 
 import {
     extendMdiSemicolon
@@ -386,6 +388,7 @@ const emit = defineEmits<{
 
 const {
     tt,
+    formatRange,
     formatNumberToLocalizedNumerals,
     getTablePageOptions
 } = useI18n();
@@ -442,6 +445,7 @@ const transactionsStore = useTransactionsStore();
 const chartTypeIconMap = {
     [AccountBalanceTrendChartType.Column.type]: mdiChartBar,
     [AccountBalanceTrendChartType.Area.type]: mdiChartAreasplineVariant,
+    [AccountBalanceTrendChartType.SmoothArea.type]: mdiChartAreasplineVariant,
     [AccountBalanceTrendChartType.Boxplot.type]: mdiChartWaterfall,
     [AccountBalanceTrendChartType.Candlestick.type]: mdiChartWaterfall,
 };

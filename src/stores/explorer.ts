@@ -1047,6 +1047,31 @@ export const useExplorersStore = defineStore('explorers', () => {
         return result;
     });
 
+    const filteredTransactionsForCustomChart = computed<TransactionInsightDataItem[]>(() => {
+        if (!allTransactions.value || allTransactions.value.length < 1) {
+            return [];
+        }
+
+        if (!currentExploration.value.queries || currentExploration.value.queries.length < 1) {
+            return allTransactions.value;
+        }
+
+        const result: TransactionInsightDataItem[] = [];
+
+        for (const transaction of allTransactions.value) {
+            const matchOptions: InsightsExplorerMatchContext = buildInsightsExplorerMatchContext(currentExploration.value, transaction);
+
+            for (const query of currentExploration.value.queries) {
+                if (query.match(transaction, matchOptions)) {
+                    result.push(transaction);
+                    break;
+                }
+            }
+        }
+
+        return result;
+    });
+
     const filteredTransactionsInDataTableStatistic = computed<InsightsExplorerTransactionStatisticData>(() => {
         const defaultCurrency = userStore.currentUserDefaultCurrency;
         const statisticData: InsightsExplorerTransactionStatisticData = {
@@ -1218,7 +1243,9 @@ export const useExplorersStore = defineStore('explorers', () => {
         const categoriedDataMap = categoriedTransactions.value;
         let needCalculateDailyTransactionCount: boolean = false;
 
-        if (valueMetric === TransactionExplorerValueMetric.ActiveTransactionDays || valueMetric === TransactionExplorerValueMetric.TransactionsPerDay) {
+        if (valueMetric === TransactionExplorerValueMetric.ActiveTransactionDays
+            || valueMetric === TransactionExplorerValueMetric.TransactionsPerDay
+            || valueMetric === TransactionExplorerValueMetric.AverageAmountPerActiveDay) {
             needCalculateDailyTransactionCount = true;
         }
 
@@ -1310,6 +1337,9 @@ export const useExplorersStore = defineStore('explorers', () => {
                 } else if (valueMetric === TransactionExplorerValueMetric.TransactionsPerDay) {
                     const activeDays = getObjectOwnFieldCount(transactionDateMapCount);
                     value = activeDays > 0 ? parseBigDecimal(allSourceAmountsInDefaultCurrency.length).divide(activeDays) : BIG_DECIMAL_ZERO;
+                } else if (valueMetric === TransactionExplorerValueMetric.AverageAmountPerActiveDay) {
+                    const activeDays = getObjectOwnFieldCount(transactionDateMapCount);
+                    value = activeDays > 0 ? totalSourceAmountSumInDefaultCurrency.divide(activeDays).truncate() : BIG_DECIMAL_ZERO;
                 } else if (valueMetric === TransactionExplorerValueMetric.SourceIncomeAmountSum) {
                     value = totalSourceIncomeAmountSumInDefaultCurrency;
                 } else if (valueMetric === TransactionExplorerValueMetric.SourceExpenseAmountSum) {
@@ -1936,6 +1966,7 @@ export const useExplorersStore = defineStore('explorers', () => {
         // computed
         isUsingAmountRange,
         filteredTransactionsInDataTable,
+        filteredTransactionsForCustomChart,
         filteredTransactionsInDataTableStatistic,
         categoriedTransactionExplorerData,
         categoriedTransactions,
