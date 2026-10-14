@@ -1,8 +1,10 @@
 package utils
 
 import (
+	jsonv1 "encoding/json"
 	"encoding/json/v2"
 	"errors"
+	"io"
 	"net/http"
 	"reflect"
 
@@ -152,6 +154,37 @@ func WriteEventStreamJsonErrorResult(c *core.WebContext, originalErr *errs.Error
 	}
 
 	c.Writer.Flush()
+}
+
+// WriteEventStreamJSON is the checked variant for request-owned streams. The
+// caller owns cancellation and serializes it with comments and terminal frames.
+func WriteEventStreamJSON(c *core.WebContext, result any) error {
+	data, err := jsonv1.Marshal(result)
+	if err != nil {
+		return err
+	}
+	return writeEventStreamFrame(c, "data: "+string(data)+"\n\n")
+}
+
+func WriteEventStreamComment(c *core.WebContext, comment string) error {
+	return writeEventStreamFrame(c, ": "+comment+"\n\n")
+}
+
+func writeEventStreamFrame(c *core.WebContext, frame string) error {
+	n, err := c.Writer.WriteString(frame)
+	if err == nil && n != len(frame) {
+		err = io.ErrShortWrite
+	}
+	if err != nil {
+		return err
+	}
+	// Gin's Flush discards the underlying FlushError. Unwrap its bookkeeping
+	// wrapper after WriteString so a disconnected transport remains observable.
+	writer := http.ResponseWriter(c.Writer)
+	if wrapped, ok := writer.(interface{ Unwrap() http.ResponseWriter }); ok {
+		writer = wrapped.Unwrap()
+	}
+	return http.NewResponseController(writer).Flush()
 }
 
 func getValidationErrorText(err validator.FieldError) string {

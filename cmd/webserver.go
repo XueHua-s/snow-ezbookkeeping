@@ -647,7 +647,7 @@ func bindEventStreamApi(fn core.EventStreamApiHandlerFunc, config *settings.Conf
 		utils.SetEventStreamHeader(c)
 		err := fn(c)
 
-		if err != nil {
+		if err != nil && c.Request.Context().Err() == nil {
 			utils.WriteEventStreamJsonErrorResult(c, err)
 		}
 	}

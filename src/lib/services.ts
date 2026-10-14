@@ -183,7 +183,6 @@ import type {
 import type {
     AIAssistantChatRequest,
     AIAssistantChatResponse,
-    AIAssistantChatStreamChunk,
     RecognizedTransactionResponse,
     CodingAssistantRequest,
     CodingAssistantResponse
@@ -211,7 +210,8 @@ import {
     getGoogleMapAPIKey,
     getBaiduMapAK,
     getAmapApplicationKey,
-    getExchangeRatesRequestTimeout
+    getExchangeRatesRequestTimeout,
+    getAIAssistantRunTimeout
 } from './server_settings.ts';
 import {
     getTimezoneOffsetMinutes,
@@ -221,6 +221,7 @@ import {
 import { generateRandomUUID } from './misc.ts';
 import { getBasePath } from './web.ts';
 import logger from './logger.ts';
+import { type AIAssistantChatStreamCallbacks, type AIAssistantErrorEnvelope, readAssistantStream, startAssistantDeadline } from './assistant_stream.ts';
 
 interface ApiRequestConfig extends AxiosRequestConfig {
     readonly headers: AxiosRequestHeaders;
@@ -233,12 +234,7 @@ interface ApiRequestConfig extends AxiosRequestConfig {
 
 export type ApiResponsePromise<T> = Promise<AxiosResponse<ApiResponse<T>>>;
 
-export interface AIAssistantChatStreamCallbacks {
-    readonly onThinkingDelta?: (delta: string) => void;
-    readonly onReplyDelta?: (delta: string) => void;
-    readonly onReferences?: (references: AIAssistantChatResponse['references']) => void;
-    readonly onDone?: (chunk: AIAssistantChatStreamChunk) => void;
-}
+export type { AIAssistantChatStreamCallbacks } from './assistant_stream.ts';
 
 let needBlockRequest = false;
 const blockedRequests: ((token: string | undefined) => void)[] = [];
@@ -290,7 +286,7 @@ axios.interceptors.response.use(response => {
 
     return response;
 }, error => {
-    if ('cancelableUuid' in error.response.config && error.response.config.cancelableUuid && cancelableRequests[error.response.config.cancelableUuid]) {
+    if (error.response?.config && 'cancelableUuid' in error.response.config && error.response.config.cancelableUuid && cancelableRequests[error.response.config.cancelableUuid]) {
         logger.debug('Response canceled by user request, url: ' + error.response.config.url + ', cancelableUuid: ' + error.response.config.cancelableUuid);
         delete cancelableRequests[error.response.config.cancelableUuid];
         return Promise.reject({ canceled: true });
@@ -941,11 +937,31 @@ export default {
     deleteUserCustomIcon: (req: UserCustomIconDeleteRequest): ApiResponsePromise<boolean> => {
         return axios.post<ApiResponse<boolean>>('v1/custom_icons/delete.json', req);
     },
-    chatWithAIAssistant: ({ req, cancelableUuid }: { req: AIAssistantChatRequest, cancelableUuid?: string }): ApiResponsePromise<AIAssistantChatResponse> => {
-        return axios.post<ApiResponse<AIAssistantChatResponse>>('v1/llm/assistant/chat.json', req, {
-            timeout: DEFAULT_LLM_API_TIMEOUT,
-            cancelableUuid: cancelableUuid
-        } as ApiRequestConfig);
+    chatWithAIAssistant: async ({ req, cancelableUuid }: { req: AIAssistantChatRequest, cancelableUuid?: string }): ApiResponsePromise<AIAssistantChatResponse> => {
+        const controller = new AbortController();
+        const stopDeadline = startAssistantDeadline(controller, (getAIAssistantRunTimeout() ?? DEFAULT_LLM_API_TIMEOUT) + 10000);
+        if (cancelableUuid) {
+            cancelableStreamingRequests[cancelableUuid] = controller;
+        }
+        try {
+            return await axios.post<ApiResponse<AIAssistantChatResponse>>('v1/llm/assistant/chat.json', req, {
+                timeout: 0, // The shared deadline supports durations beyond browser timer limits.
+                signal: controller.signal
+            });
+        } catch (error: unknown) {
+            if (controller.signal.aborted) {
+                if (controller.signal.reason?.name === 'TimeoutError') {
+                    throw { timedOut: true, incomplete: true, message: 'Unable to get AI assistant response' };
+                }
+                throw { canceled: true };
+            }
+            throw error;
+        } finally {
+            stopDeadline();
+            if (cancelableUuid && cancelableStreamingRequests[cancelableUuid] === controller) {
+                delete cancelableStreamingRequests[cancelableUuid];
+            }
+        }
     },
     chatWithAIAssistantStream: async ({ req, cancelableUuid, callbacks }: {
         req: AIAssistantChatRequest;
@@ -954,6 +970,7 @@ export default {
     }): Promise<void> => {
         const token = getCurrentToken();
         const abortController = new AbortController();
+        const stopDeadline = startAssistantDeadline(abortController, (getAIAssistantRunTimeout() ?? DEFAULT_LLM_API_TIMEOUT) + 10000);
 
         if (cancelableUuid) {
             cancelableStreamingRequests[cancelableUuid] = abortController;
@@ -985,18 +1002,12 @@ export default {
             });
 
             if (!response.ok) {
-                let errorPayload: {
-                    errorCode?: number;
-                    errorMessage?: string;
-                } | null = null;
+                let errorPayload: AIAssistantErrorEnvelope | null = null;
 
                 try {
-                    errorPayload = await response.json() as {
-                        errorCode?: number;
-                        errorMessage?: string;
-                    };
+                    errorPayload = await response.json() as AIAssistantErrorEnvelope;
                 } catch {
-                    // ignore parse error
+                    // A non-JSON HTTP error still fails without fabricating completion.
                 }
 
                 if (errorPayload && errorPayload.errorCode && (
@@ -1013,7 +1024,7 @@ export default {
                     throw { processed: true };
                 }
 
-                if (errorPayload && errorPayload.errorMessage) {
+                if (errorPayload) {
                     throw { response: { data: errorPayload } };
                 }
 
@@ -1024,138 +1035,25 @@ export default {
                 throw { message: 'Unable to get AI assistant response' };
             }
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let streamBuffer = '';
-            const parseRawStreamEvent = (rawEvent: string, fallbackToDoneEvent: boolean): AIAssistantChatStreamChunk | {
-                success: false;
-                errorCode?: number;
-                errorMessage?: string;
-            } | null => {
-                if (!rawEvent.trim()) {
-                    return null;
-                }
-
-                const rawLines = rawEvent.split('\n');
-                const dataLines: string[] = [];
-
-                for (let i = 0; i < rawLines.length; i++) {
-                    const line = (rawLines[i] || '').trim();
-
-                    if (!line.startsWith('data:')) {
-                        continue;
-                    }
-
-                    dataLines.push(line.substring(5).trim());
-                }
-
-                if (!dataLines.length) {
-                    return null;
-                }
-
-                const dataStr = dataLines.join('\n');
-
-                if (dataStr === '[DONE]') {
-                    return null;
-                }
-
-                try {
-                    return JSON.parse(dataStr) as AIAssistantChatStreamChunk | {
-                        success: false;
-                        errorCode?: number;
-                        errorMessage?: string;
-                    };
-                } catch {
-                    if (!fallbackToDoneEvent) {
-                        return null;
-                    }
-
-                    return {
-                        type: 'done'
-                    };
-                }
-            };
-            const handleRawEvent = (rawEvent: string, fallbackToDoneEvent: boolean): void => {
-                const parsedData = parseRawStreamEvent(rawEvent, fallbackToDoneEvent);
-
-                if (!parsedData) {
-                    return;
-                }
-
-                if ('success' in parsedData && !parsedData.success) {
-                    throw { response: { data: parsedData } };
-                }
-
-                if ('type' in parsedData) {
-                    handleChunk(parsedData);
-                }
-            };
-
-            const handleChunk = (chunk: AIAssistantChatStreamChunk): void => {
-                if (!chunk || !chunk.type) {
-                    return;
-                }
-
-                if (chunk.type === 'thinking_delta' && chunk.delta) {
-                    callbacks?.onThinkingDelta?.(chunk.delta);
-                    return;
-                }
-
-                if (chunk.type === 'reply_delta' && chunk.delta) {
-                    callbacks?.onReplyDelta?.(chunk.delta);
-                    return;
-                }
-
-                if (chunk.type === 'references') {
-                    callbacks?.onReferences?.(chunk.references);
-                    return;
-                }
-
-                if (chunk.type === 'done') {
-                    callbacks?.onDone?.(chunk);
-                }
-            };
-
-            while (true) {
-                const { done, value } = await reader.read();
-
-                if (done) {
-                    break;
-                }
-
-                streamBuffer += decoder.decode(value, { stream: true });
-                streamBuffer = streamBuffer.replace(/\r\n/g, '\n');
-
-                let eventEndIndex = streamBuffer.indexOf('\n\n');
-
-                while (eventEndIndex >= 0) {
-                    const rawEvent = streamBuffer.slice(0, eventEndIndex);
-                    streamBuffer = streamBuffer.slice(eventEndIndex + 2);
-                    eventEndIndex = streamBuffer.indexOf('\n\n');
-
-                    handleRawEvent(rawEvent, false);
-                }
-            }
-
-            streamBuffer += decoder.decode();
-            streamBuffer = streamBuffer.replace(/\r\n/g, '\n');
-
-            if (streamBuffer.trim()) {
-                handleRawEvent(streamBuffer, true);
-            }
+            await readAssistantStream(response.body, callbacks, abortController.signal);
         } catch (error: unknown) {
             const typedError = error as {
                 name?: string;
                 canceled?: boolean;
             };
 
-            if (typedError.name === 'AbortError' || typedError.canceled) {
+            if (abortController.signal.aborted || typedError.name === 'AbortError' || typedError.canceled) {
+                if (abortController.signal.reason?.name === 'TimeoutError') {
+                    throw { timedOut: true, incomplete: true, message: 'Unable to get AI assistant response' };
+                }
                 throw { canceled: true };
             }
 
             throw error;
         } finally {
-            if (cancelableUuid) {
+            stopDeadline();
+            abortController.abort();
+            if (cancelableUuid && cancelableStreamingRequests[cancelableUuid] === abortController) {
                 delete cancelableStreamingRequests[cancelableUuid];
             }
         }

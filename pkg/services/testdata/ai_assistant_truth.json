@@ -1,0 +1,261 @@
+{
+  "description": "Independent hand-calculated truth from AI_ASSISTANT_HARNESS_PLAN.md section 15.7. All IDs and exact amounts are strings; amount_minor uses the existing 100x scale. Never load into a production database.",
+  "uid": "9007199254740993",
+  "timezone": "Asia/Shanghai",
+  "now": "2026-10-14T12:00:00+08:00",
+  "period": {
+    "name": "truth",
+    "start_time": "2026-10-01T00:00:00+08:00",
+    "end_time": "2026-11-01T00:00:00+08:00"
+  },
+  "accounts": [
+    {
+      "id": "9007199254741001",
+      "name": "CNY cash",
+      "currency": "CNY",
+      "hidden": false,
+      "parent_id": null,
+      "account_type": 1,
+      "account_category": 1,
+      "deleted": false
+    },
+    {
+      "id": "9007199254741002",
+      "name": "USD cash",
+      "currency": "USD",
+      "hidden": false,
+      "parent_id": null,
+      "account_type": 1,
+      "account_category": 1,
+      "deleted": false
+    },
+    {
+      "id": "9007199254741003",
+      "name": "Hidden cash",
+      "currency": "CNY",
+      "hidden": true,
+      "parent_id": null,
+      "account_type": 1,
+      "account_category": 1,
+      "deleted": false
+    }
+  ],
+  "transactions": [
+    {
+      "id": "9007199254742001",
+      "type": "expense",
+      "db_type": 3,
+      "time": "2026-10-02T12:00:00+08:00",
+      "account_id": "9007199254741001",
+      "currency": "CNY",
+      "amount": "100.00",
+      "amount_minor": "10000",
+      "deleted": false,
+      "category_id": "9007199254744001"
+    },
+    {
+      "id": "9007199254742002",
+      "type": "expense",
+      "db_type": 3,
+      "time": "2026-10-03T12:00:00+08:00",
+      "account_id": "9007199254741001",
+      "currency": "CNY",
+      "amount": "-20.00",
+      "amount_minor": "-2000",
+      "deleted": false,
+      "category_id": "9007199254744001"
+    },
+    {
+      "id": "9007199254742003",
+      "type": "income",
+      "db_type": 2,
+      "time": "2026-10-04T12:00:00+08:00",
+      "account_id": "9007199254741001",
+      "currency": "CNY",
+      "amount": "1000.00",
+      "amount_minor": "100000",
+      "deleted": false,
+      "category_id": "9007199254744002"
+    },
+    {
+      "id": "9007199254742004",
+      "type": "transfer",
+      "db_type": 4,
+      "time": "2026-10-05T12:00:00+08:00",
+      "account_id": "9007199254741001",
+      "currency": "CNY",
+      "amount": "40.00",
+      "amount_minor": "4000",
+      "destination_account_id": "9007199254741002",
+      "destination_currency": "USD",
+      "destination_amount": "5.00",
+      "destination_amount_minor": "500",
+      "related_id": "9007199254742007",
+      "deleted": false,
+      "category_id": "9007199254744003"
+    },
+    {
+      "id": "9007199254742005",
+      "type": "balance_modification",
+      "db_type": 1,
+      "time": "2026-10-06T12:00:00+08:00",
+      "account_id": "9007199254741001",
+      "currency": "CNY",
+      "amount": "200.00",
+      "amount_minor": "20000",
+      "category_id": null,
+      "deleted": false
+    },
+    {
+      "id": "9007199254742006",
+      "type": "expense",
+      "db_type": 3,
+      "time": "2026-10-07T12:00:00+08:00",
+      "account_id": "9007199254741003",
+      "currency": "CNY",
+      "amount": "30.00",
+      "amount_minor": "3000",
+      "deleted": false,
+      "category_id": "9007199254744001"
+    }
+  ],
+  "transfer_in_storage_record": {
+    "id": "9007199254742007",
+    "db_type": 5,
+    "time": "2026-10-05T12:00:00+08:00",
+    "account_id": "9007199254741002",
+    "currency": "USD",
+    "amount": "5.00",
+    "amount_minor": "500",
+    "related_id": "9007199254742004",
+    "related_account_id": "9007199254741001",
+    "related_account_amount_minor": "4000",
+    "category_id": "9007199254744003"
+  },
+  "expected": {
+    "logical_count": "6",
+    "storage_count": "7",
+    "totals": [
+      {
+        "currency": "CNY",
+        "flow": "income",
+        "count": "1",
+        "sum": "1000.00",
+        "min": "1000.00",
+        "max": "1000.00"
+      },
+      {
+        "currency": "CNY",
+        "flow": "expense",
+        "count": "3",
+        "sum": "110.00",
+        "min": "-20.00",
+        "max": "100.00"
+      },
+      {
+        "currency": "CNY",
+        "flow": "transfer_out",
+        "count": "1",
+        "sum": "40.00",
+        "min": "40.00",
+        "max": "40.00"
+      },
+      {
+        "currency": "CNY",
+        "flow": "balance_modification",
+        "count": "1",
+        "sum": "200.00",
+        "min": "200.00",
+        "max": "200.00"
+      },
+      {
+        "currency": "USD",
+        "flow": "transfer_in",
+        "count": "1",
+        "sum": "5.00",
+        "min": "5.00",
+        "max": "5.00"
+      }
+    ],
+    "net_income": [
+      {
+        "currency": "CNY",
+        "amount": "890.00"
+      }
+    ],
+    "destination_only": {
+      "account_id": "9007199254741002",
+      "logical_count": "1",
+      "transaction_id": "9007199254742004",
+      "flow": "transfer_in",
+      "currency": "USD",
+      "sum": "5.00"
+    },
+    "empty_metrics": {
+      "count": "0",
+      "sum": "0.00",
+      "min": null,
+      "max": null
+    }
+  },
+  "balance_fixture": {
+    "accounts": [
+      {
+        "id": "9007199254743001",
+        "parent_id": null,
+        "name": "Asset parent",
+        "type": "parent",
+        "currency": "CNY",
+        "signed_balance": "2000.00"
+      },
+      {
+        "id": "9007199254743002",
+        "parent_id": "9007199254743001",
+        "name": "Asset leaf",
+        "type": "asset",
+        "currency": "CNY",
+        "hidden": true,
+        "signed_balance": "2000.00"
+      },
+      {
+        "id": "9007199254743003",
+        "parent_id": null,
+        "name": "Liability leaf",
+        "type": "liability",
+        "currency": "CNY",
+        "signed_balance": "-300.00"
+      }
+    ],
+    "expected": {
+      "leaf_count": "2",
+      "currency": "CNY",
+      "asset_balance": "2000.00",
+      "liability_signed_balance": "-300.00",
+      "outstanding_balance": "300.00",
+      "net_assets": "1700.00"
+    }
+  },
+  "categories": [
+    {
+      "id": "9007199254744001",
+      "name": "Expense",
+      "type": "expense",
+      "db_type": 2,
+      "parent_id": null
+    },
+    {
+      "id": "9007199254744002",
+      "name": "Income",
+      "type": "income",
+      "db_type": 1,
+      "parent_id": null
+    },
+    {
+      "id": "9007199254744003",
+      "name": "Transfer",
+      "type": "transfer",
+      "db_type": 3,
+      "parent_id": null
+    }
+  ]
+}

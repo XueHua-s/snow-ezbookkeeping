@@ -16,3 +16,10 @@ type LargeLanguageModelProvider interface {
 type LargeLanguageModelStreamingProvider interface {
 	StreamTextResponse(c core.Context, uid int64, request *data.LargeLanguageModelRequest, callback data.LargeLanguageModelStreamCallback) (*data.LargeLanguageModelStreamResponse, error)
 }
+
+// LargeLanguageModelToolProvider is optional. Receipt recognition and providers
+// without assistant tool support continue to use the existing interfaces.
+// A failed or incomplete turn must never yield executable partial calls.
+type LargeLanguageModelToolProvider interface {
+	RunToolTurn(c core.Context, uid int64, input data.ToolTurnInput, emit data.DisplayEventSink) (data.TurnResponse, error)
+}

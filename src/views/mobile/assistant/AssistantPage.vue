@@ -1,5 +1,93 @@
+<script setup lang="ts">
+import type { Router } from 'framework7/types';
+import AssistantMarkdownContent from '@/components/common/AssistantMarkdownContent.vue';
+import AssistantMessageEvidence from '@/components/common/AssistantMessageEvidence.vue';
+
+import { nextTick, useTemplateRef, watch } from 'vue';
+
+import { useI18n } from '@/locales/helpers.ts';
+import { useI18nUIComponents } from '@/lib/ui/mobile.ts';
+import { useAssistantPageBase } from '@/views/base/assistant/AssistantPageBase.ts';
+
+const props = defineProps<{ f7router: Router.Router }>();
+
+type ScrollablePanelRef = HTMLElement | { $el?: Element };
+
+const { tt } = useI18n();
+const { showToast } = useI18nUIComponents();
+const {
+    enabled,
+    messages,
+    messageInput,
+    requesting,
+    rendering,
+    canSendMessage,
+    clearConversation,
+    disposeConversation,
+    cancelCurrentRequest,
+    canRequestNextPage,
+    requestNextPage,
+    sendMessage,
+    generateSummary
+} = useAssistantPageBase();
+
+const messagesPanel = useTemplateRef<ScrollablePanelRef>('messagesPanel');
+
+function getMessagesPanelElement(): HTMLElement | null {
+    const panel = messagesPanel.value;
+
+    if (panel instanceof HTMLElement) {
+        return panel;
+    }
+
+    if (panel && '$el' in panel && panel.$el instanceof HTMLElement) {
+        return panel.$el;
+    }
+
+    return null;
+}
+
+watch(() => messages.value.map(message => `${message.id}:${message.thinking?.length || 0}:${message.content.length}:${message.references?.length || 0}:${message.state}:${message.progress}:${message.queries?.length || 0}`).join('|'), () => {
+    nextTick(() => {
+        const panel = getMessagesPanelElement();
+
+        if (!panel) {
+            return;
+        }
+
+        panel.scrollTop = panel.scrollHeight;
+    });
+});
+
+function openReference(id: string): void {
+    props.f7router.navigate(`/transaction/detail?id=${encodeURIComponent(id)}`);
+}
+
+function sendNextPage(): void {
+    requestNextPage(tt('Show the next page of the current query results')).catch(error => {
+        if (!error.processed) showToast(error.message || error);
+    });
+}
+
+function sendChatMessage(): void {
+    sendMessage().catch(error => {
+        if (!error.processed) {
+            showToast(error.message || error);
+        }
+    });
+}
+
+function generateSummaryMessage(): void {
+    generateSummary(tt('Generate AI Summary')).catch(error => {
+        if (!error.processed) {
+            showToast(error.message || error);
+        }
+    });
+}
+</script>
+
 <template>
-    <f7-page>
+    <f7-page @page:beforeout="disposeConversation">
         <f7-navbar :title="tt('AI Assistant')" :back-link="tt('Back')"></f7-navbar>
 
         <f7-block strong inset v-if="!enabled">
@@ -14,7 +102,7 @@
                     {{ tt('Generate AI Summary') }}
                 </f7-button>
                 <f7-button class="assistant-top-action-btn" outline
-                           :disabled="requesting || rendering || !messages.length"
+                           :disabled="!messages.length"
                            @click="clearConversation">
                     {{ tt('Clear Conversation') }}
                 </f7-button>
@@ -36,18 +124,14 @@
                                                     :content="message.content"
                                                     :thinking="message.thinking" />
 
-                        <div class="assistant-message-references margin-top" v-if="message.references && message.references.length">
-                            <div class="assistant-reference-title">{{ tt('Referenced Bills') }}</div>
-                            <div class="assistant-reference-item margin-top-half"
-                                 :key="reference.id + '-' + reference.time + '-' + reference.similarityScore"
-                                 v-for="reference in message.references">
-                                <div>{{ reference.timeText || '-' }}</div>
-                                <div>{{ reference.categoryName || tt('Uncategorized') }}</div>
-                                <div>{{ formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.sourceAmount), reference.currency || false) }}</div>
-                            </div>
-                        </div>
+                        <assistant-message-evidence :message="message" @open-reference="openReference" />
                     </div>
                 </div>
+            </f7-block>
+
+            <f7-block class="assistant-session-actions" v-if="requesting || canRequestNextPage">
+                <f7-button outline v-if="canRequestNextPage" @click="sendNextPage">{{ tt('Next Page') }}</f7-button>
+                <f7-button v-if="requesting" @click="cancelCurrentRequest">{{ tt('Cancel') }}</f7-button>
             </f7-block>
 
             <f7-block class="assistant-input-block">
@@ -75,76 +159,7 @@
     </f7-page>
 </template>
 
-<script setup lang="ts">
-import AssistantMarkdownContent from '@/components/common/AssistantMarkdownContent.vue';
 
-import { nextTick, useTemplateRef, watch } from 'vue';
-
-import { useI18n } from '@/locales/helpers.ts';
-import { parseBigDecimal } from '@/lib/numeral.ts';
-import { useI18nUIComponents } from '@/lib/ui/mobile.ts';
-import { useAssistantPageBase } from '@/views/base/assistant/AssistantPageBase.ts';
-
-type ScrollablePanelRef = HTMLElement | { $el?: Element };
-
-const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
-const { showToast } = useI18nUIComponents();
-const {
-    enabled,
-    messages,
-    messageInput,
-    requesting,
-    rendering,
-    canSendMessage,
-    clearConversation,
-    sendMessage,
-    generateSummary
-} = useAssistantPageBase();
-
-const messagesPanel = useTemplateRef<ScrollablePanelRef>('messagesPanel');
-
-function getMessagesPanelElement(): HTMLElement | null {
-    const panel = messagesPanel.value;
-
-    if (panel instanceof HTMLElement) {
-        return panel;
-    }
-
-    if (panel && '$el' in panel && panel.$el instanceof HTMLElement) {
-        return panel.$el;
-    }
-
-    return null;
-}
-
-watch(() => messages.value.map(message => `${message.id}:${message.thinking?.length || 0}:${message.content.length}:${message.references?.length || 0}`).join('|'), () => {
-    nextTick(() => {
-        const panel = getMessagesPanelElement();
-
-        if (!panel) {
-            return;
-        }
-
-        panel.scrollTop = panel.scrollHeight;
-    });
-});
-
-function sendChatMessage(): void {
-    sendMessage().catch(error => {
-        if (!error.processed) {
-            showToast(error.message || error);
-        }
-    });
-}
-
-function generateSummaryMessage(): void {
-    generateSummary().catch(error => {
-        if (!error.processed) {
-            showToast(error.message || error);
-        }
-    });
-}
-</script>
 
 <style scoped>
 .assistant-top-actions {
@@ -209,15 +224,7 @@ function generateSummaryMessage(): void {
     line-height: 1.45;
 }
 
-.assistant-message-references {
-    border-top: 1px solid var(--f7-page-master-border-color);
-    padding-top: 8px;
-    font-size: var(--f7-label-font-size);
-}
-
-.assistant-reference-item {
-    opacity: 0.75;
-}
+.assistant-session-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 18px; }
 
 .assistant-input-block {
     margin-top: 0;

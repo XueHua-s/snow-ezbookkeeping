@@ -1,15 +1,19 @@
-import { ref, computed } from 'vue';
+import { shallowRef, computed, watch, onScopeDispose, getCurrentInstance, onDeactivated } from 'vue';
 
 import type {
     AIAssistantChatRequest,
     AIAssistantHistoryItem,
-    AIAssistantReferencedTransaction
+    AIAssistantReferencedTransaction,
+    AIAssistantState,
+    AIAssistantStatus,
+    AIAssistantQuery,
+    AIAssistantContinuation
 } from '@/models/large_language_model.ts';
-
+import type { AIAssistantRequestError } from '@/lib/assistant_stream.ts';
+import { useUserStore } from '@/stores/user.ts';
 import { isAIAssistantEnabled } from '@/lib/server_settings.ts';
 import services from '@/lib/services.ts';
 import { generateRandomUUID } from '@/lib/misc.ts';
-import logger from '@/lib/logger.ts';
 
 export type AIAssistantConversationRole = 'user' | 'assistant';
 
@@ -20,244 +24,191 @@ export interface AIAssistantConversationMessage {
     readonly thinking?: string;
     readonly createdAt: number;
     readonly references?: AIAssistantReferencedTransaction[];
+    readonly state: AIAssistantState;
+    readonly progress?: AIAssistantStatus;
+    readonly queries?: AIAssistantQuery[];
+    readonly continuation?: AIAssistantContinuation;
+    readonly error?: AIAssistantRequestError;
 }
 
-const maxHistoryMessageCount = 12;
+function historyContent(content: string): string {
+    const characters = Array.from(content);
+    return characters.length > 2048 ? characters.slice(0, 2047).join('') + '…' : content;
+}
+
+/** Keep complete exchanges only, so canceled/partial answers never become history facts. */
+export function buildAssistantHistory(messages: readonly AIAssistantConversationMessage[]): AIAssistantHistoryItem[] {
+    const history: AIAssistantHistoryItem[] = [];
+    for (let i = 1; i < messages.length; i++) {
+        const user = messages[i - 1];
+        const assistant = messages[i];
+        if (user?.role === 'user' && assistant?.role === 'assistant' && assistant.state === 'completed' && assistant.content) {
+            history.push({ role: 'user', content: historyContent(user.content) }, { role: 'assistant', content: historyContent(assistant.content) });
+        }
+    }
+    return history.slice(-12);
+}
 
 export function useAssistantPageBase() {
+    const userStore = useUserStore();
     const enabled = computed<boolean>(() => isAIAssistantEnabled());
-    const messages = ref<AIAssistantConversationMessage[]>([]);
-    const messageInput = ref<string>('');
-    const requesting = ref<boolean>(false);
-    const rendering = ref<boolean>(false);
-    const cancelableUuid = ref<string | undefined>(undefined);
+    const messages = shallowRef<AIAssistantConversationMessage[]>([]);
+    const messageInput = shallowRef('');
+    const activeRequest = shallowRef<{ uuid: string; messageId: string }>();
+    const continuation = shallowRef<AIAssistantContinuation>();
+    const requesting = computed(() => !!activeRequest.value);
+    const rendering = computed(() => requesting.value);
+    const latestAssistant = computed(() => messages.value.findLast(message => message.role === 'assistant'));
+    const state = computed(() => latestAssistant.value?.state);
+    const progress = computed(() => latestAssistant.value?.progress);
+    const canSendMessage = computed(() => !!messageInput.value.trim() && !requesting.value);
+    const canRequestNextPage = computed(() => !!continuation.value && !requesting.value);
 
-    const canSendMessage = computed<boolean>(() => {
-        return !!messageInput.value.trim() && !requesting.value && !rendering.value;
-    });
-
-    function clearConversation(): void {
-        messages.value = [];
+    function patchMessage(id: string, patch: Partial<AIAssistantConversationMessage>): void {
+        messages.value = messages.value.map(message => message.id === id ? { ...message, ...patch } : message);
     }
 
     function cancelCurrentRequest(): void {
-        if (!cancelableUuid.value) {
-            return;
+        const active = activeRequest.value;
+        activeRequest.value = undefined; // Invalidate callbacks before abort can synchronously notify listeners.
+        continuation.value = undefined;
+        if (active) {
+            patchMessage(active.messageId, { state: 'canceled', progress: undefined, continuation: undefined });
+            services.cancelRequest(active.uuid);
         }
-
-        services.cancelRequest(cancelableUuid.value);
     }
 
-    function getHistoryPayload(): AIAssistantHistoryItem[] {
-        if (!messages.value.length) {
-            return [];
-        }
-
-        const history: AIAssistantHistoryItem[] = [];
-        let startIndex = messages.value.length - maxHistoryMessageCount;
-
-        if (startIndex < 0) {
-            startIndex = 0;
-        }
-
-        for (let i = startIndex; i < messages.value.length; i++) {
-            const message = messages.value[i] as AIAssistantConversationMessage;
-
-            if (!message || !message.content) {
-                continue;
-            }
-
-            history.push({
-                role: message.role,
-                content: message.content
-            });
-        }
-
-        return history;
+    function clearConversation(): void {
+        cancelCurrentRequest();
+        messages.value = [];
+        messageInput.value = '';
     }
 
-    function appendConversationMessage(message: AIAssistantConversationMessage): void {
-        messages.value = [...messages.value, message];
+    const disposeConversation = clearConversation;
+    // UserBasicInfo exposes the unique login name, not the internal numeric UID.
+    watch(() => userStore.currentUserBasicInfo?.username, clearConversation, { flush: 'sync' });
+    onScopeDispose(disposeConversation);
+    if (getCurrentInstance()) {
+        onDeactivated(disposeConversation);
     }
 
-    function patchConversationMessage(messageId: string, patch: Partial<AIAssistantConversationMessage>): void {
-        messages.value = messages.value.map(message => {
-            if (message.id !== messageId) {
-                return message;
-            }
-
-            return {
-                ...message,
-                ...patch
-            };
-        });
-    }
-
-    function appendUserMessage(content: string): void {
-        appendConversationMessage({
-            id: generateRandomUUID(),
-            role: 'user',
-            content: content,
-            createdAt: Date.now()
-        });
-    }
-
-    async function appendAssistantMessageByStream(req: AIAssistantChatRequest): Promise<void> {
+    async function request(req: AIAssistantChatRequest): Promise<void> {
+        const uuid = generateRandomUUID();
         const messageId = generateRandomUUID();
-        let latestReply = '';
-        let latestThinking = '';
-
-        appendConversationMessage({
-            id: messageId,
-            role: 'assistant',
-            content: '',
-            thinking: '',
-            createdAt: Date.now()
-        });
-
-        rendering.value = true;
-
+        activeRequest.value = { uuid, messageId };
+        continuation.value = undefined;
+        messages.value = [...messages.value, {
+            id: messageId, role: 'assistant', content: '', thinking: '', createdAt: Date.now(), state: 'requesting'
+        }];
+        const isCurrent = () => activeRequest.value?.uuid === uuid;
+        let reply = '';
+        let thinking = '';
+        let completed = false;
         try {
-            await requestAIAssistantStream(req, {
+            await services.chatWithAIAssistantStream({ req, cancelableUuid: uuid, callbacks: {
+                onStatus: status => {
+                    if (isCurrent()) {
+                        patchMessage(messageId, { progress: status });
+                    }
+                },
                 onThinkingDelta: delta => {
-                    latestThinking += delta;
-                    patchConversationMessage(messageId, {
-                        thinking: latestThinking
-                    });
+                    if (isCurrent()) {
+                        thinking += delta;
+                        patchMessage(messageId, { thinking });
+                    }
                 },
                 onReplyDelta: delta => {
-                    latestReply += delta;
-                    patchConversationMessage(messageId, {
-                        content: latestReply
-                    });
+                    if (isCurrent()) {
+                        reply += delta;
+                        patchMessage(messageId, { content: reply });
+                    }
                 },
                 onReferences: references => {
-                    patchConversationMessage(messageId, {
-                        references
-                    });
+                    if (isCurrent()) {
+                        patchMessage(messageId, { references });
+                    }
                 },
                 onDone: chunk => {
-                    const doneReply = chunk.reply || latestReply;
-                    const doneThinking = chunk.thinking || latestThinking;
-
-                    if (doneReply) {
-                        latestReply = doneReply;
+                    if (isCurrent()) {
+                        completed = true;
+                        continuation.value = chunk.continuation;
+                        patchMessage(messageId, {
+                            content: chunk.reply ?? reply,
+                            thinking: chunk.thinking ?? thinking,
+                            ...(chunk.references ? { references: chunk.references } : {}),
+                            queries: chunk.queries ?? [],
+                            continuation: chunk.continuation,
+                            state: 'completed', progress: undefined
+                        });
                     }
-
-                    if (doneThinking) {
-                        latestThinking = doneThinking;
-                    }
-
-                    patchConversationMessage(messageId, {
-                        content: latestReply,
-                        thinking: latestThinking
-                    });
                 }
-            });
-
-            if (!latestReply) {
-                patchConversationMessage(messageId, {
-                    content: ''
-                });
+            } });
+            if (isCurrent() && !completed) {
+                throw { incomplete: true };
             }
-        } finally {
-            rendering.value = false;
-        }
-    }
-
-    async function requestAIAssistantStream(req: AIAssistantChatRequest, callbacks: {
-        onThinkingDelta?: (delta: string) => void;
-        onReplyDelta?: (delta: string) => void;
-        onReferences?: (references: AIAssistantReferencedTransaction[] | undefined) => void;
-        onDone?: (chunk: {
-            reply?: string;
-            thinking?: string;
-        }) => void;
-    }): Promise<void> {
-        cancelableUuid.value = generateRandomUUID();
-        requesting.value = true;
-
-        try {
-            await services.chatWithAIAssistantStream({
-                req,
-                cancelableUuid: cancelableUuid.value,
-                callbacks
-            });
         } catch (error: unknown) {
-            const typedError = error as {
-                canceled?: boolean;
-                processed?: boolean;
-                response?: {
-                    data?: {
-                        errorMessage?: string;
-                    };
-                };
+            if (!isCurrent()) {
+                return; // A canceled/cleared request must not alter a newer request or show an old error.
+            }
+            const original = (error || {}) as AIAssistantRequestError;
+            const normalized: AIAssistantRequestError = {
+                ...original,
+                message: original.response?.data?.errorMessage || original.message || 'Unable to get AI assistant response'
             };
-
-            if (typedError.canceled) {
-                throw typedError;
+            const assistant = original.response?.data?.context?.assistant;
+            const nextState = original.canceled ? 'canceled' : assistant?.state ?? (original.response ? 'failed' : 'incomplete');
+            continuation.value = assistant?.continuation;
+            patchMessage(messageId, {
+                state: nextState, progress: undefined, error: normalized,
+                queries: assistant?.queries ?? [], continuation: assistant?.continuation
+            });
+            if (!original.canceled) {
+                throw normalized;
             }
-
-            logger.error('failed to request ai assistant', typedError);
-
-            if (typedError.response && typedError.response.data && typedError.response.data.errorMessage) {
-                throw { message: typedError.response.data.errorMessage };
-            }
-
-            if (typedError.processed) {
-                throw typedError;
-            }
-
-            throw { message: 'Unable to get AI assistant response' };
         } finally {
-            requesting.value = false;
-            cancelableUuid.value = undefined;
+            if (isCurrent()) {
+                activeRequest.value = undefined;
+            }
         }
     }
 
     async function sendMessage(): Promise<void> {
-        if (requesting.value || rendering.value) {
+        if (!canSendMessage.value) {
             return;
         }
-
-        const message = messageInput.value.trim();
-
-        if (!message) {
-            return;
-        }
-
-        const history = getHistoryPayload();
-        appendUserMessage(message);
+        const message = messageInput.value; // Only historical content is shortened, never the current question.
+        const history = buildAssistantHistory(messages.value);
+        const candidate = continuation.value;
+        messages.value = [...messages.value, {
+            id: generateRandomUUID(), role: 'user', content: message, createdAt: Date.now(), state: 'completed'
+        }];
         messageInput.value = '';
-
-        await appendAssistantMessageByStream({
-            mode: 'chat',
-            message: message,
-            history
-        });
+        await request({ mode: 'chat', message, history, continuation: candidate });
     }
 
-    async function generateSummary(): Promise<void> {
-        if (requesting.value || rendering.value) {
+    async function generateSummary(message: string): Promise<void> {
+        if (requesting.value || !message.trim()) {
             return;
         }
+        const history = buildAssistantHistory(messages.value);
+        // Keep the localized summary action as the user half of this exchange.
+        // The server still receives mode=summary without a new scope instruction.
+        messages.value = [...messages.value, {
+            id: generateRandomUUID(), role: 'user', content: message, createdAt: Date.now(), state: 'completed'
+        }];
+        await request({ mode: 'summary', history, continuation: continuation.value });
+    }
 
-        await appendAssistantMessageByStream({
-            mode: 'summary',
-            history: getHistoryPayload()
-        });
+    async function requestNextPage(message: string): Promise<void> {
+        if (canRequestNextPage.value && message.trim()) {
+            messageInput.value = message; // Caller supplies the localized, explicit next-page question.
+            await sendMessage();
+        }
     }
 
     return {
-        enabled,
-        messages,
-        messageInput,
-        requesting,
-        rendering,
-        canSendMessage,
-        clearConversation,
-        cancelCurrentRequest,
-        sendMessage,
-        generateSummary
+        enabled, messages, messageInput, requesting, rendering, state, progress, continuation,
+        canSendMessage, canRequestNextPage, clearConversation, disposeConversation, cancelCurrentRequest,
+        sendMessage, generateSummary, requestNextPage
     };
 }

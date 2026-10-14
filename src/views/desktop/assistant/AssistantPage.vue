@@ -1,3 +1,107 @@
+<script setup lang="ts">
+import { onBeforeRouteLeave } from 'vue-router';
+import EditDialog from '@/views/desktop/transactions/list/dialogs/EditDialog.vue';
+import { TransactionEditPageType } from '@/views/base/transactions/TransactionEditPageBase.ts';
+import SnackBar from '@/components/desktop/SnackBar.vue';
+import AssistantMarkdownContent from '@/components/common/AssistantMarkdownContent.vue';
+import AssistantMessageEvidence from '@/components/common/AssistantMessageEvidence.vue';
+
+import { nextTick, useTemplateRef, watch } from 'vue';
+
+import { useI18n } from '@/locales/helpers.ts';
+import { getAIAssistantModelID } from '@/lib/server_settings.ts';
+import { useAssistantPageBase } from '@/views/base/assistant/AssistantPageBase.ts';
+
+import {
+    mdiRobotOutline,
+    mdiTextBoxCheckOutline,
+    mdiDeleteOutline,
+    mdiMessageTextOutline,
+    mdiSend
+} from '@mdi/js';
+
+type SnackBarType = InstanceType<typeof SnackBar>;
+type ScrollablePanelRef = HTMLElement | { $el?: Element };
+
+const { tt } = useI18n();
+const aiAssistantModelID = getAIAssistantModelID();
+const {
+    enabled,
+    messages,
+    messageInput,
+    requesting,
+    rendering,
+    canSendMessage,
+    clearConversation,
+    disposeConversation,
+    cancelCurrentRequest,
+    canRequestNextPage,
+    requestNextPage,
+    sendMessage,
+    generateSummary
+} = useAssistantPageBase();
+
+const referenceDialog = useTemplateRef<InstanceType<typeof EditDialog>>('referenceDialog');
+onBeforeRouteLeave(disposeConversation);
+
+const snackbar = useTemplateRef<SnackBarType>('snackbar');
+const messagesPanel = useTemplateRef<ScrollablePanelRef>('messagesPanel');
+
+function getMessagesPanelElement(): HTMLElement | null {
+    const panel = messagesPanel.value;
+
+    if (panel instanceof HTMLElement) {
+        return panel;
+    }
+
+    if (panel && '$el' in panel && panel.$el instanceof HTMLElement) {
+        return panel.$el;
+    }
+
+    return null;
+}
+
+watch(() => messages.value.map(message => `${message.id}:${message.thinking?.length || 0}:${message.content.length}:${message.references?.length || 0}:${message.state}:${message.progress}:${message.queries?.length || 0}`).join('|'), () => {
+    nextTick(() => {
+        const panel = getMessagesPanelElement();
+
+        if (!panel) {
+            return;
+        }
+
+        panel.scrollTop = panel.scrollHeight;
+    });
+});
+
+function openReference(id: string): void {
+    referenceDialog.value?.open({ id }).catch(error => {
+        if (error && !error.processed) snackbar.value?.showError(error);
+    });
+}
+
+function sendNextPage(): void {
+    requestNextPage(tt('Show the next page of the current query results')).catch(error => {
+        if (!error.processed) snackbar.value?.showError(error);
+    });
+}
+
+function sendChatMessage(): void {
+    sendMessage().catch(error => {
+        if (!error.processed) {
+            snackbar.value?.showError(error);
+        }
+    });
+}
+
+function generateSummaryMessage(): void {
+    generateSummary(tt('Generate AI Summary')).catch(error => {
+        if (!error.processed) {
+            snackbar.value?.showError(error);
+        }
+    });
+}
+</script>
+
 <template>
     <main-page-layout no-navbar>
         <template #content>
@@ -23,7 +127,7 @@
                             </v-btn>
                             <v-btn color="default"
                                    variant="text"
-                                   :disabled="requesting || rendering || !messages.length"
+                                   :disabled="!messages.length"
                                    @click="clearConversation">
                                 <v-icon :icon="mdiDeleteOutline" size="20" class="me-2" />
                                 {{ tt('Clear Conversation') }}
@@ -82,29 +186,18 @@
                                                                 :content="message.content"
                                                                 :thinking="message.thinking" />
 
-                                    <div class="assistant-message-references mt-3"
-                                         v-if="message.references && message.references.length">
-                                        <div class="text-subtitle-2">{{ tt('Referenced Bills') }}</div>
-                                        <div class="assistant-reference-item mt-1"
-                                             :key="reference.id + '-' + reference.time + '-' + reference.similarityScore"
-                                             v-for="reference in message.references">
-                                            <div class="assistant-reference-main">
-                                                <span>{{ reference.timeText || '-' }}</span>
-                                                <span>{{ reference.categoryName || tt('Uncategorized') }}</span>
-                                                <span>{{ reference.sourceAccountName || tt('Account') }}</span>
-                                            </div>
-                                            <div class="assistant-reference-sub">
-                                                <span>{{ formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.sourceAmount), reference.currency || false) }}</span>
-                                                <span v-if="reference.similarityScore">· {{ tt('Similarity') }} {{ reference.similarityScore }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <assistant-message-evidence :message="message" @open-reference="openReference" />
                                 </div>
                             </div>
                         </div>
                     </v-card-text>
 
                     <v-divider />
+
+                    <div class="assistant-session-actions" v-if="requesting || canRequestNextPage">
+                        <v-btn variant="tonal" color="secondary" v-if="canRequestNextPage" @click="sendNextPage">{{ tt('Next Page') }}</v-btn>
+                        <v-btn variant="text" v-if="requesting" @click="cancelCurrentRequest">{{ tt('Cancel') }}</v-btn>
+                    </div>
 
                     <div class="assistant-composer assistant-composer-docked" v-if="enabled && messages.length > 0">
                         <v-textarea
@@ -136,90 +229,11 @@
         </template>
     </main-page-layout>
 
+    <edit-dialog ref="referenceDialog" :type="TransactionEditPageType.Transaction" />
     <snack-bar ref="snackbar" />
 </template>
 
-<script setup lang="ts">
-import SnackBar from '@/components/desktop/SnackBar.vue';
-import AssistantMarkdownContent from '@/components/common/AssistantMarkdownContent.vue';
 
-import { nextTick, useTemplateRef, watch } from 'vue';
-
-import { useI18n } from '@/locales/helpers.ts';
-import { parseBigDecimal } from '@/lib/numeral.ts';
-import { getAIAssistantModelID } from '@/lib/server_settings.ts';
-import { useAssistantPageBase } from '@/views/base/assistant/AssistantPageBase.ts';
-
-import {
-    mdiRobotOutline,
-    mdiTextBoxCheckOutline,
-    mdiDeleteOutline,
-    mdiMessageTextOutline,
-    mdiSend
-} from '@mdi/js';
-
-type SnackBarType = InstanceType<typeof SnackBar>;
-type ScrollablePanelRef = HTMLElement | { $el?: Element };
-
-const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
-const aiAssistantModelID = getAIAssistantModelID();
-const {
-    enabled,
-    messages,
-    messageInput,
-    requesting,
-    rendering,
-    canSendMessage,
-    clearConversation,
-    sendMessage,
-    generateSummary
-} = useAssistantPageBase();
-
-const snackbar = useTemplateRef<SnackBarType>('snackbar');
-const messagesPanel = useTemplateRef<ScrollablePanelRef>('messagesPanel');
-
-function getMessagesPanelElement(): HTMLElement | null {
-    const panel = messagesPanel.value;
-
-    if (panel instanceof HTMLElement) {
-        return panel;
-    }
-
-    if (panel && '$el' in panel && panel.$el instanceof HTMLElement) {
-        return panel.$el;
-    }
-
-    return null;
-}
-
-watch(() => messages.value.map(message => `${message.id}:${message.thinking?.length || 0}:${message.content.length}:${message.references?.length || 0}`).join('|'), () => {
-    nextTick(() => {
-        const panel = getMessagesPanelElement();
-
-        if (!panel) {
-            return;
-        }
-
-        panel.scrollTop = panel.scrollHeight;
-    });
-});
-
-function sendChatMessage(): void {
-    sendMessage().catch(error => {
-        if (!error.processed) {
-            snackbar.value?.showError(error);
-        }
-    });
-}
-
-function generateSummaryMessage(): void {
-    generateSummary().catch(error => {
-        if (!error.processed) {
-            snackbar.value?.showError(error);
-        }
-    });
-}
-</script>
 
 <style scoped>
 .assistant-page-row {
@@ -345,29 +359,7 @@ function generateSummaryMessage(): void {
     line-height: 1.55;
 }
 
-.assistant-message-references {
-    border-top: 1px solid rgba(var(--v-theme-outline), 0.12);
-    padding-top: 10px;
-}
-
-.assistant-reference-item {
-    border: 1px solid rgba(var(--v-theme-outline), 0.12);
-    border-radius: 8px;
-    padding: 8px 10px;
-}
-
-.assistant-reference-main,
-.assistant-reference-sub {
-    display: flex;
-    column-gap: 8px;
-    flex-wrap: wrap;
-    font-size: 13px;
-}
-
-.assistant-reference-sub {
-    opacity: 0.72;
-    margin-top: 3px;
-}
+.assistant-session-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 18px; }
 
 .assistant-composer {
     display: flex;

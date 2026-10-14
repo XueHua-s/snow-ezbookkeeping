@@ -251,8 +251,9 @@ func (p *CommonOpenAIResponsesAPILargeLanguageModelAdapter) buildJsonRequestBody
 }
 
 func newCommonOpenAIResponsesAPILargeLanguageModelAdapter(llmConfig *settings.LLMConfig, enableResponseLog bool, apiProvider OpenAIResponsesAPIProvider) provider.LargeLanguageModelProvider {
-	return common.NewCommonHttpLargeLanguageModelProvider(llmConfig, enableResponseLog, &CommonOpenAIResponsesAPILargeLanguageModelAdapter{
+	base := common.NewCommonHttpLargeLanguageModelProvider(llmConfig, enableResponseLog, &CommonOpenAIResponsesAPILargeLanguageModelAdapter{
 		apiProvider:   apiProvider,
 		ThinkingLevel: llmConfig.EnableThinking,
 	})
+	return newAssistantToolProvider(base, llmConfig, apiProvider.BuildResponsesHttpRequest, apiProvider.GetModelID(), true)
 }

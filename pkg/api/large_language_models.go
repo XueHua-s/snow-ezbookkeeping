@@ -23,12 +23,12 @@ import (
 // LargeLanguageModelsApi represents large language models api
 type LargeLanguageModelsApi struct {
 	ApiUsingConfig
+	assistant             *assistantDependencies
 	transactions          *services.TransactionService
 	transactionCategories *services.TransactionCategoryService
 	transactionTags       *services.TransactionTagService
 	accounts              *services.AccountService
 	users                 *services.UserService
-	embeddings            *services.AIAssistantEmbeddingService
 }
 
 // Initialize a large language models api singleton instance
@@ -42,7 +42,6 @@ var (
 		transactionTags:       services.TransactionTags,
 		accounts:              services.Accounts,
 		users:                 services.Users,
-		embeddings:            services.AIAssistantEmbeddings,
 	}
 )
 

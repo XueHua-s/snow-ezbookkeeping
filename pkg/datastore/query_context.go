@@ -1,50 +1,30 @@
 package datastore
 
 import (
-	"fmt"
-	"time"
+	"context"
 
 	"xorm.io/xorm/log"
 
 	"github.com/mayswind/ezbookkeeping/pkg/core"
 )
 
-// XOrmContextAdapter represents the context adapter for xorm
+// XOrmContextAdapter preserves the caller's lifecycle and xorm's logging ID.
 type XOrmContextAdapter struct {
+	context.Context
 	requestId string
 }
 
-// Deadline does nothing
-func (c *XOrmContextAdapter) Deadline() (deadline time.Time, ok bool) {
-	return
-}
-
-// Done always returns nil
-func (c *XOrmContextAdapter) Done() <-chan struct{} {
-	return nil
-}
-
-// Err always returns nil
-func (c *XOrmContextAdapter) Err() error {
-	return nil
-}
-
-// Value returns the value associated with this context for key, or nil
-// if no value is associated with key.
+// Value preserves xorm's SessionID while delegating all other values.
 func (c *XOrmContextAdapter) Value(key any) any {
 	if key == log.SessionIDKey && c.requestId != "" {
-		return fmt.Sprintf("%s", c.requestId)
+		return c.requestId
 	}
-
-	return nil
+	return c.Context.Value(key)
 }
 
 func NewXOrmContextAdapter(c core.Context) *XOrmContextAdapter {
 	if c != nil {
-		return &XOrmContextAdapter{
-			requestId: c.GetContextId(),
-		}
+		return &XOrmContextAdapter{Context: c, requestId: c.GetContextId()}
 	}
-
-	return &XOrmContextAdapter{}
+	return &XOrmContextAdapter{Context: context.Background()}
 }

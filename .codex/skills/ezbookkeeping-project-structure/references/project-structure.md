@@ -31,10 +31,14 @@
 ## AI Feature Touchpoints
 
 - Receipt image recognition endpoint: `pkg/api/large_language_models.go`.
-- AI assistant endpoint: `pkg/api/large_language_models_assistant.go`.
+- AI assistant JSON/SSE endpoints: `pkg/api/large_language_models_assistant_harness.go`; mode/locale helpers: `large_language_models_assistant.go`.
+- Assistant runner/protocol: `pkg/llm/assistant_runner.go`, `pkg/llm/data/*`, `pkg/llm/provider/openai/openai_assistant_tools.go`.
+- UID-bound read-only tool queries: `pkg/services/ai_assistant_*.go`; fixed-connection read views: `pkg/datastore/assistant_read_view.go`.
+- Shared assistant session/SSE/evidence: `src/views/base/assistant/AssistantPageBase.ts`, `src/lib/assistant_stream.ts`, `src/components/common/AssistantMessageEvidence.vue`.
 - AI provider adapters: `pkg/llm/provider/*`.
 - AI prompt templates: `templates/prompt/*.tmpl`.
-- Assistant embedding cache model/service: `pkg/models/ai_assistant_embedding.go`, `pkg/services/ai_assistant_embeddings.go`.
+- Legacy embedding schema/rows retained for rollback: `pkg/models/ai_assistant_embedding.go`, `cmd/database.go`; no cache service or active assistant embedding config/calls.
+- Assistant config/operations: `docs/ai-providers.md`, `docs/ai-storage-migration.md`, `docs/ai-assistant-harness-verification.md`.
 
 ## Safe Change Pattern
 

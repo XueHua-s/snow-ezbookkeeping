@@ -191,7 +191,9 @@ const (
 	defaultLargeLanguageModelAPIRequestTimeout         uint32 = 60000 // 60 seconds
 	defaultOpenAIBaseURL                               string = "https://api.openai.com/v1/"
 	defaultAIAssistantOpenAIModelID                    string = "gpt-5.4-mini"
-	defaultAIAssistantOpenAIEmbeddingModelID           string = "text-embedding-3-small"
+	defaultAIAssistantRunTimeout                       uint32 = 180000 // 180 seconds
+	defaultAIAssistantQueryTimeout                     uint32 = 30000  // 30 seconds
+	defaultAIAssistantMaxRounds                        uint32 = 12
 
 	defaultInMemoryDuplicateCheckerCleanupInterval uint32 = 60  // 1 minutes
 	defaultDuplicateSubmissionsInterval            uint32 = 300 // 5 minutes
@@ -281,6 +283,30 @@ type WebDAVConfig struct {
 	SkipTLSVerify  bool
 }
 
+// AIAssistantRuntimeConfig contains execution budgets shared by all assistant models.
+// Timeouts are milliseconds and limit execution, never the query's ledger scope.
+type AIAssistantRuntimeConfig struct {
+	RunTimeout   uint32
+	QueryTimeout uint32
+	MaxRounds    uint32
+}
+
+// GetAIAssistantRuntimeConfig supplies defaults for programmatically constructed
+// configurations. LoadConfiguration rejects explicitly configured zero values.
+func (config *Config) GetAIAssistantRuntimeConfig() AIAssistantRuntimeConfig {
+	runtime := config.AIAssistantRuntimeConfig
+	if runtime.RunTimeout == 0 {
+		runtime.RunTimeout = defaultAIAssistantRunTimeout
+	}
+	if runtime.QueryTimeout == 0 {
+		runtime.QueryTimeout = defaultAIAssistantQueryTimeout
+	}
+	if runtime.MaxRounds == 0 {
+		runtime.MaxRounds = defaultAIAssistantMaxRounds
+	}
+	return runtime
+}
+
 // LLMConfig represents the Large Language Model setting config
 type LLMConfig struct {
 	LLMProvider                             string
@@ -288,7 +314,6 @@ type LLMConfig struct {
 	EnableThinking                          LLMThinkingLevel
 	OpenAIAPIKey                            string
 	OpenAIModelID                           string
-	OpenAIEmbeddingModelID                  string
 	ChatCompletionsStream                   bool
 	OpenAICompatibleBaseURL                 string
 	OpenAICompatibleAPIKey                  string
@@ -419,8 +444,8 @@ type Config struct {
 	ReceiptImageRecognitionLLMConfig         *LLMConfig
 	ReceiptImageRecognitionFallbackLLMConfig *LLMConfig
 	AIAssistantLLMConfig                     *LLMConfig
-	AIAssistantEmbeddingLLMConfig            *LLMConfig
 	AIAssistantFallbackLLMConfig             *LLMConfig
+	AIAssistantRuntimeConfig                 AIAssistantRuntimeConfig
 
 	CodingAssistantLLMConfig *LLMConfig
 
@@ -633,18 +658,13 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 		return nil, err
 	}
 
-	config.AIAssistantEmbeddingLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant_embedding")
+	config.AIAssistantRuntimeConfig, err = loadAIAssistantRuntimeConfiguration(cfgFile)
 	if err != nil {
 		return nil, err
 	}
-	if config.AIAssistantEmbeddingLLMConfig.LLMProvider == "" {
-		config.AIAssistantEmbeddingLLMConfig = nil
-	} else if config.AIAssistantEmbeddingLLMConfig.LLMProvider != OpenAILLMProvider {
-		return nil, errs.ErrInvalidLLMProvider
-	} else if strings.TrimSpace(config.AIAssistantEmbeddingLLMConfig.OpenAIEmbeddingModelID) == "" {
-		return nil, errs.ErrAIAssistantEmbeddingModelInvalid
-	}
 
+	// Legacy llm_assistant_embedding settings are deliberately ignored, including
+	// environment file overrides. The assistant now queries its read-only tools.
 	config.AIAssistantFallbackLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant_fallback")
 	if err != nil {
 		return nil, err
@@ -657,10 +677,6 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 		if assistantLLMConfig.OpenAIModelID == "" {
 			assistantLLMConfig.OpenAIModelID = defaultAIAssistantOpenAIModelID
 		}
-	}
-
-	if config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider == OpenAILLMProvider && config.AIAssistantLLMConfig.OpenAIEmbeddingModelID == "" {
-		config.AIAssistantLLMConfig.OpenAIEmbeddingModelID = defaultAIAssistantOpenAIEmbeddingModelID
 	}
 
 	err = loadUuidConfiguration(config, cfgFile, "uuid")
@@ -1016,6 +1032,52 @@ func loadAIConfiguration(config *Config, configFile *ini.File, sectionName strin
 	return nil
 }
 
+func loadAIAssistantRuntimeConfiguration(configFile *ini.File) (AIAssistantRuntimeConfig, error) {
+	config := AIAssistantRuntimeConfig{}
+	for _, item := range []struct {
+		name         string
+		defaultValue uint32
+		target       *uint32
+	}{
+		{"run_timeout", defaultAIAssistantRunTimeout, &config.RunTimeout},
+		{"query_timeout", defaultAIAssistantQueryTimeout, &config.QueryTimeout},
+		{"max_rounds", defaultAIAssistantMaxRounds, &config.MaxRounds},
+	} {
+		value, err := getPositiveConfigItemUint32Value(configFile, "llm_assistant", item.name, item.defaultValue)
+		if err != nil {
+			return AIAssistantRuntimeConfig{}, err
+		}
+		*item.target = value
+	}
+	return config, nil
+}
+
+// getPositiveConfigItemUint32Value rejects invalid configured budgets instead of
+// falling back silently. File overrides take precedence over direct env and INI.
+func getPositiveConfigItemUint32Value(configFile *ini.File, sectionName string, itemName string, defaultValue uint32) (uint32, error) {
+	var rawValue string
+	filePath := os.Getenv(getConfigItemFilePathEnvironmentKey(sectionName, itemName))
+	if filePath != "" {
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return 0, fmt.Errorf("invalid [%s] %s: cannot read environment override file", sectionName, itemName)
+		}
+		rawValue = strings.TrimRight(string(content), "\r\n")
+	} else if value, exists := os.LookupEnv(getConfigItemValueEnvironmentKey(sectionName, itemName)); exists {
+		rawValue = value
+	} else if section := configFile.Section(sectionName); section.HasKey(itemName) {
+		rawValue = section.Key(itemName).Value()
+	} else {
+		return defaultValue, nil
+	}
+
+	value, err := strconv.ParseUint(rawValue, 10, 32)
+	if err != nil || value == 0 {
+		return 0, fmt.Errorf("invalid [%s] %s: must be an integer between 1 and 4294967295", sectionName, itemName)
+	}
+	return uint32(value), nil
+}
+
 func loadLLMConfiguration(configFile *ini.File, sectionName string) (*LLMConfig, error) {
 	llmConfig := &LLMConfig{}
 	llmProvider := getConfigItemStringValue(configFile, sectionName, "llm_provider")
@@ -1067,7 +1129,6 @@ func loadLLMConfiguration(configFile *ini.File, sectionName string) (*LLMConfig,
 	llmConfig.OpenAIAPIKey = getConfigItemStringValue(configFile, sectionName, "openai_api_key")
 	llmConfig.OpenAIBaseURL = getConfigItemStringValue(configFile, sectionName, "openai_base_url")
 	llmConfig.OpenAIModelID = getConfigItemStringValue(configFile, sectionName, "openai_model_id")
-	llmConfig.OpenAIEmbeddingModelID = getConfigItemStringValue(configFile, sectionName, "openai_embedding_model_id")
 	llmConfig.ChatCompletionsStream = getConfigItemBoolValue(configFile, sectionName, "chat_completions_stream", false)
 
 	llmConfig.OpenAICompatibleBaseURL = getConfigItemStringValue(configFile, sectionName, "openai_compatible_base_url")
@@ -1700,12 +1761,4 @@ func getLogLevel(logLevelStr string) (Level, error) {
 	}
 
 	return "", errs.ErrInvalidLogLevel
-}
-
-// GetAIAssistantEmbeddingLLMConfig keeps legacy installations using the assistant provider.
-func (config *Config) GetAIAssistantEmbeddingLLMConfig() *LLMConfig {
-	if config.AIAssistantEmbeddingLLMConfig != nil {
-		return config.AIAssistantEmbeddingLLMConfig
-	}
-	return config.AIAssistantLLMConfig
 }

@@ -27,7 +27,7 @@ func TestCronJobSchedulerContainerRegisterIntervalJob(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	actualValue := false
+	var actualValue atomic.Bool
 	job := &CronJob{
 		Name:        "TestRegisterIntervalJob",
 		Description: "The test cron job",
@@ -35,7 +35,7 @@ func TestCronJobSchedulerContainerRegisterIntervalJob(t *testing.T) {
 			Interval: 1 * time.Second,
 		},
 		Run: func(c *core.CronContext) error {
-			actualValue = true
+			actualValue.Store(true)
 			return nil
 		},
 	}
@@ -47,7 +47,7 @@ func TestCronJobSchedulerContainerRegisterIntervalJob(t *testing.T) {
 	assert.Equal(t, job, container.GetAllJobs()[0])
 
 	time.Sleep(2 * time.Second)
-	assert.True(t, actualValue)
+	assert.True(t, actualValue.Load())
 
 	err = container.scheduler.Shutdown()
 	assert.Nil(t, err)
