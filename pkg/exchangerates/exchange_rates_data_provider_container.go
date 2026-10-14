@@ -1,6 +1,8 @@
 package exchangerates
 
 import (
+	"crypto/tls"
+
 	"github.com/mayswind/ezbookkeeping/pkg/core"
 	"github.com/mayswind/ezbookkeeping/pkg/errs"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
@@ -19,8 +21,11 @@ var (
 
 // InitializeExchangeRatesDataSource initializes the current exchange rates data source according to the config
 func InitializeExchangeRatesDataSource(config *settings.Config) error {
-	if config.ExchangeRatesDataSource == settings.ReserveBankOfAustraliaDataSource {
-		Container.current = newCommonHttpExchangeRatesDataProvider(config, &ReserveBankOfAustraliaDataSource{})
+	if config.ExchangeRatesDataSource == settings.CentralBankOfArgentinaDataSource {
+		Container.current = newCommonHttpExchangeRatesDataProvider(config, &CentralBankOfArgentinaDataSource{})
+		return nil
+	} else if config.ExchangeRatesDataSource == settings.NationalBankOfBelarusDataSource {
+		Container.current = newCommonHttpExchangeRatesDataProvider(config, &NationalBankOfBelarusDataSource{})
 		return nil
 	} else if config.ExchangeRatesDataSource == settings.BankOfCanadaDataSource {
 		Container.current = newCommonHttpExchangeRatesDataProvider(config, &BankOfCanadaDataSource{})
@@ -42,6 +47,15 @@ func InitializeExchangeRatesDataSource(config *settings.Config) error {
 		return nil
 	} else if config.ExchangeRatesDataSource == settings.BankOfIsraelDataSource {
 		Container.current = newCommonHttpExchangeRatesDataProvider(config, &BankOfIsraelDataSource{})
+		return nil
+	} else if config.ExchangeRatesDataSource == settings.BankOfItalyDataSource {
+		Container.current = newCommonHttpExchangeRatesDataProvider(config, &BankOfItalyDataSource{})
+		return nil
+	} else if config.ExchangeRatesDataSource == settings.NationalBankOfKazakhstanDataSource {
+		Container.current = newCommonHttpExchangeRatesDataProvider(config, &NationalBankOfKazakhstanDataSource{})
+		return nil
+	} else if config.ExchangeRatesDataSource == settings.CentralBankOfMalaysiaDataSource {
+		Container.current = newCommonHttpExchangeRatesDataProvider(config, &CentralBankOfMalaysiaDataSource{}, tls.TLS_RSA_WITH_AES_128_GCM_SHA256)
 		return nil
 	} else if config.ExchangeRatesDataSource == settings.CentralBankOfMyanmarDataSource {
 		Container.current = newCommonHttpExchangeRatesDataProvider(config, &CentralBankOfMyanmarDataSource{})

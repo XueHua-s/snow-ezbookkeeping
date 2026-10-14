@@ -9,11 +9,23 @@
         "lvdou-bing",
         "dshemin",
         "lucdsouza",
-        "OuIChien"
+        "OuIChien",
+        "RasterCrow",
+        "vjsai",
+        "dibuyo",
+        "rhierlmeier",
+        "LudwigJMarx",
+        "quentinmarois"
     ],
     "translators": {
         "de": [
-            "chrgm"
+            "chrgm",
+            "1270o1",
+            "martinschilliger",
+            "marcelweikum"
+        ],
+        "el": [
+            "konet-gr"
         ],
         "en": [],
         "es": [
@@ -26,10 +38,13 @@
             "brieucdlf"
         ],
         "it": [
-            "waron97"
+            "waron97",
+            "albanobattistella"
         ],
         "ja": [
-            "tkymmm"
+            "tkymmm",
+            "Mink16",
+            "x0x0b"
         ],
         "kn": [
             "Darshanbm05"
@@ -40,12 +55,20 @@
         "nl": [
             "automagics"
         ],
+        "pl": [
+            "mnowok"
+        ],
         "pt-BR": [
-            "thecodergus"
+            "thecodergus",
+            "balaios"
+        ],
+        "ro": [
+            "gg64nou"
         ],
         "ru": [
             "artegoser",
-            "dshemin"
+            "dshemin",
+            "zhugaru"
         ],
         "sl": [
             "thehijacker"
@@ -57,10 +80,13 @@
             "natthavat28"
         ],
         "tr": [
-            "aydnykn"
+            "aydnykn",
+            "snizamaddinov"
         ],
         "uk": [
-            "nktlitvinenko"
+            "nktlitvinenko",
+            "grid-pilot",
+            "infinit1ve"
         ],
         "vi": [
             "f97"

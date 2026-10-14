@@ -4,6 +4,8 @@
         item-value="currencyCode"
         auto-select-first
         persistent-placeholder
+        :density="density"
+        :variant="variant"
         :disabled="disabled"
         :label="label"
         :placeholder="placeholder"
@@ -13,18 +15,18 @@
         v-model="currentCurrencyValue"
     >
         <template #append-inner>
-            <small class="text-field-append-text smaller">{{ currentCurrencyValue }}</small>
+            <small class="text-field-append-text smaller text-no-wrap" v-if="currentCurrencyValue !== ACCOUNT_CURRENCY_NOT_SET_VALUE">{{ currentCurrencyValue }}</small>
         </template>
 
-        <template #item="{ props, item }">
-            <v-list-item :value="item.value" v-bind="props">
+        <template #item="{ props, internalItem }">
+            <v-list-item :value="internalItem.value" v-bind="props">
                 <template #title>
                     <v-list-item-title>
                         <div class="d-flex align-center">
-                            <span>{{ item.title }}</span>
+                            <span>{{ internalItem.title }}</span>
                             <v-spacer style="min-width: 40px" />
-                            <v-icon :icon="mdiCheck" v-if="currentCurrencyValue === item.raw.currencyCode" />
-                            <small class="text-field-append-text" v-if="currentCurrencyValue !== item.raw.currencyCode">{{ item.raw.currencyCode }}</small>
+                            <v-icon :icon="mdiCheck" v-if="currentCurrencyValue === internalItem.raw.currencyCode" />
+                            <small class="text-field-append-text" v-if="currentCurrencyValue !== internalItem.raw.currencyCode">{{ internalItem.raw.currencyCode }}</small>
                         </div>
                     </v-list-item-title>
                 </template>
@@ -37,16 +39,23 @@
 import { computed } from 'vue';
 import { useI18n } from '@/locales/helpers.ts';
 
+import { NormalizedText } from '@/core/text.ts';
 import type { LocalizedCurrencyInfo } from '@/core/currency.ts';
+import { ACCOUNT_CURRENCY_NOT_SET_VALUE } from '@/consts/currency.ts';
+
+import type { ComponentDensity, InputVariant } from '@/lib/ui/desktop.ts';
 
 import {
     mdiCheck
 } from '@mdi/js';
 
 const props = defineProps<{
+    density?: ComponentDensity;
+    variant?: InputVariant;
     disabled?: boolean;
     label?: string;
     placeholder?: string;
+    withNotSet?: boolean;
     modelValue: string;
 }>();
 
@@ -56,7 +65,7 @@ const emit = defineEmits<{
 
 const { tt, getAllCurrencies } = useI18n();
 
-const allCurrencies = computed<LocalizedCurrencyInfo[]>(() => getAllCurrencies());
+const allCurrencies = computed<LocalizedCurrencyInfo[]>(() => getAllCurrencies(props.withNotSet));
 
 const currentCurrencyValue = computed<string | null>({
     get: () => props.modelValue,
@@ -74,13 +83,13 @@ function filterCurrency(value: string, query: string, item?: { value: unknown, r
         return false;
     }
 
-    const lowerCaseFilterContent = query.toLowerCase() || '';
+    const normalizedFilterContent = NormalizedText.normalizeForSearch(query || '');
 
-    if (!lowerCaseFilterContent) {
+    if (!normalizedFilterContent) {
         return true;
     }
 
-    return item.raw.displayName.toLowerCase().indexOf(lowerCaseFilterContent) >= 0
-        || item.raw.currencyCode.toLowerCase().indexOf(lowerCaseFilterContent) >= 0;
+    return NormalizedText.normalizeForSearch(item.raw.displayName).indexOf(normalizedFilterContent) >= 0
+        || NormalizedText.normalizeForSearch(item.raw.currencyCode).indexOf(normalizedFilterContent) >= 0;
 }
 </script>

@@ -1,4 +1,6 @@
 <template>
+    <main-page-layout no-navbar>
+        <template #content>
     <v-row class="assistant-page-row">
         <v-col cols="12" class="assistant-page-col">
             <v-card class="assistant-card">
@@ -92,7 +94,7 @@
                                                 <span>{{ reference.sourceAccountName || tt('Account') }}</span>
                                             </div>
                                             <div class="assistant-reference-sub">
-                                                <span>{{ formatAmountToLocalizedNumeralsWithCurrency(reference.sourceAmount, reference.currency || false) }}</span>
+                                                <span>{{ formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.sourceAmount), reference.currency || false) }}</span>
                                                 <span v-if="reference.similarityScore">· {{ tt('Similarity') }} {{ reference.similarityScore }}</span>
                                             </div>
                                         </div>
@@ -131,10 +133,14 @@
         </v-col>
     </v-row>
 
+        </template>
+    </main-page-layout>
+
     <snack-bar ref="snackbar" />
 </template>
 
 <script setup lang="ts">
+import { parseBigDecimal } from '@/lib/numeral.ts';
 import SnackBar from '@/components/desktop/SnackBar.vue';
 import AssistantMarkdownContent from '@/components/common/AssistantMarkdownContent.vue';
 

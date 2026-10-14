@@ -149,6 +149,14 @@ func updateAllDatabaseTablesStructure(c *core.CliContext) error {
 
 	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] ai assistant embedding table maintained successfully")
 
+	err = datastore.Container.UserDataStore.SyncStructs(new(models.UserCustomIcon))
+
+	if err != nil {
+		return err
+	}
+
+	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] user custom icon table maintained successfully")
+
 	err = datastore.Container.UserDataStore.SyncStructs(new(models.UserCustomExchangeRate))
 
 	if err != nil {

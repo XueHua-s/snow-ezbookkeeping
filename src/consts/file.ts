@@ -13,11 +13,10 @@ export const UTF_8 = 'utf-8';
 
 export const SUPPORTED_FILE_ENCODINGS: string[] = [
     UTF_8, // UTF-8
-    'utf-8-bom', // UTF-8 with BOM
     'utf-16le', // UTF-16 Little Endian
     'utf-16be', // UTF-16 Big Endian
-    'utf-16le-bom', // UTF-16 Little Endian with BOM
-    'utf-16be-bom', // UTF-16 Big Endian with BOM
+    'utf-32le', // UTF-32 Little Endian
+    'utf-32be', // UTF-32 Big Endian
     'cp437', // OEM United States (CP-437)
     'cp863', // OEM Canadian French (CP-863)
     'cp037', // IBM EBCDIC US/Canada (CP-037)
@@ -70,8 +69,8 @@ export const CHARDET_ENCODING_NAME_MAPPING: Record<string, string> = {
     'UTF-8': UTF_8,
     'UTF-16LE': 'utf-16le',
     'UTF-16BE': 'utf-16be',
-    // 'UTF-32 LE': '', // not supported
-    // 'UTF-32 BE': '', // not supported
+    'UTF-32LE': 'utf-32le',
+    'UTF-32BE': 'utf-32be',
     'ISO-2022-JP': 'iso-2022-jp',
     // 'ISO-2022-KR': '', // not supported
     // 'ISO-2022-CN': '', // not supported
@@ -87,6 +86,7 @@ export const CHARDET_ENCODING_NAME_MAPPING: Record<string, string> = {
     'ISO-8859-7': 'iso-8859-7',
     'ISO-8859-8': 'iso-8859-8',
     'ISO-8859-9': 'iso-8859-9',
+    'windows-874': 'windows-874',
     'windows-1250': 'windows-1250',
     'windows-1251': 'windows-1251',
     'windows-1252': 'windows-1252',
@@ -94,6 +94,8 @@ export const CHARDET_ENCODING_NAME_MAPPING: Record<string, string> = {
     'windows-1254': 'windows-1254',
     'windows-1255': 'windows-1255',
     'windows-1256': 'windows-1256',
+    'windows-1257': 'windows-1257',
+    'windows-1258': 'windows-1258',
     'KOI8-R':'koi8r'
 };
 
@@ -180,7 +182,43 @@ export const SUPPORTED_IMPORT_FILE_CATEGORY_AND_TYPES: ImportFileCategoryAndType
                     supportMultiLanguages: true,
                     anchor: 'how-to-import-delimiter-separated-values-dsv-file-or-data'
                 }
-            }
+            },
+            {
+                type: 'excel',
+                name: 'Excel Workbook File',
+                extensions: '.xlsx,.xls',
+                subTypes: [
+                    {
+                        type: 'custom_xlsx',
+                        name: 'Excel Workbook File (.xlsx)',
+                        extensions: '.xlsx',
+                    },
+                    {
+                        type: 'custom_xls',
+                        name: 'Excel 97-2003 Workbook File (.xls)',
+                        extensions: '.xls',
+                    }
+                ],
+                document: {
+                    supportMultiLanguages: true,
+                    anchor: 'how-to-import-delimiter-separated-values-dsv-file-or-data'
+                }
+            },
+            {
+                type: 'ai_txt',
+                name: 'AI Text Content Recognition',
+                extensions: '.txt',
+                dataFromTextbox: true,
+                needAITextRecognition: true,
+                supportedAIAdditionalPrompt: true
+            },
+            {
+                type: 'ai_image',
+                name: 'AI Batch Image Recognition',
+                extensions: '.jpg,.jpeg,.png,.gif,.webp',
+                needAIImageRecognition: true,
+                supportedAIAdditionalPrompt: true
+            },
         ]
     },
     {

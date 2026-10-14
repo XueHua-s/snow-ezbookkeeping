@@ -7,13 +7,14 @@ import { useUserStore } from '@/stores/user.ts';
 import { useAccountsStore } from '@/stores/account.ts';
 import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
 import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
-import { type TransactionListFilter, type TransactionMonthList, useTransactionsStore } from '@/stores/transaction.ts';
+import { type TransactionListFilter, type TransactionTotalAmount, type TransactionMonthList, useTransactionsStore } from '@/stores/transaction.ts';
+import { useExchangeRatesStore } from '@/stores/exchangeRates.ts';
 
 import { type TypeAndName, keys, entries } from '@/core/base.ts';
-import type { NumeralSystem } from '@/core/numeral.ts';
+import type { BigDecimal, NumeralSystem } from '@/core/numeral.ts';
 import { type TextualYearMonthDay, type Year0BasedMonth, type LocalizedDateRange, type WeekDayValue, DateRange, DateRangeScene } from '@/core/datetime.ts';
 import { AccountType } from '@/core/account.ts';
-import { TransactionType } from '@/core/transaction.ts';
+import { TransactionType, TransactionAmountType } from '@/core/transaction.ts';
 import { DISPLAY_HIDDEN_AMOUNT, INCOMPLETE_AMOUNT_SUFFIX } from '@/consts/numeral.ts';
 import { DEFAULT_TAG_GROUP_ID } from '@/consts/tag.ts';
 
@@ -22,7 +23,11 @@ import type { TransactionCategory } from '@/models/transaction_category.ts';
 import { TransactionTagGroup } from '@/models/transaction_tag_group.ts';
 import type { TransactionTag } from '@/models/transaction_tag.ts';
 import { type Transaction, TransactionTagFilter } from '@/models/transaction.ts';
+import type { TransactionPictureInfoBasicResponse } from '@/models/transaction_picture_info.ts';
 
+import {
+    parseBigDecimal
+} from '@/lib/numeral.ts';
 import {
     getUtcOffsetByUtcOffsetMinutes,
     getTimezoneOffsetMinutes,
@@ -43,12 +48,22 @@ import {
     categoryTypeToTransactionType
 } from '@/lib/category.ts';
 
+export interface TransactionListDisplayTotalAmount {
+    incomeIsZero: boolean;
+    expenseIsZero: boolean;
+    income: string;
+    expense: string;
+    incomeInDefaultCurrency: string;
+    expenseInDefaultCurrency: string;
+}
+
 export class TransactionListPageType implements TypeAndName {
     private static readonly allInstances: TransactionListPageType[] = [];
     private static readonly allInstancesByType: Record<number, TransactionListPageType> = {};
 
     public static readonly List = new TransactionListPageType(0, 'Transaction List');
     public static readonly Calendar = new TransactionListPageType(1, 'Transaction Calendar');
+    public static readonly Gallery = new TransactionListPageType(2, 'Transaction Gallery');
 
     public static readonly Default = TransactionListPageType.List;
 
@@ -75,6 +90,7 @@ export class TransactionListPageType implements TypeAndName {
 export function useTransactionListPageBase() {
     const {
         tt,
+        formatRange,
         getAllDateRanges,
         getCurrentNumeralSystemType,
         formatDateTimeToLongDateTime,
@@ -91,6 +107,7 @@ export function useTransactionListPageBase() {
     const transactionCategoriesStore = useTransactionCategoriesStore();
     const transactionTagsStore = useTransactionTagsStore();
     const transactionsStore = useTransactionsStore();
+    const exchangeRatesStore = useExchangeRatesStore();
 
     const pageType = ref<number>(TransactionListPageType.List.type);
     const loading = ref<boolean>(true);
@@ -101,11 +118,17 @@ export function useTransactionListPageBase() {
     const numeralSystem = computed<NumeralSystem>(() => getCurrentNumeralSystemType());
     const firstDayOfWeek = computed<WeekDayValue>(() => userStore.currentUserFirstDayOfWeek);
     const fiscalYearStart = computed<number>(() => userStore.currentUserFiscalYearStart);
-    const defaultCurrency = computed<string>(() => getUnifiedSelectedAccountsCurrencyOrDefaultCurrency(allAccountsMap.value, queryAllFilterAccountIds.value, userStore.currentUserDefaultCurrency));
+    const userDefaultCurrency = computed<string>(() => userStore.currentUserDefaultCurrency);
+    const selectedAccountDefaultCurrency = computed<string>(() => getUnifiedSelectedAccountsCurrencyOrDefaultCurrency(allAccountsMap.value, queryAllFilterAccountIds.value, userStore.currentUserDefaultCurrency));
     const showTotalAmountInTransactionListPage = computed<boolean>(() => settingsStore.appSettings.showTotalAmountInTransactionListPage);
+    const totalAmountTypeInTransactionListPage = computed<number>(() => settingsStore.appSettings.totalAmountTypeInTransactionListPage);
     const showTagInTransactionListPage = computed<boolean>(() => settingsStore.appSettings.showTagInTransactionListPage);
 
-    const allDateRanges = computed<LocalizedDateRange[]>(() => getAllDateRanges(DateRangeScene.Normal, true, !!accountsStore.getAccountStatementDate(query.value.accountIds)));
+    const allDateRanges = computed<LocalizedDateRange[]>(() => getAllDateRanges(DateRangeScene.Normal, {
+        includeCustom: true,
+        includeBillingCycle: !!accountsStore.getAccountStatementDate(query.value.accountIds),
+        includeLastReconciledTimeRange: userStore.currentUserUseLastReconciledTime && !!allAccountsMap.value[query.value.accountIds]?.lastReconciledTime
+    }));
 
     const allAccounts = computed<Account[]>(() => accountsStore.allMixedPlainAccounts);
     const allAccountsMap = computed<Record<string, Account>>(() => accountsStore.allAccountsMap);
@@ -237,10 +260,16 @@ export function useTransactionListPageBase() {
         const displayAmount: string[] = [];
 
         for (let i = 1; i < amountFilterItems.length; i++) {
-            displayAmount.push(formatAmountToLocalizedNumeralsWithCurrency(parseInt(amountFilterItems[i] as string), false));
+            displayAmount.push(formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(amountFilterItems[i] as string), false));
         }
 
-        return displayAmount.join(' ~ ');
+        if (displayAmount.length === 1) {
+            return displayAmount[0]!;
+        } else if (displayAmount.length === 2) {
+            return formatRange(displayAmount[0]!, displayAmount[1]!);
+        } else {
+            return '';
+        }
     });
 
     const transactionCalendarMinDate = computed<Date>(() => getLocalDatetimeFromUnixTime(getSameDateTimeWithBrowserTimezone(parseDateTimeFromUnixTime(query.value.minTime)).getUnixTime()));
@@ -278,6 +307,11 @@ export function useTransactionListPageBase() {
         return true;
     });
 
+    function getDisplayTotalAmount(amount: BigDecimal, currency: string, prefix: string, incomplete: boolean, inDefaultCurrency?: boolean) {
+        const displayAmount = formatAmount(amount, false, currency, inDefaultCurrency);
+        return prefix + displayAmount + (incomplete ? INCOMPLETE_AMOUNT_SUFFIX : '');
+    }
+
     function hasSubCategoryInQuery(category: TransactionCategory): boolean {
         if (!category.subCategories || !category.subCategories.length) {
             return false;
@@ -312,12 +346,76 @@ export function useTransactionListPageBase() {
         return transaction.utcOffset === getTimezoneOffsetMinutes(transaction.time);
     }
 
-    function formatAmount(amount: number, hideAmount: boolean, currencyCode: string): string {
+    function formatAmount(amount: BigDecimal, hideAmount: boolean, currencyCode: string, inUserDefaultCurrency?: boolean): string {
         if (hideAmount) {
             return formatAmountToLocalizedNumeralsWithCurrency(DISPLAY_HIDDEN_AMOUNT, currencyCode);
         }
 
-        return formatAmountToLocalizedNumeralsWithCurrency(amount, currencyCode);
+        if (!inUserDefaultCurrency || currencyCode === userDefaultCurrency.value) {
+            return formatAmountToLocalizedNumeralsWithCurrency(amount, currencyCode);
+        } else {
+            const exchangedAmount = exchangeRatesStore.getExchangedAmount(amount, currencyCode, userDefaultCurrency.value);
+            return exchangedAmount ? formatAmountToLocalizedNumeralsWithCurrency(exchangedAmount.truncate(), userDefaultCurrency.value) : formatAmountToLocalizedNumeralsWithCurrency(amount, currencyCode);
+        }
+    }
+
+    function hasMonthTotalAmount(transactionMonth?: TransactionMonthList | null): boolean {
+        if (!transactionMonth) {
+            return false;
+        }
+
+        if (totalAmountTypeInTransactionListPage.value === TransactionAmountType.InflowsAndOutflows) {
+            return !!transactionMonth.inflowOutflowTotalAmount;
+        } else if (totalAmountTypeInTransactionListPage.value === TransactionAmountType.IncomeAndExpense) {
+            return !!transactionMonth.incomeExpenseTotalAmount;
+        } else {
+            return false;
+        }
+    }
+
+    function getDailyTotalAmounts(transactionMonth?: TransactionMonthList | null): Record<string, TransactionTotalAmount> | undefined {
+        if (!transactionMonth) {
+            return undefined;
+        }
+
+        if (totalAmountTypeInTransactionListPage.value === TransactionAmountType.InflowsAndOutflows) {
+            return transactionMonth.inflowOutflowDailyTotalAmounts;
+        } else if (totalAmountTypeInTransactionListPage.value === TransactionAmountType.IncomeAndExpense) {
+            return transactionMonth.incomeExpenseDailyTotalAmounts;
+        } else {
+            return undefined;
+        }
+    }
+
+    function getDisplayMonthTotalAmount(transactionMonth: TransactionMonthList | null, prefix: string): TransactionListDisplayTotalAmount | null {
+        if (!transactionMonth) {
+            return null;
+        }
+
+        let totalAmount: TransactionTotalAmount;
+
+        if (totalAmountTypeInTransactionListPage.value === TransactionAmountType.InflowsAndOutflows) {
+            totalAmount = transactionMonth.inflowOutflowTotalAmount;
+        } else if (totalAmountTypeInTransactionListPage.value === TransactionAmountType.IncomeAndExpense) {
+            totalAmount = transactionMonth.incomeExpenseTotalAmount;
+        } else {
+            return null;
+        }
+
+        if (!totalAmount) {
+            return null;
+        }
+
+        const displayMonthlyTotalAmount: TransactionListDisplayTotalAmount = {
+            incomeIsZero: totalAmount.income.isZero(),
+            expenseIsZero: totalAmount.expense.isZero(),
+            income: getDisplayTotalAmount(totalAmount.income, selectedAccountDefaultCurrency.value, prefix, totalAmount.incompleteIncome),
+            expense: getDisplayTotalAmount(totalAmount.expense, selectedAccountDefaultCurrency.value, prefix, totalAmount.incompleteExpense),
+            incomeInDefaultCurrency: getDisplayTotalAmount(totalAmount.income, selectedAccountDefaultCurrency.value, prefix, totalAmount.incompleteIncome, true),
+            expenseInDefaultCurrency: getDisplayTotalAmount(totalAmount.expense, selectedAccountDefaultCurrency.value, prefix, totalAmount.incompleteExpense, true)
+        };
+
+        return displayMonthlyTotalAmount;
     }
 
     function getDisplayTime(transaction: Transaction): string {
@@ -347,39 +445,64 @@ export function useTransactionListPageBase() {
         return `${formatDateTimeToLongDateTime(dateTime)} (UTC${utcOffset})`;
     }
 
-    function getDisplayAmount(transaction: Transaction): string {
+    function getDisplayAmount(transaction: Transaction, inUserDefaultCurrency?: boolean): string {
         if (queryAllFilterAccountIdsCount.value < 1) {
             if (transaction.sourceAccount) {
-                return formatAmount(transaction.sourceAmount, transaction.hideAmount, transaction.sourceAccount.currency);
+                return formatAmount(parseBigDecimal(transaction.sourceAmount), transaction.hideAmount, transaction.sourceAccount.currency, inUserDefaultCurrency);
             }
         } else if (queryAllFilterAccountIdsCount.value === 1) {
             if (transaction.sourceAccount && (queryAllFilterAccountIds.value[transaction.sourceAccount.id] || queryAllFilterAccountIds.value[transaction.sourceAccount.parentId])) {
-                return formatAmount(transaction.sourceAmount, transaction.hideAmount, transaction.sourceAccount.currency);
+                return formatAmount(parseBigDecimal(transaction.sourceAmount), transaction.hideAmount, transaction.sourceAccount.currency, inUserDefaultCurrency);
             } else if (transaction.destinationAccount && (queryAllFilterAccountIds.value[transaction.destinationAccount.id] || queryAllFilterAccountIds.value[transaction.destinationAccount.parentId])) {
-                return formatAmount(transaction.destinationAmount, transaction.hideAmount, transaction.destinationAccount.currency);
+                return formatAmount(parseBigDecimal(transaction.destinationAmount), transaction.hideAmount, transaction.destinationAccount.currency, inUserDefaultCurrency);
             }
         } else { // queryAllFilterAccountIdsCount.value > 1
             if (transaction.sourceAccount && transaction.destinationAccount) {
                 if ((queryAllFilterAccountIds.value[transaction.sourceAccount.id] || queryAllFilterAccountIds.value[transaction.sourceAccount.parentId])
                     && !queryAllFilterAccountIds.value[transaction.destinationAccount.id] && !queryAllFilterAccountIds.value[transaction.destinationAccount.parentId]) {
-                    return formatAmount(transaction.sourceAmount, transaction.hideAmount, transaction.sourceAccount.currency);
+                    return formatAmount(parseBigDecimal(transaction.sourceAmount), transaction.hideAmount, transaction.sourceAccount.currency, inUserDefaultCurrency);
                 } else if ((queryAllFilterAccountIds.value[transaction.destinationAccount.id] || queryAllFilterAccountIds.value[transaction.destinationAccount.parentId])
                     && !queryAllFilterAccountIds.value[transaction.sourceAccount.id] && !queryAllFilterAccountIds.value[transaction.sourceAccount.parentId]) {
-                    return formatAmount(transaction.destinationAmount, transaction.hideAmount, transaction.destinationAccount.currency);
+                    return formatAmount(parseBigDecimal(transaction.destinationAmount), transaction.hideAmount, transaction.destinationAccount.currency, inUserDefaultCurrency);
                 }
             }
         }
 
         if (transaction.sourceAccount) {
-            return formatAmount(transaction.sourceAmount, transaction.hideAmount, transaction.sourceAccount.currency);
+            return formatAmount(parseBigDecimal(transaction.sourceAmount), transaction.hideAmount, transaction.sourceAccount.currency, inUserDefaultCurrency);
         }
 
         return '';
     }
 
-    function getDisplayMonthTotalAmount(amount: number, currency: string | false, symbol: string, incomplete: boolean): string {
-        const displayAmount = formatAmountToLocalizedNumeralsWithCurrency(amount, currency);
-        return symbol + displayAmount + (incomplete ? INCOMPLETE_AMOUNT_SUFFIX : '');
+    function getDisplayAmountCurrency(transaction: Transaction): string {
+        if (queryAllFilterAccountIdsCount.value < 1) {
+            if (transaction.sourceAccount) {
+                return transaction.sourceAccount.currency;
+            }
+        } else if (queryAllFilterAccountIdsCount.value === 1) {
+            if (transaction.sourceAccount && (queryAllFilterAccountIds.value[transaction.sourceAccount.id] || queryAllFilterAccountIds.value[transaction.sourceAccount.parentId])) {
+                return transaction.sourceAccount.currency;
+            } else if (transaction.destinationAccount && (queryAllFilterAccountIds.value[transaction.destinationAccount.id] || queryAllFilterAccountIds.value[transaction.destinationAccount.parentId])) {
+                return transaction.destinationAccount.currency;
+            }
+        } else { // queryAllFilterAccountIdsCount.value > 1
+            if (transaction.sourceAccount && transaction.destinationAccount) {
+                if ((queryAllFilterAccountIds.value[transaction.sourceAccount.id] || queryAllFilterAccountIds.value[transaction.sourceAccount.parentId])
+                    && !queryAllFilterAccountIds.value[transaction.destinationAccount.id] && !queryAllFilterAccountIds.value[transaction.destinationAccount.parentId]) {
+                    return transaction.sourceAccount.currency;
+                } else if ((queryAllFilterAccountIds.value[transaction.destinationAccount.id] || queryAllFilterAccountIds.value[transaction.destinationAccount.parentId])
+                    && !queryAllFilterAccountIds.value[transaction.sourceAccount.id] && !queryAllFilterAccountIds.value[transaction.sourceAccount.parentId]) {
+                    return transaction.destinationAccount.currency;
+                }
+            }
+        }
+
+        if (transaction.sourceAccount) {
+            return transaction.sourceAccount.currency;
+        }
+
+        return userDefaultCurrency.value;
     }
 
     function getTransactionTypeName(type: number | null, defaultName: string): string {
@@ -397,6 +520,10 @@ export function useTransactionListPageBase() {
         }
     }
 
+    function getTransactionPictureUrl(pictureInfo?: TransactionPictureInfoBasicResponse | null): string | undefined {
+        return transactionsStore.getTransactionPictureUrl(pictureInfo);
+    }
+
     return {
         // states
         pageType,
@@ -407,8 +534,10 @@ export function useTransactionListPageBase() {
         // computed states
         firstDayOfWeek,
         fiscalYearStart,
-        defaultCurrency,
+        userDefaultCurrency,
+        selectedAccountDefaultCurrency,
         showTotalAmountInTransactionListPage,
+        totalAmountTypeInTransactionListPage,
         showTagInTransactionListPage,
         allDateRanges,
         allAccounts,
@@ -446,13 +575,17 @@ export function useTransactionListPageBase() {
         hasSubCategoryInQuery,
         hasVisibleTagsInTagGroup,
         isSameAsDefaultTimezoneOffsetMinutes,
+        hasMonthTotalAmount,
+        getDailyTotalAmounts,
+        getDisplayMonthTotalAmount,
         getDisplayTime,
         getDisplayLongDate,
         getDisplayLongYearMonth,
         getDisplayTimezone,
         getDisplayTimeInDefaultTimezone,
         getDisplayAmount,
-        getDisplayMonthTotalAmount,
+        getDisplayAmountCurrency,
         getTransactionTypeName,
+        getTransactionPictureUrl
     };
 }

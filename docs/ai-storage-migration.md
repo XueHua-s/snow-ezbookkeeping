@@ -63,7 +63,7 @@
 - `[security] secret_key`：签名密钥（不一致会导致会话/令牌行为变化）
 - `[uuid] server_id`：多实例场景必须保证唯一性
 - `[auth]`：OAuth2/OIDC 相关配置
-- `[llm]`、`[llm_image_recognition]`、`[llm_assistant]`：AI 功能相关配置
+- `[ai]`、`[llm_image_recognition]`、`[llm_assistant]`：AI 功能相关配置
 
 AI 配置建议重点核对（防止“能启动但行为偏差”）：
 
@@ -295,3 +295,5 @@ rsync -aHAX --numeric-ids --info=progress2 /src/storage/ /backup/storage/
 7. 启动服务。  
 8. 做统计与抽样校验。  
 9. 通过后切流量，失败就回滚。
+
+合并新版上游后，AI 全局开关位于 `[ai]`；个人财务助手仍兼容旧 `[llm]` 下的 `enable_ai_assistant`，但 `[ai]` 中的显式设置优先。助手配置继续使用 `[llm_assistant]`，其聊天与流式接口仍使用 Chat Completions。上游的官方 OpenAI 识别与编程助手使用 Responses API。

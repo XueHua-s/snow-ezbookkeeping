@@ -25,13 +25,13 @@ var (
 	}
 )
 
-// ExternalAuthListHanlder returns external authentications list of current user
-func (a *UserExternalAuthsApi) ExternalAuthListHanlder(c *core.WebContext) (any, *errs.Error) {
+// ExternalAuthListHandler returns external authentications list of current user
+func (a *UserExternalAuthsApi) ExternalAuthListHandler(c *core.WebContext) (any, *errs.Error) {
 	uid := c.GetCurrentUid()
 	userExternalAuths, err := a.userExternalAuths.GetUserAllExternalAuthsByUid(c, uid)
 
 	if err != nil {
-		log.Errorf(c, "[user_external_auths.ExternalAuthListHanlder] failed to get all external authentications for user \"uid:%d\", because %s", uid, err.Error())
+		log.Errorf(c, "[user_external_auths.ExternalAuthListHandler] failed to get all external authentications for user \"uid:%d\", because %s", uid, err.Error())
 		return nil, errs.Or(err, errs.ErrOperationFailed)
 	}
 
@@ -73,6 +73,16 @@ func (a *UserExternalAuthsApi) UnlinkExternalAuthHandler(c *core.WebContext) (an
 	}
 
 	uid := c.GetCurrentUid()
+	claims := c.GetTokenClaims()
+
+	if claims == nil {
+		log.Warnf(c, "[user_external_auths.UnlinkExternalAuthHandler] current token is null")
+		return nil, errs.ErrInvalidToken
+	} else if claims.Type != core.USER_TOKEN_TYPE_NORMAL {
+		log.Warnf(c, "[user_external_auths.UnlinkExternalAuthHandler] token type \"%d\" is not allowed to unlink external authentication", claims.Type)
+		return nil, errs.ErrInvalidToken
+	}
+
 	user, err := a.users.GetUserById(c, uid)
 
 	if err != nil {

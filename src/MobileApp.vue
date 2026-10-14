@@ -1,6 +1,6 @@
 <template>
     <f7-app v-bind="f7params">
-        <f7-view id="main-view" class="safe-areas" main url="/"></f7-view>
+        <f7-view id="main-view" main url="/"></f7-view>
     </f7-app>
 </template>
 
@@ -22,10 +22,13 @@ import { useExchangeRatesStore } from '@/stores/exchangeRates.ts';
 
 import { APPLICATION_LOGO_PATH } from '@/consts/asset.ts';
 import { ThemeType } from '@/core/theme.ts';
+
+import { isFunction } from '@/lib/common.ts';
 import { isProduction } from '@/lib/version.ts';
 import { getTheme, isEnableSwipeBack, isEnableAnimate } from '@/lib/settings.ts';
 import { initMapProvider } from '@/lib/map/index.ts';
 import { isUserLogined, isUserUnlocked } from '@/lib/userstate.ts';
+import { updateMapCacheExpiration } from '@/lib/cache.ts';
 import { setExpenseAndIncomeAmountColor } from '@/lib/ui/common.ts';
 import { isiOSHomeScreenMode, isModalShowing, setAppFontSize } from '@/lib/ui/mobile.ts';
 
@@ -160,7 +163,7 @@ onMounted(() => {
         f7.on('sheetOpen', (sheet: Sheet.Sheet) => onBackdropChanged(sheet));
         f7.on('sheetClose', (sheet: Sheet.Sheet) => onBackdropChanged(sheet));
 
-        f7.on('pageBeforeOut',  () => {
+        f7.on('pageBeforeOut', () => {
             if (isModalShowing()) {
                 f7.actions.close('.actions-modal.modal-in', false);
                 f7.dialog.close('.dialog.modal-in', false);
@@ -180,6 +183,12 @@ onMounted(() => {
         const languageInfo = getCurrentLanguageInfo();
         initMapProvider(languageInfo?.alternativeLanguageTag);
     });
+
+    document.addEventListener('dragstart', (e) => {
+        if (!e.target || !('closest' in e.target) || !isFunction(e.target.closest) || !e.target.closest('.dragenabled')) {
+            e.preventDefault();
+        }
+    }, true);
 });
 
 watch(currentNotificationContent, (newValue) => {
@@ -227,12 +236,11 @@ if (isUserLogined()) {
                     rootStore.setNotificationContent(response.notificationContent);
                 }
             }
-        });
 
-        // auto refresh exchange rates data
-        if (settingsStore.appSettings.autoUpdateExchangeRatesData) {
-            exchangeRatesStore.getLatestExchangeRates({ silent: true, force: false });
-        }
+            updateMapCacheExpiration(settingsStore.appSettings.mapCacheExpiration);
+            exchangeRatesStore.removeExpiredExchangeRates(true);
+            exchangeRatesStore.autoUpdateExchangeRatesData();
+        });
     }
 }
 </script>

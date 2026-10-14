@@ -1,52 +1,59 @@
 <template>
-    <v-data-table
-        fixed-header
-        fixed-footer
-        density="compact"
-        item-value="index"
-        :class="{ 'import-transaction-table': true, 'disabled': !!disabled }"
-        :height="parsedFileLinesTableHeight"
-        :disable-sort="true"
-        :headers="parsedFileLinesHeaders"
-        :items="parsedFileLines"
-        :hover="true"
-        :no-data-text="tt('No data to import')"
-        v-model:items-per-page="countPerPage"
-        v-model:page="currentPage"
-    >
-        <template #headers="{ columns }">
-            <tr>
-                <th class="text-no-wrap" :key="column.key ?? undefined" v-for="column in columns">
-                    <span v-if="!column.key || column.key === 'index'">{{ column.title }}</span>
-                    <div class="py-1" v-if="column.key && column.key !== 'index'">
-                        <span>{{ getParseDataMappedColumnDisplayName(parseInt(column.key)) }}</span>
-                        <br/>
-                        <span>({{ column.title }})</span>
-                        <v-menu activator="parent" location="bottom" max-height="500">
-                            <v-list>
-                                <v-list-item :key="columnType.type"
-                                             :append-icon="parsedFileDataColumnMapping.dataColumnMapping[columnType.type] === parseInt(column.key) ? mdiCheck : undefined"
-                                             v-for="columnType in allImportTransactionColumnTypes"
-                                             @click="parsedFileDataColumnMapping.toggleDataMappingColumn(parseInt(column.key), columnType.type)">
-                                    <v-list-item-title class="cursor-pointer">
-                                        {{ columnType.displayName }}
-                                    </v-list-item-title>
-                                </v-list-item>
-                            </v-list>
-                        </v-menu>
-                    </div>
-                </th>
-            </tr>
-        </template>
-        <template #bottom>
-            <div class="title-and-toolbar d-flex align-center text-no-wrap mt-2" v-if="parsedFileData">
+    <div class="import-transaction-table-container d-flex flex-column">
+        <v-data-table
+            fixed-header
+            fixed-footer
+            height="100%"
+            density="compact"
+            item-value="index"
+            :class="{ 'import-transaction-table': true, 'disabled': !!disabled }"
+            :disable-sort="true"
+            :headers="parsedFileLinesHeaders"
+            :items="parsedFileLines"
+            :hover="true"
+            :no-data-text="tt('No data to import')"
+            v-model:items-per-page="countPerPage"
+            v-model:page="currentPage"
+            @click="focusTableScrollContainer"
+        >
+            <template #headers="{ columns }">
+                <tr>
+                    <th class="text-no-wrap" :key="column.key ?? undefined" v-for="column in columns">
+                        <span v-if="!column.key || column.key === 'index'">{{ column.title }}</span>
+                        <div class="py-1" v-if="column.key && column.key !== 'index'">
+                            <span>{{ getParseDataMappedColumnDisplayName(parseInt(column.key)) }}</span>
+                            <br/>
+                            <span>({{ column.title }})</span>
+                            <v-menu activator="parent" location="bottom" max-height="500">
+                                <v-list>
+                                    <v-list-item :key="columnType.type"
+                                                 :append-icon="parsedFileDataColumnMapping.dataColumnMapping[columnType.type] === parseInt(column.key) ? mdiCheck : undefined"
+                                                 v-for="columnType in allImportTransactionColumnTypes"
+                                                 @click="toggleDataMappingColumn(parseInt(column.key), columnType.type)">
+                                        <v-list-item-title class="cursor-pointer">
+                                            {{ columnType.displayName }}
+                                        </v-list-item-title>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
+                        </div>
+                    </th>
+                </tr>
+            </template>
+            <template #bottom>
+            </template>
+        </v-data-table>
+
+        <div class="import-transaction-table-footer">
+            <v-divider />
+            <div class="title-and-toolbar d-flex text-body-large align-center text-no-wrap my-1 mx-3" v-if="parsedFileData">
                 <v-btn color="secondary" density="compact" variant="outlined"
                        :append-icon="parsedFileDataColumnMapping.includeHeader ? mdiCheck : mdiClose"
                        @click="parsedFileDataColumnMapping.toggleIncludeHeader()">{{ tt('Include Header Line') }}</v-btn>
                 <v-btn class="ms-2" color="secondary" density="compact" variant="outlined"
                        :disabled="!parsedFileDataColumnMapping || !parsedFileDataColumnMapping.isColumnMappingSet(ImportTransactionColumnType.TransactionType) || !parsedFileAllTransactionTypes">
                     <span>{{ tt('Transaction Type Mapping') }}</span>
-                    <span class="ms-1" v-if="parsedFileDataColumnMapping && parsedFileDataColumnMapping.isColumnMappingSet(ImportTransactionColumnType.TransactionType) && parsedFileAllTransactionTypes">({{ getObjectOwnFieldCount(parsedFileValidMappedTransactionTypes) || tt('None') }})</span>
+                    <span class="ms-1" v-if="parsedFileDataColumnMapping && parsedFileDataColumnMapping.isColumnMappingSet(ImportTransactionColumnType.TransactionType) && parsedFileAllTransactionTypes">({{ formatNumberToLocalizedNumerals(getObjectOwnFieldCount(parsedFileValidMappedTransactionTypes)) || tt('None') }})</span>
                     <v-menu eager activator="parent" location="bottom" max-height="500"
                             :close-on-content-click="false">
                         <v-list class="pa-0">
@@ -58,7 +65,7 @@
                                         <td>{{ typeName }}</td>
                                         <td>
                                             <v-btn-toggle class="toggle-buttons" density="compact" variant="outlined"
-                                                          mandatory="force" divided
+                                                          color="default" mandatory="force"
                                                           v-model="parsedFileDataColumnMapping.transactionTypeMapping[typeName]">
                                                 <v-btn :value="undefined">{{ tt('None') }}</v-btn>
                                                 <v-btn :value="TransactionType.ModifyBalance">{{ tt('Modify Balance') }}</v-btn>
@@ -164,14 +171,15 @@
                                         <td>{{ separator.name }} ({{separator.value}})</td>
                                         <td>
                                             <v-btn-toggle class="toggle-buttons" density="compact" variant="outlined"
-                                                          mandatory="force" divided
+                                                          color="default" mandatory="force" divided
                                                           v-model="parsedFileDataColumnMapping.geoLocationOrder"
                                                           v-if="parsedFileDataColumnMapping.geoLocationSeparator === separator.value">
                                                 <v-btn value="latlon">{{ `${tt('Latitude')}${separator.value}${tt('Longitude')}` }}</v-btn>
                                                 <v-btn value="lonlat">{{ `${tt('Longitude')}${separator.value}${tt('Latitude')}` }}</v-btn>
                                             </v-btn-toggle>
                                             <v-btn-group class="toggle-buttons" density="compact" variant="outlined"
-                                                         divided v-if="parsedFileDataColumnMapping.geoLocationSeparator !== separator.value">
+                                                         color="default" mandatory="force" divided
+                                                         v-if="parsedFileDataColumnMapping.geoLocationSeparator !== separator.value">
                                                 <v-btn @click="parsedFileDataColumnMapping.setGeoLocationFormat(separator.value, 'latlon')">{{ `${tt('Latitude')}${separator.value}${tt('Longitude')}` }}</v-btn>
                                                 <v-btn @click="parsedFileDataColumnMapping.setGeoLocationFormat(separator.value, 'lonlat')">{{ `${tt('Longitude')}${separator.value}${tt('Latitude')}` }}</v-btn>
                                             </v-btn-group>
@@ -201,7 +209,7 @@
                     </v-menu>
                 </v-btn>
                 <v-spacer/>
-                <span>{{ tt('Lines Per Page') }}</span>
+                <span class="ms-2">{{ tt('Lines Per Page') }}</span>
                 <v-select class="ms-2" density="compact" max-width="100"
                           item-title="name"
                           item-value="value"
@@ -209,13 +217,13 @@
                           :items="parsedFileLinesTablePageOptions"
                           v-model="countPerPage"
                 />
-                <pagination-buttons density="compact"
+                <pagination-buttons density="comfortable"
                                     :disabled="!!disabled"
                                     :totalPageCount="Math.ceil((parsedFileLines ? parsedFileLines.length : 0) / countPerPage)"
                                     v-model="currentPage"></pagination-buttons>
             </div>
-        </template>
-    </v-data-table>
+        </div>
+    </div>
 
     <snack-bar ref="snackbar" />
 </template>
@@ -224,17 +232,20 @@
 import SnackBar from '@/components/desktop/SnackBar.vue';
 import PaginationButtons from '@/components/desktop/PaginationButtons.vue';
 
-import { ref, computed, useTemplateRef } from 'vue';
+import { ref, computed, useTemplateRef, watch } from 'vue';
 
 import { useI18n } from '@/locales/helpers.ts';
 
-import { type NameValue, type NameNumeralValue, type TypeAndDisplayName, itemAndIndex, entries } from '@/core/base.ts';
-import { type NumeralSystem, KnownAmountFormat } from '@/core/numeral.ts';
+import { type NameValue, type NameNumeralValue, type TypeAndDisplayName, itemAndIndex, keys, entries } from '@/core/base.ts';
+import { KnownAmountFormat } from '@/core/numeral.ts';
 import { type DateFormatOrder, KnownDateTimeFormat } from '@/core/datetime.ts';
 import { KnownDateTimezoneFormat } from '@/core/timezone.ts';
 import { TransactionType } from '@/core/transaction.ts';
 import { ImportTransactionColumnType, ImportTransactionDataMapping } from '@/core/import_transaction.ts';
 import { KnownFileType } from '@/core/file.ts';
+
+import { DEFAULT_PAGE_COUNTS } from '@/consts/page.ts';
+import { KNOWN_COLUMN_NAME_MAPPING, KNOWN_TRANSACTION_TYPE_NAME_MAPPING } from '@/consts/import_transaction.ts';
 
 import {
     isNumber,
@@ -246,6 +257,7 @@ import {
     openTextFileContent,
     startDownloadFile
 } from '@/lib/ui/common.ts';
+import { focusTableScrollContainer } from '@/lib/ui/desktop.ts';
 import logger from '@/lib/logger.ts';
 
 import {
@@ -279,25 +291,26 @@ interface ImportTransactionDefineColumnMenu {
 
 const props = defineProps<{
     parsedFileData?: string[][];
+    parsedFileColumnSeparator?: string;
     disabled?: boolean;
 }>();
 
 const {
     tt,
     ti,
-    getCurrentNumeralSystemType,
     getLongDateFormatOrder,
     getShortDateFormatOrder,
-    getAllImportTransactionColumnTypes
+    getAllImportTransactionColumnTypes,
+    formatNumberToLocalizedNumerals,
+    getTablePageOptions
 } = useI18n();
 
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
 
 const currentPage = ref<number>(1);
 const countPerPage = ref<number>(10);
-const parsedFileDataColumnMapping = ref<ImportTransactionDataMapping>(ImportTransactionDataMapping.createEmpty());
+const parsedFileDataColumnMapping = ref<ImportTransactionDataMapping>(ImportTransactionDataMapping.createEmpty(props.parsedFileColumnSeparator));
 
-const numeralSystem = computed<NumeralSystem>(() => getCurrentNumeralSystemType());
 const longDateFormatOrder = computed<DateFormatOrder>(() => getLongDateFormatOrder());
 const shortDateFormatOrder = computed<DateFormatOrder>(() => getShortDateFormatOrder());
 const allImportTransactionColumnTypes = computed<TypeAndDisplayName[]>(() => getAllImportTransactionColumnTypes());
@@ -340,14 +353,6 @@ const allSeparators = computed<NameValue[]>(() => {
     ];
 
     return separators;
-});
-
-const parsedFileLinesTableHeight = computed<number | undefined>(() => {
-    if (countPerPage.value <= 10 || !parsedFileLines.value || parsedFileLines.value.length <= 10) {
-        return undefined;
-    } else {
-        return 400;
-    }
 });
 
 const parsedFileLinesHeaders = computed<object[]>(() => {
@@ -402,7 +407,7 @@ const parsedFileLines = computed<Record<string, string>[] | undefined>(() => {
     return allLines;
 });
 
-const parsedFileLinesTablePageOptions = computed<NameNumeralValue[]>(() => getTablePageOptions(parsedFileLines.value?.length));
+const parsedFileLinesTablePageOptions = computed<NameNumeralValue[]>(() => getTablePageOptions(DEFAULT_PAGE_COUNTS, parsedFileLines.value?.length, true, false));
 
 const parsedFileAllTransactionTypes = computed<string[]>(() => parsedFileDataColumnMapping.value.parseFileAllTransactionTypes(props.parsedFileData));
 const parsedFileValidMappedTransactionTypes = computed<Record<string, TransactionType>>(() => parsedFileDataColumnMapping.value.parseFileValidMappedTransactionTypes(props.parsedFileData));
@@ -452,29 +457,8 @@ const displayFileAutoDetectedAmountFormat = computed<string>(() => {
     return tt('Unknown');
 });
 
-function getDisplayCount(count: number): string {
-    return numeralSystem.value.formatNumber(count);
-}
-
-function getTablePageOptions(linesCount?: number): NameNumeralValue[] {
-    const pageOptions: NameNumeralValue[] = [];
-
-    if (!linesCount || linesCount < 1) {
-        pageOptions.push({ value: -1, name: tt('All') });
-        return pageOptions;
-    }
-
-    for (const count of [ 5, 10, 15, 20, 25, 30, 50 ]) {
-        if (linesCount < count) {
-            break;
-        }
-
-        pageOptions.push({ value: count, name: getDisplayCount(count) });
-    }
-
-    pageOptions.push({ value: -1, name: tt('All') });
-
-    return pageOptions;
+function getNormalizedKey(key: string): string {
+    return key.toLowerCase().replaceAll(' ', '').replaceAll('_', '').replaceAll('-', '');
 }
 
 function getParseDataMappedColumnDisplayName(columnIndex: number): string {
@@ -485,6 +469,92 @@ function getParseDataMappedColumnDisplayName(columnIndex: number): string {
     }
 
     return tt('Unspecified');
+}
+
+function toggleDataMappingColumn(columnIndex: number, columnType: number): void {
+    parsedFileDataColumnMapping.value.toggleDataMappingColumn(columnIndex, columnType);
+
+    if (columnType === ImportTransactionColumnType.TransactionType.type) {
+        if (!parsedFileDataColumnMapping.value.isColumnMappingSet(ImportTransactionColumnType.TransactionType)) {
+            parsedFileDataColumnMapping.value.transactionTypeMapping = {};
+        } else {
+            const allTransactionTypes = parsedFileAllTransactionTypes.value;
+
+            for (const transactionTypeName of keys(parsedFileDataColumnMapping.value.transactionTypeMapping)) {
+                if (!allTransactionTypes.includes(transactionTypeName)) {
+                    delete parsedFileDataColumnMapping.value.transactionTypeMapping[transactionTypeName];
+                }
+            }
+        }
+
+        autoSetTransactionTypeMapping();
+    }
+}
+
+function autoSetColumnMapping(): void {
+    if (!props.parsedFileData) {
+        return;
+    }
+
+    const firstLine: string[] = props.parsedFileData.length > 0 ? (props.parsedFileData[0] as string[]) : [];
+    const displayColumnNamesMap: Record<string, ImportTransactionColumnType> = {};
+
+    for (const column of ImportTransactionColumnType.values()) {
+        displayColumnNamesMap[getNormalizedKey(tt(column.name))] = column;
+    }
+
+    for (const [columnName, index] of itemAndIndex(firstLine)) {
+        const normalizedColumnName = getNormalizedKey(columnName);
+
+        if (displayColumnNamesMap[normalizedColumnName]) {
+            const columnType = displayColumnNamesMap[normalizedColumnName];
+
+            if (!isNumber(parsedFileDataColumnMapping.value.dataColumnMapping[columnType.type])) {
+                parsedFileDataColumnMapping.value.dataColumnMapping[columnType.type] = index;
+            }
+
+            continue;
+        }
+
+        if (KNOWN_COLUMN_NAME_MAPPING[normalizedColumnName]) {
+            const columnType = KNOWN_COLUMN_NAME_MAPPING[normalizedColumnName];
+
+            if (!isNumber(parsedFileDataColumnMapping.value.dataColumnMapping[columnType.type])) {
+                parsedFileDataColumnMapping.value.dataColumnMapping[columnType.type] = index;
+            }
+
+            continue;
+        }
+    }
+}
+
+function autoSetTransactionTypeMapping(): void {
+    if (!props.parsedFileData) {
+        return;
+    }
+
+    const displayTransactinTypeNamesMap: Record<string, TransactionType> = {
+        [getNormalizedKey(tt('Modify Balance'))]: TransactionType.ModifyBalance,
+        [getNormalizedKey(tt('Income'))]: TransactionType.Income,
+        [getNormalizedKey(tt('Expense'))]: TransactionType.Expense,
+        [getNormalizedKey(tt('Transfer'))]: TransactionType.Transfer
+    };
+
+    for (const transactionTypeName of parsedFileAllTransactionTypes.value) {
+        const normalizedTransactionTypeName = getNormalizedKey(transactionTypeName);
+
+        if (displayTransactinTypeNamesMap[normalizedTransactionTypeName]) {
+            const transactionType = displayTransactinTypeNamesMap[normalizedTransactionTypeName];
+            parsedFileDataColumnMapping.value.transactionTypeMapping[transactionTypeName] = transactionType;
+            continue;
+        }
+
+        if (KNOWN_TRANSACTION_TYPE_NAME_MAPPING[normalizedTransactionTypeName]) {
+            const transactionType = KNOWN_TRANSACTION_TYPE_NAME_MAPPING[normalizedTransactionTypeName];
+            parsedFileDataColumnMapping.value.transactionTypeMapping[transactionTypeName] = transactionType;
+            continue;
+        }
+    }
 }
 
 function generateResult(): ImportTransactionDefineColumnResult | undefined {
@@ -560,7 +630,7 @@ function generateResult(): ImportTransactionDefineColumnResult | undefined {
 }
 
 function reset(): void {
-    parsedFileDataColumnMapping.value.reset();
+    parsedFileDataColumnMapping.value.reset(props.parsedFileColumnSeparator);
     currentPage.value = 1;
     countPerPage.value = 10;
 }
@@ -587,6 +657,13 @@ function saveColumnMappingFile(): void {
     const fileName = KnownFileType.JSON.formatFileName(tt('dataExport.defaultImportDataMappingFileName'));
     startDownloadFile(fileName, KnownFileType.JSON.createBlob(parsedFileDataColumnMapping.value.toJson()));
 }
+
+watch(() => props.parsedFileData, (newValue, oldValue) => {
+    if (newValue && !oldValue && getObjectOwnFieldCount(parsedFileDataColumnMapping.value.dataColumnMapping) < 1) {
+        autoSetColumnMapping();
+        autoSetTransactionTypeMapping();
+    }
+}, { immediate: true });
 
 defineExpose({
     menus,

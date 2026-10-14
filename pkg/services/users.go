@@ -6,7 +6,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/url"
-	"os"
 	"time"
 
 	"xorm.io/xorm"
@@ -162,14 +161,14 @@ func (s *UserService) GetUserAvatar(c core.Context, uid int64, fileExtension str
 		return nil, errs.ErrUserAvatarExtensionInvalid
 	}
 
-	avatarFile, err := s.ReadAvatar(c, user.Uid, user.CustomAvatarType)
-
-	if os.IsNotExist(err) {
-		return nil, errs.ErrUserAvatarNoExists
-	}
+	avatarFile, exists, err := s.ReadAvatar(c, user.Uid, user.CustomAvatarType)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if !exists {
+		return nil, errs.ErrUserAvatarNoExists
 	}
 
 	defer avatarFile.Close()
@@ -234,7 +233,7 @@ func (s *UserService) CreateUser(c core.Context, user *models.User, noPassword b
 }
 
 // UpdateUser saves an existed user model to database
-func (s *UserService) UpdateUser(c core.Context, user *models.User, modifyUserLanguage bool) (keyProfileUpdated bool, emailSetToUnverified bool, err error) {
+func (s *UserService) UpdateUser(c core.Context, user *models.User, modifyUserLanguage bool, modifyUseLastReconciledTime bool) (keyProfileUpdated bool, emailSetToUnverified bool, err error) {
 	if user.Uid <= 0 {
 		return false, false, errs.ErrUserIdInvalid
 	}
@@ -277,7 +276,11 @@ func (s *UserService) UpdateUser(c core.Context, user *models.User, modifyUserLa
 		updateCols = append(updateCols, "default_account_id")
 	}
 
-	if models.TRANSACTION_EDIT_SCOPE_NONE <= user.TransactionEditScope && user.TransactionEditScope <= models.TRANSACTION_EDIT_SCOPE_THIS_YEAR_OR_LATER {
+	if modifyUseLastReconciledTime {
+		updateCols = append(updateCols, "use_last_reconciled_time")
+	}
+
+	if models.TRANSACTION_EDIT_SCOPE_NONE <= user.TransactionEditScope && user.TransactionEditScope <= models.TRANSACTION_EDIT_SCOPE_LAST_RECONCILED_TIME_OR_LATER {
 		updateCols = append(updateCols, "transaction_edit_scope")
 	}
 
@@ -379,6 +382,32 @@ func (s *UserService) UpdateUser(c core.Context, user *models.User, modifyUserLa
 	return keyProfileUpdated, emailSetToUnverified, nil
 }
 
+// UpdateUserPassword updates the password of specified user
+func (s *UserService) UpdateUserPassword(c core.Context, user *models.User) error {
+	if user.Uid <= 0 {
+		return errs.ErrUserIdInvalid
+	}
+
+	if user.Password == "" {
+		return errs.ErrPasswordIsEmpty
+	}
+
+	user.Password = utils.EncodePassword(user.Password, user.Salt)
+	user.UpdatedUnixTime = time.Now().Unix()
+
+	return s.UserDB().DoTransaction(c, func(sess *xorm.Session) error {
+		updatedRows, err := sess.ID(user.Uid).Cols("password", "updated_unix_time").Where("deleted=?", false).Update(user)
+
+		if err != nil {
+			return err
+		} else if updatedRows < 1 {
+			return errs.ErrUserNotFound
+		}
+
+		return nil
+	})
+}
+
 // UpdateUserAvatar updates the custom avatar type of specified user
 func (s *UserService) UpdateUserAvatar(c core.Context, uid int64, avatarFile multipart.File, fileExtension string, oldFileExtension string) error {
 	if uid <= 0 {
@@ -428,7 +457,7 @@ func (s *UserService) RemoveUserAvatar(c core.Context, uid int64, fileExtension 
 
 	err := s.DeleteAvatar(c, uid, fileExtension)
 
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		return err
 	}
 

@@ -1,5 +1,12 @@
-import { keys, keysIfValueEquals, values } from '@/core/base.ts';
-import type { NameValue, TypeAndName, TypeAndDisplayName} from '@/core/base.ts';
+import {
+    type GenericNameValue,
+    type TypeAndName,
+    type TypeAndDisplayName,
+    entries,
+    keys,
+    keysIfValueEquals,
+    values,
+} from '@/core/base.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 export function isFunction(val: unknown): val is Function {
@@ -36,6 +43,44 @@ export function isInteger(val: unknown): val is number {
 
 export function isBoolean(val: unknown): val is boolean {
     return typeof(val) === 'boolean';
+}
+
+export function isTextualUUID(val: unknown): val is string {
+    if (!isString(val)) {
+        return false;
+    }
+
+    const parts = val.split('-');
+
+    if (parts.length !== 5) {
+        return false;
+    }
+
+    const expectedLengths = [8, 4, 4, 4, 12];
+
+    for (let i = 0; i < parts.length; i++) {
+        if (parts[i]!.length !== expectedLengths[i]) {
+            return false;
+        }
+
+        for (let j = 0; j < parts[i]!.length; j++) {
+            const char = parts[i]![j]!;
+            if (!((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F'))) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+export function isHextualColor(val: unknown): val is string {
+    if (!isString(val)) {
+        return false;
+    }
+
+    const hexColorRegex = /^[0-9a-fA-F]{6}$/;
+    return hexColorRegex.test(val);
 }
 
 export function isYearMonth(val: unknown): val is string {
@@ -163,6 +208,14 @@ export function getNumberValue(value: unknown, defaultValue: number): number {
     }
 }
 
+export function normalizeInteger(value: unknown, defaultValue: number, min: number, max: number): number {
+    if (!isInteger(value)) {
+        return defaultValue;
+    }
+
+    return Math.min(max, Math.max(min, Math.round(value)));
+}
+
 export function sortNumbersArray(array: number[]): number[] {
     return array.sort(function (num1, num2) {
         return num1 - num2;
@@ -178,6 +231,21 @@ export function getObjectOwnFieldCount(object: object): number {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const _ of keys(object)) {
+        count++;
+    }
+
+    return count;
+}
+
+export function getObjectOwnFieldWithValueCount(object: object, value: unknown): number {
+    let count = 0;
+
+    if (!object || !isObject(object)) {
+        return count;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for (const _ of keysIfValueEquals(object, value)) {
         count++;
     }
 
@@ -285,7 +353,7 @@ export function getItemByKeyValue<T>(src: Record<string, T>[] | Record<string, R
     return null;
 }
 
-export function findNameByValue(items: NameValue[], value: string): string | null {
+export function findNameByValue<T>(items: GenericNameValue<T>[], value: T): string | null {
     for (const item of items) {
         if (item.value === value) {
             return item.name;
@@ -381,11 +449,36 @@ export function objectFieldToArrayItem(object: object): string[] {
     return ret;
 }
 
+export function mapObjectToArray<V, R>(object: Record<string | number | symbol, V>, mapFunc: (value: V, key: string | number | symbol, index: number) => R): R[] {
+    const ret: R[] = [];
+    let index = 0;
+
+    for (const [key, value] of entries(object)) {
+        const mappedValue = mapFunc(value, key, index++);
+
+        if (isDefined(mappedValue)) {
+            ret.push(mappedValue);
+        }
+    }
+
+    return ret;
+}
+
 export function objectFieldWithValueToArrayItem<T>(object: Record<string, T>, value: T): string[] {
     const ret: string[] = [];
 
     for (const field of keysIfValueEquals(object, value)) {
         ret.push(field);
+    }
+
+    return ret;
+}
+
+export function objectValueToArrayItem<T>(object: Record<string, T>): T[] {
+    const ret: T[] = [];
+
+    for (const value of values(object)) {
+        ret.push(value);
     }
 
     return ret;

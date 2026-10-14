@@ -15,7 +15,6 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/services"
 	"github.com/mayswind/ezbookkeeping/pkg/settings"
 	"github.com/mayswind/ezbookkeeping/pkg/utils"
-	"github.com/mayswind/ezbookkeeping/pkg/validators"
 )
 
 // UsersApi represents user api
@@ -61,7 +60,7 @@ func (a *UsersApi) UserRegisterHandler(c *core.WebContext) (any, *errs.Error) {
 		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
 	}
 
-	if userRegisterReq.DefaultCurrency == validators.ParentAccountCurrencyPlaceholder {
+	if userRegisterReq.DefaultCurrency == core.AccountCurrencyNotSetValue {
 		log.Warnf(c, "[users.UserRegisterHandler] user default currency is invalid")
 		return nil, errs.ErrUserDefaultCurrencyIsInvalid
 	}
@@ -242,6 +241,16 @@ func (a *UsersApi) UserUpdateProfileHandler(c *core.WebContext) (any, *errs.Erro
 	}
 
 	uid := c.GetCurrentUid()
+	claims := c.GetTokenClaims()
+
+	if claims == nil {
+		log.Warnf(c, "[users.UserUpdateProfileHandler] current token is null")
+		return nil, errs.ErrInvalidToken
+	} else if claims.Type != core.USER_TOKEN_TYPE_NORMAL {
+		log.Warnf(c, "[users.UserUpdateProfileHandler] token type \"%d\" is not allowed to update user profile", claims.Type)
+		return nil, errs.ErrInvalidToken
+	}
+
 	user, err := a.users.GetUserById(c, uid)
 
 	if err != nil {
@@ -256,6 +265,7 @@ func (a *UsersApi) UserUpdateProfileHandler(c *core.WebContext) (any, *errs.Erro
 	userUpdateReq.Nickname = strings.TrimSpace(userUpdateReq.Nickname)
 
 	modifyProfileBasicInfo := false
+	modifyUseLastReconciledTime := false
 	anythingUpdate := false
 	userNew := &models.User{
 		Uid:  user.Uid,
@@ -315,6 +325,16 @@ func (a *UsersApi) UserUpdateProfileHandler(c *core.WebContext) (any, *errs.Erro
 		userNew.DefaultAccountId = userUpdateReq.DefaultAccountId
 		modifyProfileBasicInfo = true
 		anythingUpdate = true
+	}
+
+	if userUpdateReq.UseLastReconciledTime != nil && *userUpdateReq.UseLastReconciledTime != user.UseLastReconciledTime {
+		user.UseLastReconciledTime = *userUpdateReq.UseLastReconciledTime
+		userNew.UseLastReconciledTime = *userUpdateReq.UseLastReconciledTime
+		modifyProfileBasicInfo = true
+		modifyUseLastReconciledTime = true
+		anythingUpdate = true
+	} else {
+		modifyUseLastReconciledTime = false
 	}
 
 	if userUpdateReq.TransactionEditScope != nil && *userUpdateReq.TransactionEditScope != user.TransactionEditScope {
@@ -531,7 +551,7 @@ func (a *UsersApi) UserUpdateProfileHandler(c *core.WebContext) (any, *errs.Erro
 		return nil, errs.ErrNothingWillBeUpdated
 	}
 
-	keyProfileUpdated, emailSetToUnverified, err := a.users.UpdateUser(c, userNew, modifyUserLanguage)
+	keyProfileUpdated, emailSetToUnverified, err := a.users.UpdateUser(c, userNew, modifyUserLanguage, modifyUseLastReconciledTime)
 
 	if err != nil {
 		log.Errorf(c, "[users.UserUpdateProfileHandler] failed to update user \"uid:%d\", because %s", user.Uid, err.Error())
@@ -603,6 +623,16 @@ func (a *UsersApi) UserUpdateProfileHandler(c *core.WebContext) (any, *errs.Erro
 // UserUpdateAvatarHandler saves user avatar by request parameters for current user
 func (a *UsersApi) UserUpdateAvatarHandler(c *core.WebContext) (any, *errs.Error) {
 	uid := c.GetCurrentUid()
+	claims := c.GetTokenClaims()
+
+	if claims == nil {
+		log.Warnf(c, "[users.UserUpdateAvatarHandler] current token is null")
+		return nil, errs.ErrInvalidToken
+	} else if claims.Type != core.USER_TOKEN_TYPE_NORMAL {
+		log.Warnf(c, "[users.UserUpdateAvatarHandler] token type \"%d\" is not allowed to update user avatar", claims.Type)
+		return nil, errs.ErrInvalidToken
+	}
+
 	user, err := a.users.GetUserById(c, uid)
 
 	if err != nil {
@@ -670,6 +700,16 @@ func (a *UsersApi) UserUpdateAvatarHandler(c *core.WebContext) (any, *errs.Error
 // UserRemoveAvatarHandler removes user avatar by request parameters for current user
 func (a *UsersApi) UserRemoveAvatarHandler(c *core.WebContext) (any, *errs.Error) {
 	uid := c.GetCurrentUid()
+	claims := c.GetTokenClaims()
+
+	if claims == nil {
+		log.Warnf(c, "[users.UserRemoveAvatarHandler] current token is null")
+		return nil, errs.ErrInvalidToken
+	} else if claims.Type != core.USER_TOKEN_TYPE_NORMAL {
+		log.Warnf(c, "[users.UserRemoveAvatarHandler] token type \"%d\" is not allowed to remove user avatar", claims.Type)
+		return nil, errs.ErrInvalidToken
+	}
+
 	user, err := a.users.GetUserById(c, uid)
 
 	if err != nil {

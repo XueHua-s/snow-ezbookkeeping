@@ -369,7 +369,7 @@ func (s *AccountService) CreateAccounts(c core.Context, mainAccount *models.Acco
 }
 
 // ModifyAccounts saves an existed account model to database
-func (s *AccountService) ModifyAccounts(c core.Context, mainAccount *models.Account, updateAccounts []*models.Account, addSubAccounts []*models.Account, addSubAccountBalanceTimes []int64, removeSubAccountIds []int64, clientTimezone *time.Location) error {
+func (s *AccountService) ModifyAccounts(c core.Context, mainAccount *models.Account, updateAccounts []*models.Account, addSubAccounts []*models.Account, addSubAccountBalanceTimes []int64, removeSubAccountIds []int64, updateMainAccountCurrency bool, clientTimezone *time.Location) error {
 	if mainAccount.Uid <= 0 {
 		return errs.ErrUserIdInvalid
 	}
@@ -445,7 +445,13 @@ func (s *AccountService) ModifyAccounts(c core.Context, mainAccount *models.Acco
 		// update accounts
 		for i := 0; i < len(updateAccounts); i++ {
 			account := updateAccounts[i]
-			updatedRows, err := sess.ID(account.AccountId).Cols("name", "display_order", "category", "icon", "color", "comment", "extend", "hidden", "updated_unix_time").Where("uid=? AND deleted=?", account.Uid, false).Update(account)
+			updateColumns := []string{"name", "display_order", "category", "icon", "icon_type", "color", "comment", "extend", "hidden", "updated_unix_time"}
+
+			if updateMainAccountCurrency && account.AccountId == mainAccount.AccountId {
+				updateColumns = append(updateColumns, "currency")
+			}
+
+			updatedRows, err := sess.ID(account.AccountId).Cols(updateColumns...).Where("uid=? AND deleted=?", account.Uid, false).Update(account)
 
 			if err != nil {
 				return err
@@ -586,6 +592,27 @@ func (s *AccountService) ModifyAccounts(c core.Context, mainAccount *models.Acco
 					return errs.ErrDatabaseOperationFailed
 				}
 			}
+		}
+
+		return nil
+	})
+}
+
+// UpdateAccountExtend updates extend field of given account
+func (s *AccountService) UpdateAccountExtend(c core.Context, uid int64, account *models.Account) error {
+	if uid <= 0 {
+		return errs.ErrUserIdInvalid
+	}
+
+	account.UpdatedUnixTime = time.Now().Unix()
+
+	return s.UserDataDB(uid).DoTransaction(c, func(sess *xorm.Session) error {
+		updatedRows, err := sess.ID(account.AccountId).Cols("extend", "updated_unix_time").Where("uid=? AND deleted=?", uid, false).Update(account)
+
+		if err != nil {
+			return err
+		} else if updatedRows < 1 {
+			return errs.ErrAccountNotFound
 		}
 
 		return nil

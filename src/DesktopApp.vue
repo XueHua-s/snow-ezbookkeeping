@@ -34,6 +34,7 @@ import { ThemeType } from '@/core/theme.ts';
 import { isProduction } from '@/lib/version.ts';
 import { initMapProvider } from '@/lib/map/index.ts';
 import { isUserLogined, isUserUnlocked } from '@/lib/userstate.ts';
+import { updateMapCacheExpiration } from '@/lib/cache.ts';
 import { getSystemTheme, setExpenseAndIncomeAmountColor } from '@/lib/ui/common.ts';
 
 const { tt, getCurrentLanguageInfo, setLanguage, initLocale } = useI18n();
@@ -120,12 +121,11 @@ if (isUserLogined() && initialRoutePath !== '/verify_email' && initialRoutePath 
                     rootStore.setNotificationContent(response.notificationContent);
                 }
             }
-        });
 
-        // auto refresh exchange rates data
-        if (settingsStore.appSettings.autoUpdateExchangeRatesData) {
-            exchangeRatesStore.getLatestExchangeRates({ silent: true, force: false });
-        }
+            updateMapCacheExpiration(settingsStore.appSettings.mapCacheExpiration);
+            exchangeRatesStore.removeExpiredExchangeRates(true);
+            exchangeRatesStore.autoUpdateExchangeRatesData();
+        });
     }
 }
 

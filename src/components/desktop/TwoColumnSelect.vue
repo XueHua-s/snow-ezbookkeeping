@@ -21,7 +21,7 @@
                 <span class="text-truncate" v-if="!customSelectionPrimaryText && showSelectionPrimaryText && selectedPrimaryItem">{{ selectionPrimaryItemText }}</span>
                 <v-icon class="icon-with-direction disabled" :icon="mdiChevronRight" size="23" v-if="!customSelectionPrimaryText && showSelectionPrimaryText && selectedPrimaryItem && selectedSecondaryItem" />
                 <ItemIcon class="me-2" size="21.5px"
-                          :icon-type="secondaryIconType"
+                          :icon-type="getIconType(secondaryIconType, selectedSecondaryItem && secondaryIconTypeField ? (selectedSecondaryItem as Record<string, unknown>)[secondaryIconTypeField] : undefined)"
                           :icon-id="selectedSecondaryItem && secondaryIconField ? (selectedSecondaryItem as Record<string, unknown>)[secondaryIconField] : null"
                           :color="selectedSecondaryItem && secondaryColorField ? (selectedSecondaryItem as Record<string, unknown>)[secondaryColorField] : null"
                           v-if="!customSelectionPrimaryText && selectedSecondaryItem && showSelectionSecondaryIcon" />
@@ -30,15 +30,13 @@
         </template>
 
         <template #no-data>
-            <div class="mx-2 mt-2" v-if="enableFilter">
+            <div class="mx-2 mb-1" v-if="enableFilter">
                 <v-text-field eager ref="filterInput" density="compact"
                               :prepend-inner-icon="mdiMagnify"
                               :placeholder="filterPlaceholder"
-                              v-model="filterContent"
-                              @click:control="onInputFocused(filterInput, true)"
-                              @update:focused="onInputFocused(filterInput, $event)"></v-text-field>
+                              v-model="filterContent"></v-text-field>
             </div>
-            <div class="mx-4 my-3" v-show="!filteredItems || !filteredItems.length">
+            <div class="text-body-large mx-4 mt-3 mb-2" v-show="!filteredItems || !filteredItems.length">
                 {{ filterNoItemsText }}
             </div>
             <div ref="dropdownMenu" class="two-column-list-container" v-show="filteredItems && filteredItems.length">
@@ -49,7 +47,8 @@
                                      v-for="item in filteredItems"
                                      @click="onPrimaryItemClicked(item)">
                             <template #prepend>
-                                <ItemIcon class="me-2" :icon-type="primaryIconType"
+                                <ItemIcon class="me-2"
+                                          :icon-type="getIconType(primaryIconType, primaryIconTypeField ? (item as Record<string, unknown>)[primaryIconTypeField] : undefined)"
                                           :icon-id="primaryIconField ? (item as Record<string, unknown>)[primaryIconField] : undefined"
                                           :color="primaryColorField ? (item as Record<string, unknown>)[primaryColorField] : undefined"
                                           v-if="primaryIconField"></ItemIcon>
@@ -70,7 +69,8 @@
                                      v-for="subItem in filteredSubItems"
                                      @click="onSecondaryItemClicked(subItem)">
                             <template #prepend>
-                                <ItemIcon class="me-2" :icon-type="secondaryIconType"
+                                <ItemIcon class="me-2"
+                                          :icon-type="getIconType(secondaryIconType, secondaryIconTypeField ? subItem[secondaryIconTypeField] : undefined)"
                                           :icon-id="secondaryIconField ? subItem[secondaryIconField] : undefined"
                                           :color="secondaryColorField ? subItem[secondaryColorField] : undefined"
                                           v-if="secondaryIconField"></ItemIcon>
@@ -103,6 +103,7 @@ import {
     getNameByKeyValue
 } from '@/lib/common.ts';
 import { scrollToSelectedItem } from '@/lib/ui/common.ts';
+import { getIconType } from '@/lib/icon.ts';
 import { type ComponentDensity, type InputVariant, setChildInputFocus } from '@/lib/ui/desktop.ts';
 
 import {
@@ -250,15 +251,15 @@ function onMenuStateChanged(state: boolean): void {
                 scrollToSelectedItem(dropdownMenu.value.parentElement, '.primary-list-container', '.primary-list-container', '.primary-list-item-selected');
                 scrollToSelectedItem(dropdownMenu.value.parentElement, '.secondary-list-container', '.secondary-list-container', '.secondary-list-item-selected');
             }
-        });
-    }
-}
 
-function onInputFocused(input: VTextField | null | undefined, focused: boolean): void {
-    if (input && focused) {
-        nextTick(() => {
-            setChildInputFocus(input?.$el, 'input');
-            updateMenuPosition();
+            if (props.enableFilter) {
+                // the menu content is created when the menu opens for the first time, so the filter field may not exist yet on this tick
+                setTimeout(() => {
+                    if (menuState.value && filterInput.value) {
+                        setChildInputFocus(filterInput.value.$el, 'input');
+                    }
+                }, 50);
+            }
         });
     }
 }
@@ -288,13 +289,13 @@ function onInputFocused(input: VTextField | null | undefined, focused: boolean):
 
 .two-column-select-menu .list-item-with-header > .v-list-item,
 .two-column-select-menu .list-item-with-footer > .v-list-item {
-    min-height: 58px;
+    min-height: 52px;
     padding-top: 6px;
     padding-bottom: 6px;
 }
 
 .two-column-select-menu .list-item-with-header.list-item-with-footer > .v-list-item {
-    min-height: 78px;
+    min-height: 74px;
     padding-top: 8px;
     padding-bottom: 8px;
 }

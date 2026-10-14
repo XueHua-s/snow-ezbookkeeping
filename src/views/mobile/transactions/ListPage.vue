@@ -16,8 +16,8 @@
                 </f7-link>
             </f7-nav-title>
             <f7-nav-right :class="{ 'navbar-compact-icons': true, 'disabled': loading }">
-                <f7-link icon-f7="search" @click="toggleSearchbar"></f7-link>
-                <f7-link icon-f7="plus" :class="{ 'disabled': !canAddTransaction }" @click="add"></f7-link>
+                <f7-link icon-f7="search" :aria-label="tt('Search')" @click="toggleSearchbar"></f7-link>
+                <f7-link icon-f7="plus" :class="{ 'disabled': !canAddTransaction }" :aria-label="tt('Add')" @click="add"></f7-link>
             </f7-nav-right>
 
             <f7-subnavbar :inner="false" v-if="showSearchbar">
@@ -48,14 +48,14 @@
             </f7-list>
         </f7-popover>
 
-        <f7-toolbar tabbar bottom class="toolbar-item-auto-size transaction-list-toolbar">
-            <f7-link :class="{ 'disabled': loading || query.dateType === DateRange.All.type }" @click="shiftDateRange(query.minTime, query.maxTime, -1)">
+        <f7-toolbar tabbar bottom class="compact-tabbar toolbar-item-auto-size transaction-list-toolbar">
+            <f7-link :class="{ 'disabled': loading || query.dateType === DateRange.All.type }" :aria-label="tt('Previous Period')" @click="shiftDateRange(query.minTime, query.maxTime, -1)">
                 <f7-icon class="icon-with-direction" f7="arrow_left_square"></f7-icon>
             </f7-link>
             <f7-link popover-open=".date-popover-menu" :class="{ 'tabbar-text-with-ellipsis': true, 'disabled': loading }">
                 <span :class="{ 'tabbar-item-changed': query.dateType !== DateRange.All.type }">{{ queryDateRangeName }}</span>
             </f7-link>
-            <f7-link :class="{ 'disabled': loading || query.dateType === DateRange.All.type }" @click="shiftDateRange(query.minTime, query.maxTime, 1)">
+            <f7-link :class="{ 'disabled': loading || query.dateType === DateRange.All.type }" :aria-label="tt('Next Period')" @click="shiftDateRange(query.minTime, query.maxTime, 1)">
                 <f7-icon class="icon-with-direction" f7="arrow_right_square"></f7-icon>
             </f7-link>
             <f7-link popover-open=".category-popover-menu" :class="{ 'tabbar-text-with-ellipsis': true, 'disabled': loading || query.type === 1 }">
@@ -64,26 +64,30 @@
             <f7-link popover-open=".account-popover-menu" :class="{ 'tabbar-text-with-ellipsis': true, 'disabled': loading }">
                 <span :class="{ 'tabbar-item-changed': query.accountIds }">{{ queryAccountName }}</span>
             </f7-link>
-            <f7-link popover-open=".more-popover-menu" :class="{ 'disabled': loading }">
+            <f7-link popover-open=".more-popover-menu" :class="{ 'disabled': loading }" :aria-label="tt('More')">
                 <f7-icon f7="ellipsis_vertical" :class="{ 'tabbar-item-changed': query.type > 0 || query.amountFilter || query.tagFilter }"></f7-icon>
             </f7-link>
         </f7-toolbar>
 
-        <f7-block class="transaction-calendar-container margin-vertical" v-if="pageType === TransactionListPageType.Calendar.type">
-            <transaction-calendar calendar-class="justify-content-center" week-day-name-type="short"
+        <f7-block class="transaction-calendar-container" :class="{ 'margin-vertical': showSearchbar, 'margin-vertical-half': !showSearchbar }"
+                  v-if="pageType === TransactionListPageType.Calendar.type">
+            <transaction-calendar show-amount show-income-amount show-expense-amount show-alternate-date
+                                  dates-have-any-transaction-clickable
+                                  calendar-class="justify-content-center" week-day-name-type="short"
                                   :readonly="loading" :is-dark-mode="isDarkMode"
                                   :default-currency="false"
                                   :min-date="transactionCalendarMinDate"
                                   :max-date="transactionCalendarMaxDate"
-                                  :dailyTotalAmounts="currentMonthTransactionData?.dailyTotalAmounts"
+                                  :daily-total-amounts="getDailyTotalAmounts(currentMonthTransactionData)"
                                   v-model="currentCalendarDate"></transaction-calendar>
         </f7-block>
 
         <div class="skeleton-text" v-if="loading">
-            <f7-block class="combination-list-wrapper margin-vertical" :class="{ 'no-accordion-toggle': pageType !== TransactionListPageType.List.type }"
+            <f7-block class="combination-list-wrapper"
+                      :class="{ 'margin-vertical': blockIdx > 1 || pageType === TransactionListPageType.Calendar.type || showSearchbar, 'margin-vertical-half': blockIdx === 1 && pageType !== TransactionListPageType.Calendar.type && !showSearchbar, 'no-accordion-toggle': pageType !== TransactionListPageType.List.type && pageType !== TransactionListPageType.Gallery.type }"
                       :key="blockIdx" v-for="blockIdx in (pageType === TransactionListPageType.List.type ? [ 1, 2 ] : [ 1 ])">
                 <f7-accordion-item>
-                    <f7-block-title v-if="pageType === TransactionListPageType.List.type">
+                    <f7-block-title v-if="pageType === TransactionListPageType.List.type || pageType === TransactionListPageType.Gallery.type">
                         <f7-accordion-toggle>
                             <f7-list strong inset dividers media-list
                                      class="transaction-amount-list combination-list-header combination-list-opened">
@@ -101,13 +105,14 @@
                         </f7-accordion-toggle>
                     </f7-block-title>
                     <f7-accordion-content style="height: auto">
-                        <f7-list strong inset dividers media-list accordion-list class="transaction-info-list combination-list-content">
+                        <f7-list strong inset dividers media-list accordion-list class="transaction-info-list combination-list-content"
+                                 v-if="pageType === TransactionListPageType.List.type || pageType === TransactionListPageType.Calendar.type">
                             <f7-list-item link="#" chevron-center class="transaction-info"
                                           :key="itemIdx" v-for="itemIdx in (pageType === TransactionListPageType.List.type && blockIdx === 1 ? [ 1, 2, 3, 4, 5, 6, 7 ] : [ 1, 2, 3 ])">
                                 <template #media>
                                     <div class="display-flex flex-direction-column transaction-date">
-                                        <span class="transaction-day full-line flex-direction-column">DD</span>
-                                        <span class="transaction-day-of-week full-line flex-direction-column">Sun</span>
+                                        <span class="transaction-day width-100 flex-direction-column">DD</span>
+                                        <span class="transaction-day-of-week width-100 flex-direction-column">Sun</span>
                                     </div>
                                 </template>
                                 <template #inner>
@@ -147,23 +152,40 @@
                                 </template>
                             </f7-list-item>
                         </f7-list>
+                        <f7-list strong inset dividers media-list accordion-list class="transaction-info-list combination-list-content transaction-gallery-list"
+                                 v-if="pageType === TransactionListPageType.Gallery.type">
+                            <f7-list-item class="transaction-gallery-container">
+                                <template #default>
+                                    <div class="transaction-gallery-grid">
+                                        <div class="transaction-picture-cell"
+                                             :key="itemIdx" v-for="itemIdx in [ 1, 2, 3, 4, 5 ]">
+                                            <div class="display-flex justify-content-center align-items-center" style="height: 100%">
+                                                <f7-skeleton-block class="transaction-picture-img" style="width: 40px; height: 40px; border-radius: 50%" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </f7-list-item>
+                        </f7-list>
                     </f7-accordion-content>
                 </f7-accordion-item>
             </f7-block>
         </div>
 
-        <f7-list strong inset dividers class="margin-vertical" v-if="!loading && noTransaction">
+        <f7-list strong inset dividers :class="{ 'margin-vertical': pageType === TransactionListPageType.Calendar.type || showSearchbar, 'margin-vertical-half': pageType !== TransactionListPageType.Calendar.type && !showSearchbar }"
+                 v-if="!loading && noTransaction">
             <f7-list-item :title="tt('No transaction data')"></f7-list-item>
         </f7-list>
 
-        <f7-block class="combination-list-wrapper margin-vertical" :class="{ 'no-accordion-toggle': pageType !== TransactionListPageType.List.type }"
-                  :key="transactionMonthList.yearDashMonth" v-for="(transactionMonthList) in transactions">
+        <f7-block class="combination-list-wrapper"
+                  :class="{ 'margin-vertical': index > 0 || pageType === TransactionListPageType.Calendar.type || showSearchbar, 'margin-vertical-half': index === 0 && pageType !== TransactionListPageType.Calendar.type && !showSearchbar, 'no-accordion-toggle': pageType !== TransactionListPageType.List.type && pageType !== TransactionListPageType.Gallery.type }"
+                  :key="transactionMonthList.yearDashMonth" v-for="(transactionMonthList, index) in transactions">
             <f7-accordion-item :opened="transactionMonthList.opened"
                                @accordion:open="collapseTransactionMonthList(transactionMonthList, false)"
                                @accordion:opened="onTransactionMonthListCollapseStateChanged"
                                @accordion:close="collapseTransactionMonthList(transactionMonthList, true)"
                                @accordion:closed="onTransactionMonthListCollapseStateChanged">
-                <f7-block-title :id="getTransactionMonthTitleDomId(transactionMonthList.yearDashMonth)" v-if="pageType === TransactionListPageType.List.type">
+                <f7-block-title :id="getTransactionMonthTitleDomId(transactionMonthList.yearDashMonth)" v-if="pageType === TransactionListPageType.List.type || pageType === TransactionListPageType.Gallery.type">
                     <f7-accordion-toggle>
                         <f7-list strong inset dividers media-list
                                  class="transaction-amount-list combination-list-header"
@@ -173,12 +195,12 @@
                                     <small>
                                         <span>{{ getDisplayLongYearMonth(transactionMonthList) }}</span>
                                     </small>
-                                    <small class="transaction-amount-statistics" v-if="showTotalAmountInTransactionListPage && transactionMonthList.totalAmount">
+                                    <small class="transaction-amount-statistics" v-if="showTotalAmountInTransactionListPage && hasMonthTotalAmount(transactionMonthList)">
                                         <span class="text-income">
-                                            {{ getDisplayMonthTotalAmount(transactionMonthList.totalAmount.income, defaultCurrency, '+', transactionMonthList.totalAmount.incompleteIncome) }}
+                                            {{ getDisplayMonthTotalAmount(transactionMonthList, '+')?.income }}
                                         </span>
                                         <span class="text-expense">
-                                            {{ getDisplayMonthTotalAmount(transactionMonthList.totalAmount.expense, defaultCurrency, '-', transactionMonthList.totalAmount.incompleteExpense) }}
+                                            {{ getDisplayMonthTotalAmount(transactionMonthList, '-')?.expense }}
                                         </span>
                                     </small>
                                     <f7-icon class="combination-list-chevron-icon" :f7="transactionMonthList.opened ? 'chevron_up' : 'chevron_down'"></f7-icon>
@@ -193,7 +215,7 @@
                     <f7-list strong inset dividers media-list accordion-list
                              class="transaction-info-list transaction-month-list combination-list-content"
                              :id="getTransactionMonthListDomId(transactionMonthList.yearDashMonth)"
-                             v-if="!isTransactionMonthListInvisible(transactionMonthList)"
+                             v-if="!isTransactionMonthListInvisible(transactionMonthList) && (pageType === TransactionListPageType.List.type || pageType === TransactionListPageType.Calendar.type)"
                     >
                         <f7-list-item swipeout chevron-center accordion-item
                                       class="transaction-info"
@@ -204,10 +226,10 @@
                         >
                             <template #media>
                                 <div class="display-flex flex-direction-column transaction-date" :style="getTransactionDateStyle(transaction, idx > 0 ? transactionMonthList.items[idx - 1] : undefined)">
-                                    <span class="transaction-day full-line flex-direction-column">
-                                        {{ transaction.gregorianCalendarDayOfMonth ? numeralSystem.formatNumber(transaction.gregorianCalendarDayOfMonth) : '' }}
+                                    <span class="transaction-day width-100 flex-direction-column">
+                                        {{ transaction.gregorianCalendarDayOfMonth ? formatNumberToLocalizedNumeralsWithoutDigitGrouping(transaction.gregorianCalendarDayOfMonth) : '' }}
                                     </span>
-                                    <span class="transaction-day-of-week full-line flex-direction-column" v-if="transaction.displayDayOfWeek">
+                                    <span class="transaction-day-of-week width-100 flex-direction-column" v-if="transaction.displayDayOfWeek">
                                         {{ getWeekdayShortName(transaction.displayDayOfWeek) }}
                                     </span>
                                 </div>
@@ -216,7 +238,7 @@
                                 <div class="display-flex no-padding-horizontal">
                                     <div class="item-media">
                                         <div class="transaction-icon display-flex align-items-center">
-                                            <ItemIcon icon-type="category"
+                                            <ItemIcon :icon-type="getCategoryIconType(transaction.category.iconType)"
                                                       :icon-id="transaction.category.icon"
                                                       :color="transaction.category.color"
                                                       v-if="transaction.category && transaction.category.color"></ItemIcon>
@@ -286,6 +308,7 @@
                                                     v-if="transaction.editable"
                                                     @click="edit(transaction)"></f7-swipeout-button>
                                 <f7-swipeout-button color="red" class="padding-horizontal"
+                                                    :aria-label="tt('Delete')"
                                                     v-if="transaction.editable"
                                                     @click="remove(transaction, false)">
                                     <f7-icon f7="trash"></f7-icon>
@@ -293,12 +316,33 @@
                             </f7-swipeout-actions>
                         </f7-list-item>
                     </f7-list>
+                    <f7-list strong inset dividers media-list accordion-list
+                             class="transaction-info-list transaction-month-list combination-list-content transaction-gallery-list"
+                             :id="getTransactionMonthListDomId(transactionMonthList.yearDashMonth)"
+                             v-if="!isTransactionMonthListInvisible(transactionMonthList) && (pageType === TransactionListPageType.Gallery.type)">
+                        <f7-list-item class="transaction-gallery-container">
+                            <template #default>
+                                <div class="transaction-gallery-grid">
+                                    <div class="transaction-picture-cell" :key="pictureInfo.pictureId"
+                                         v-for="[transaction, pictureInfo] in allTransactionPictures(transactionMonthList.items)">
+                                        <image-box class="transaction-picture-img" alt="picture"
+                                                   :link="`/transaction/detail?id=${transaction.id}&type=${transaction.type}`"
+                                                   :src="getTransactionPictureUrl(pictureInfo)">
+                                            <template #error>
+                                                {{ tt('Failed to load image, please check whether the config "domain" and "root_url" are set correctly.') }}
+                                            </template>
+                                        </image-box>
+                                    </div>
+                                </div>
+                            </template>
+                        </f7-list-item>
+                    </f7-list>
                 </f7-accordion-content>
             </f7-accordion-item>
         </f7-block>
 
         <f7-block class="text-align-center" :class="{ 'disabled': loadingMore }" v-show="!loading && hasMoreTransaction"
-                  v-if="pageType === TransactionListPageType.List.type">
+                  v-if="pageType === TransactionListPageType.List.type || pageType === TransactionListPageType.Gallery.type">
             <f7-link href="#" @click="loadMore(false)">{{ tt('Load More') }}</f7-link>
         </f7-block>
 
@@ -309,7 +353,7 @@
                               :class="{ 'list-item-selected': query.dateType === dateRange.type }"
                               :key="dateRange.type"
                               v-for="dateRange in allDateRanges"
-                              v-show="pageType === TransactionListPageType.List.type || dateRange.type === DateRange.ThisMonth.type || dateRange.type === DateRange.LastMonth.type || dateRange.type === DateRange.Custom.type"
+                              v-show="pageType === TransactionListPageType.List.type || pageType === TransactionListPageType.Gallery.type || dateRange.type === DateRange.ThisMonth.type || dateRange.type === DateRange.LastMonth.type || dateRange.type === DateRange.Custom.type"
                               @click="changeDateFilter(dateRange.type)">
                     <template #after>
                         <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="query.dateType === dateRange.type"></f7-icon>
@@ -376,7 +420,7 @@
                                       v-show="!category.hidden || queryAllFilterCategoryIds[category.id] || allCategories[query.categoryIds]?.parentId === category.id || hasSubCategoryInQuery(category)"
                         >
                             <template #media>
-                                <ItemIcon icon-type="category" :icon-id="category.icon" :color="category.color"></ItemIcon>
+                                <ItemIcon :icon-type="getCategoryIconType(category.iconType)" :icon-id="category.icon" :color="category.color"></ItemIcon>
                             </template>
                             <f7-accordion-content>
                                 <f7-list dividers class="padding-inline-start">
@@ -399,7 +443,7 @@
                                                   @click="changeCategoryFilter(subCategory.id)"
                                     >
                                         <template #media>
-                                            <ItemIcon icon-type="category" :icon-id="subCategory.icon" :color="subCategory.color"></ItemIcon>
+                                            <ItemIcon :icon-type="getCategoryIconType(subCategory.iconType)" :icon-id="subCategory.icon" :color="subCategory.color"></ItemIcon>
                                         </template>
                                         <template #after>
                                             <f7-icon class="list-item-checked-icon"
@@ -450,7 +494,7 @@
                               @click="changeAccountFilter(account.id)"
                 >
                     <template #media>
-                        <ItemIcon icon-type="account" :icon-id="account.icon" :color="account.color"></ItemIcon>
+                        <ItemIcon :icon-type="getAccountIconType(account.iconType)" :icon-id="account.icon" :color="account.color"></ItemIcon>
                     </template>
                     <template #after>
                         <f7-icon class="list-item-checked-icon"
@@ -526,8 +570,10 @@
                               v-for="filterType in AmountFilterType.values()"
                               @click="changeAmountFilter(filterType.type)">
                     <template #after>
-                        <span class="margin-inline-end-half" v-if="query.amountFilter && query.amountFilter.startsWith(`${filterType.type}:`)">{{ queryAmount }}</span>
                         <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="query.amountFilter && query.amountFilter.startsWith(`${filterType.type}:`)"></f7-icon>
+                    </template>
+                    <template #footer>
+                        <span class="margin-inline-end-half" v-if="query.amountFilter && query.amountFilter.startsWith(`${filterType.type}:`)">{{ queryAmount }}</span>
                     </template>
                 </f7-list-item>
 
@@ -631,7 +677,7 @@ import {
     DateRangeScene,
     DateRange
 } from '@/core/datetime.ts';
-import { type NumeralSystem, AmountFilterType } from '@/core/numeral.ts';
+import { AmountFilterType } from '@/core/numeral.ts';
 import { TransactionType } from '@/core/transaction.ts';
 import type { TransactionCategory } from '@/models/transaction_category.ts';
 import { type Transaction, TransactionTagFilter } from '@/models/transaction.ts';
@@ -641,6 +687,7 @@ import {
     isNumber,
     objectFieldWithValueToArrayItem
 } from '@/lib/common.ts';
+import { BIG_DECIMAL_ZERO } from '@/lib/numeral.ts';
 import {
     getCurrentUnixTime,
     parseDateTimeFromUnixTime,
@@ -653,13 +700,19 @@ import {
     getDateTypeByBillingCycleDateRange,
     getDateRangeByDateType,
     getDateRangeByBillingCycleDateType,
+    getDateRangeByLastReconciledTimeRangeDateType,
     getFullMonthDateRange,
     getValidMonthDayOrCurrentDayShortDate
 } from '@/lib/datetime.ts';
 import {
+    getAccountIconType,
+    getCategoryIconType
+} from '@/lib/icon.ts';
+import {
     categoryTypeToTransactionType,
     transactionTypeToCategoryType
 } from '@/lib/category.ts';
+import { allTransactionPictures } from '@/lib/transaction.ts';
 
 const props = defineProps<{
     f7route: Router.Route;
@@ -669,8 +722,8 @@ const props = defineProps<{
 const {
     tt,
     getCurrentLanguageTextDirection,
-    getCurrentNumeralSystemType,
-    getWeekdayShortName
+    getWeekdayShortName,
+    formatNumberToLocalizedNumeralsWithoutDigitGrouping
 } = useI18n();
 
 const { showAlert, showToast, routeBackOnError } = useI18nUIComponents();
@@ -683,7 +736,7 @@ const {
     currentCalendarDate,
     firstDayOfWeek,
     fiscalYearStart,
-    defaultCurrency,
+    selectedAccountDefaultCurrency,
     showTotalAmountInTransactionListPage,
     showTagInTransactionListPage,
     allDateRanges,
@@ -720,12 +773,15 @@ const {
     hasVisibleTagsInTagGroup,
     isSameAsDefaultTimezoneOffsetMinutes,
     canAddTransaction,
+    hasMonthTotalAmount,
+    getDailyTotalAmounts,
+    getDisplayMonthTotalAmount,
     getDisplayTime,
     getDisplayLongYearMonth,
     getDisplayTimezone,
     getDisplayAmount,
-    getDisplayMonthTotalAmount,
     getTransactionTypeName,
+    getTransactionPictureUrl
 } = useTransactionListPageBase();
 
 const environmentsStore = useEnvironmentsStore();
@@ -745,7 +801,6 @@ const showCustomMonthSheet = ref<boolean>(false);
 const showDeleteActionSheet = ref<boolean>(false);
 
 const textDirection = computed<TextDirection>(() => getCurrentLanguageTextDirection());
-const numeralSystem = computed<NumeralSystem>(() => getCurrentNumeralSystemType());
 const isDarkMode = computed<boolean>(() => environmentsStore.framework7DarkMode || false);
 
 const transactions = computed<TransactionMonthList[]>(() => {
@@ -753,7 +808,7 @@ const transactions = computed<TransactionMonthList[]>(() => {
         return [];
     }
 
-    if (pageType.value === TransactionListPageType.List.type) {
+    if (pageType.value === TransactionListPageType.List.type || pageType.value === TransactionListPageType.Gallery.type) {
         return transactionsStore.transactions;
     } else if (pageType.value === TransactionListPageType.Calendar.type) {
         if (queryMonthlyData.value) {
@@ -777,13 +832,22 @@ const transactions = computed<TransactionMonthList[]>(() => {
                 yearDashMonth: currentMonthTransactionData.value.yearDashMonth,
                 opened: true,
                 items: transactions,
-                totalAmount: {
-                    income: 0,
-                    expense: 0,
+                inflowOutflowTotalAmount: {
+                    transactionCount: transactions.length,
+                    income: BIG_DECIMAL_ZERO,
+                    expense: BIG_DECIMAL_ZERO,
                     incompleteIncome: false,
                     incompleteExpense: false
                 },
-                dailyTotalAmounts: {}
+                inflowOutflowDailyTotalAmounts: {},
+                incomeExpenseTotalAmount: {
+                    transactionCount: transactions.length,
+                    income: BIG_DECIMAL_ZERO,
+                    expense: BIG_DECIMAL_ZERO,
+                    incompleteIncome: false,
+                    incompleteExpense: false
+                },
+                incomeExpenseDailyTotalAmounts: {}
             };
 
             return [dailyTransactionList];
@@ -796,7 +860,7 @@ const transactions = computed<TransactionMonthList[]>(() => {
 });
 
 const noTransaction = computed<boolean>(() => {
-    if (pageType.value === TransactionListPageType.List.type) {
+    if (pageType.value === TransactionListPageType.List.type || pageType.value === TransactionListPageType.Gallery.type) {
         return transactionsStore.noTransaction;
     } else if (pageType.value === TransactionListPageType.Calendar.type) {
         return !transactions.value || !transactions.value.length || !transactions.value[0]!.items || !transactions.value[0]!.items.length;
@@ -932,7 +996,7 @@ function init(): void {
     let dateRange: TimeRangeAndDateType | null = getDateRangeByDateType(initQuery['dateType'] ? parseInt(initQuery['dateType']) : undefined, firstDayOfWeek.value, fiscalYearStart.value);
 
     if (!dateRange && initQuery['dateType'] && initQuery['maxTime'] && initQuery['minTime'] &&
-        (DateRange.isBillingCycle(parseInt(initQuery['dateType'])) || initQuery['dateType'] === DateRange.Custom.type.toString()) &&
+        (DateRange.isBillingCycle(parseInt(initQuery['dateType'])) || DateRange.isLastReconciledTimeRange(parseInt(initQuery['dateType'])) || initQuery['dateType'] === DateRange.Custom.type.toString()) &&
         parseInt(initQuery['maxTime']) > 0 && parseInt(initQuery['minTime']) > 0) {
         dateRange = {
             dateType: parseInt(initQuery['dateType']),
@@ -949,7 +1013,8 @@ function init(): void {
         categoryIds: initQuery['categoryIds'],
         accountIds: initQuery['accountIds'],
         tagFilter: initQuery['tagFilter'],
-        keyword: initQuery['keyword']
+        keyword: initQuery['keyword'],
+        matchMode: initQuery['matchMode'] && parseInt(initQuery['matchMode']) >= 0 ? parseInt(initQuery['matchMode']) : undefined
     });
 
     reload();
@@ -961,6 +1026,8 @@ function reload(done?: () => void): void {
     if (!done) {
         loading.value = true;
     }
+
+    const isGalleryMode = pageType.value === TransactionListPageType.Gallery.type;
 
     transactionInvisibleYearMonths.value = {};
     transactionYearMonthListHeights.value = {};
@@ -978,14 +1045,18 @@ function reload(done?: () => void): void {
             return transactionsStore.loadMonthlyAllTransactions({
                 year: currentYear,
                 month: currentMonth,
+                mustHavePictures: isGalleryMode,
+                withPictures: isGalleryMode,
                 autoExpand: true,
-                defaultCurrency: defaultCurrency.value
+                defaultCurrency: selectedAccountDefaultCurrency.value
             });
         } else {
             return transactionsStore.loadTransactions({
                 reload: true,
+                mustHavePictures: isGalleryMode,
+                withPictures: isGalleryMode,
                 autoExpand: true,
-                defaultCurrency: defaultCurrency.value
+                defaultCurrency: selectedAccountDefaultCurrency.value
             });
         }
     }).then(() => {
@@ -1023,12 +1094,16 @@ function loadMore(autoExpand: boolean): void {
         return;
     }
 
+    const isGalleryMode = pageType.value === TransactionListPageType.Gallery.type;
+
     loadingMore.value = true;
 
     transactionsStore.loadTransactions({
         reload: false,
+        mustHavePictures: isGalleryMode,
+        withPictures: isGalleryMode,
         autoExpand: autoExpand,
-        defaultCurrency: defaultCurrency.value
+        defaultCurrency: selectedAccountDefaultCurrency.value
     }).then(() => {
         loadingMore.value = false;
         setTransactionMonthListHeights(false);
@@ -1060,6 +1135,8 @@ function changePageType(type: number): void {
                 reload();
             }
         }
+    } else {
+        reload();
     }
 }
 
@@ -1088,6 +1165,8 @@ function changeDateFilter(dateType: number): void {
 
     if (DateRange.isBillingCycle(dateType)) {
         dateRange = getDateRangeByBillingCycleDateType(dateType, firstDayOfWeek.value, fiscalYearStart.value, accountsStore.getAccountStatementDate(query.value.accountIds));
+    } else if (DateRange.isLastReconciledTimeRange(dateType)) {
+        dateRange = getDateRangeByLastReconciledTimeRangeDateType(dateType, allAccountsMap.value[query.value.accountIds]?.lastReconciledTime);
     } else {
         dateRange = getDateRangeByDateType(dateType, firstDayOfWeek.value, fiscalYearStart.value);
     }
@@ -1420,7 +1499,7 @@ function remove(transaction: Transaction | null, confirm: boolean): void {
 
     transactionsStore.deleteTransaction({
         transaction: transaction,
-        defaultCurrency: defaultCurrency.value,
+        defaultCurrency: selectedAccountDefaultCurrency.value,
         beforeResolve: (done) => {
             onSwipeoutDeleted(getTransactionDomId(transaction), done);
         }
@@ -1627,77 +1706,82 @@ html[dir="rtl"] .list.transaction-info-list li.transaction-info .transaction-foo
     }
 }
 
-.transaction-calendar-container .dp__theme_light,
-.transaction-calendar-container .dp__theme_dark {
-    --dp-background-color: var(--f7-list-strong-bg-color);
+.transaction-gallery-list.list > ul {
+    overflow: hidden;
 }
 
-.transaction-calendar-container .dp__main .dp__menu {
-    --dp-border-radius: var(--f7-list-inset-border-radius);
-    --dp-menu-padding: 4px 6px;
-    --dp-menu-border-color: transparent;
+.transaction-gallery-list.list > ul::before,
+.transaction-gallery-list.list > ul::after {
+    display: none;
 }
 
-.transaction-calendar-container .dp__main .dp__menu.dp__theme_dark {
-    --dp-background-color: var(--f7-list-strong-bg-color);
+.transaction-gallery-container > .item-content {
+    padding: 0;
 }
 
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row {
-    --dp-cell-size: var(--ebk-transaction-calendar-daily-amounts-height);
-    --dp-cell-padding: 1px;
-    --dp-primary-text-color: var(--f7-theme-color);
+.transaction-gallery-container > .item-content > .item-inner {
+    padding: 0;
+    min-height: 0;
 }
 
-.transaction-calendar-container .dp__main.transaction-calendar-with-alternate-date .dp__calendar .dp__calendar_row {
-    --dp-cell-size: var(--ebk-transaction-calendar-with-alternate-date-daily-amounts-height);
+.transaction-gallery-container > .item-content > .item-inner::after {
+    display: none;
 }
 
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item .transaction-calendar-daily-amounts {
+.transaction-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    width: 100%;
+}
+
+@media (min-width: 480px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (min-width: 640px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+@media (min-width: 800px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+@media (min-width: 960px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(7, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(8, 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(9, 1fr);
+    }
+}
+
+.transaction-picture-cell {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-color: var(--f7-list-bg-color);
+}
+
+.transaction-picture-img {
     width: 100%;
     height: 100%;
-    background-color: var(--f7-list-group-title-bg-color);
-    border-radius: 6px;
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__active_date {
-    background-color: transparent;
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__today {
-    border: inherit;
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__date_hover_end:hover,
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__date_hover_start:hover,
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__date_hover:hover {
-    background-color: transparent;
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__active_date .transaction-calendar-daily-amounts {
-    background-color: rgba(var(--ebk-primary-color), 0.16);
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__today .transaction-calendar-daily-amounts {
-    border: 1px solid var(--dp-primary-color);
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__date_hover_end:hover .transaction-calendar-daily-amounts,
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__date_hover_start:hover .transaction-calendar-daily-amounts,
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item > .dp__date_hover:hover .transaction-calendar-daily-amounts {
-    background: var(--dp-hover-color);
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item .transaction-calendar-daily-amounts > span.transaction-calendar-alternate-date {
-    font-size: var(--ebk-transaction-calendar-alternate-date-font-size);
-}
-
-.transaction-calendar-container .dp__main .dp__calendar .dp__calendar_row > .dp__calendar_item .transaction-calendar-daily-amounts > span.transaction-calendar-daily-amount {
-    font-size: var(--ebk-transaction-calendar-amount-font-size);
+    display: block;
 }
 </style>

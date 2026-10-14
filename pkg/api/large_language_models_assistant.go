@@ -361,7 +361,7 @@ func (a *LargeLanguageModelsApi) getAIAssistantTransactionsForKnowledge(c *core.
 			pageCount = int32(remainingCount)
 		}
 
-		pageTransactions, err := a.transactions.GetTransactionsByMaxTime(c, uid, maxTransactionTime, 0, 0, nil, nil, nil, false, "", "", page, pageCount, false, true)
+		pageTransactions, err := a.transactions.GetTransactionsByMaxTime(c, uid, maxTransactionTime, 0, 0, nil, nil, nil, false, "", "", core.MATCH_MODE_DEFAULT, false, page, pageCount, false, true)
 
 		if err != nil {
 			return nil, err
@@ -445,7 +445,7 @@ func (a *LargeLanguageModelsApi) streamAIAssistantResponseFromOpenAI(c *core.Web
 		log.Debugf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] response is %s", data)
 	}))
 
-	httpClient := httpclient.NewHttpClient(llmConfig.LargeLanguageModelAPIRequestTimeout, llmConfig.LargeLanguageModelAPIProxy, llmConfig.LargeLanguageModelAPISkipTLSVerify, core.GetOutgoingUserAgent(), false)
+	httpClient := httpclient.NewHttpClient(llmConfig.LargeLanguageModelAPIRequestTimeout, llmConfig.LargeLanguageModelAPIProxy, llmConfig.LargeLanguageModelAPISkipTLSVerify, core.GetOutgoingUserAgent(), false, []uint16{})
 	response, responseErr := httpClient.Do(httpRequest)
 
 	if responseErr != nil {
@@ -913,7 +913,7 @@ func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, 
 		return nil, errs.ErrAIAssistantEmbeddingModelInvalid
 	}
 
-	httpClient := httpclient.NewHttpClient(llmConfig.LargeLanguageModelAPIRequestTimeout, llmConfig.LargeLanguageModelAPIProxy, llmConfig.LargeLanguageModelAPISkipTLSVerify, core.GetOutgoingUserAgent(), false)
+	httpClient := httpclient.NewHttpClient(llmConfig.LargeLanguageModelAPIRequestTimeout, llmConfig.LargeLanguageModelAPIProxy, llmConfig.LargeLanguageModelAPISkipTLSVerify, core.GetOutgoingUserAgent(), false, []uint16{})
 	embeddings := make([][]float64, 0, len(inputs))
 
 	for start := 0; start < len(inputs); start += aiAssistantEmbeddingRequestBatchSize {

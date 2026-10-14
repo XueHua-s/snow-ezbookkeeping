@@ -6,6 +6,7 @@ import vue from '@vitejs/plugin-vue';
 import vuetify from 'vite-plugin-vuetify';
 import { VitePWA } from 'vite-plugin-pwa';
 import Checker from 'vite-plugin-checker';
+import { minify } from 'terser';
 import git from 'git-rev-sync';
 
 import packageFile from './package.json';
@@ -15,6 +16,44 @@ import thirdPartyLicenseFile from './third-party-dependencies.json';
 const SRC_DIR = resolve(__dirname, './src');
 const PUBLIC_DIR = resolve(__dirname, './public');
 const BUILD_DIR = resolve(__dirname, './dist',);
+
+function minifyWorkerWithTerser(): Plugin {
+    const minifyOptionsHash = `terser-${packageFile.devDependencies.terser}-compress-mangle-no-comments`;
+
+    return {
+        name: 'minify-worker-with-terser',
+        apply: 'build',
+        augmentChunkHash(): string {
+            return minifyOptionsHash;
+        },
+        generateBundle(_, bundle): Promise<void> {
+            const minifyPromises: Promise<void>[] = [];
+
+            for (const output of Object.values(bundle)) {
+                if (output.type !== 'chunk') {
+                    continue;
+                }
+
+                minifyPromises.push(minify(output.code, {
+                    compress: true,
+                    format: {
+                        comments: false
+                    },
+                    mangle: true
+                }).then(result => {
+                    if (!result.code) {
+                        throw new Error(`Terser failed to minify worker ${output.fileName}.`);
+                    }
+
+                    output.code = result.code;
+                    output.map = null;
+                }));
+            }
+
+            return Promise.all(minifyPromises).then(() => undefined);
+        }
+    };
+}
 
 function injectFramework7CssFile({ htmlFileName, placeHolders }: { htmlFileName: string, placeHolders: { name: string, srcFileName: string, distFileNamePrefix: string }[] }): Plugin[] {
     return [
@@ -90,7 +129,7 @@ export default defineConfig(() => {
             }),
             vuetify({
                 styles: {
-                    configFile: 'styles/desktop/configured-variables/_vuetify.scss'
+                    configFile: 'styles/desktop/settings.scss'
                 }
             }),
             injectFramework7CssFile({
@@ -112,14 +151,15 @@ export default defineConfig(() => {
                 vueTsc: true
             }),
             VitePWA({
-                filename: 'sw.js',
-                manifestFilename: 'manifest.json',
-                strategies: 'generateSW',
+                strategies: 'injectManifest',
+                srcDir: './',
+                filename: 'sw.ts',
                 injectRegister: false,
+                manifestFilename: 'manifest.json',
                 manifest: {
                     name: 'ezBookkeeping',
                     short_name: 'ezBookkeeping',
-                    description: 'A lightweight, self-hosted personal finance app with a user-friendly interface and powerful bookkeeping features.',
+                    description: 'An open source, powerful, self-hosted personal finance app that is easy to use.',
                     theme_color: '#C67E48',
                     background_color: '#F6F7F8',
                     start_url: './',
@@ -138,9 +178,22 @@ export default defineConfig(() => {
                             sizes: '512x512',
                             type: 'image/png'
                         }
-                    ]
+                    ],
+                    share_target: {
+                        action: './__share__image__',
+                        method: 'POST',
+                        enctype: 'multipart/form-data',
+                        params: {
+                            files: [
+                                {
+                                    'name': 'image',
+                                    'accept': ['image/*']
+                                }
+                            ]
+                        }
+                    }
                 },
-                workbox: {
+                injectManifest: {
                     globDirectory: 'dist/',
                     globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,gif,tiff,bmp,ttf,woff,woff2,svg,eot}'],
                     globIgnores: [
@@ -156,58 +209,42 @@ export default defineConfig(() => {
                         'css/*.css',
                         'js/*.js'
                     ],
-                    runtimeCaching: [
-                        {
-                            urlPattern: /.*\/(mobile|mobile\/|desktop|desktop\/)$/,
-                            handler: 'NetworkFirst'
-                        },
-                        {
-                            urlPattern: /.*\/(mobile|mobile\/)#!\//,
-                            handler: 'NetworkFirst'
-                        },
-                        {
-                            urlPattern: /.*\/(desktop|desktop\/)#\//,
-                            handler: 'NetworkFirst'
-                        },
-                        {
-                            urlPattern: /.*\/(index\.html|mobile\.html|desktop\.html)/,
-                            handler: 'NetworkFirst'
-                        },
-                        {
-                            urlPattern: /.*\/img\/desktop\/.*\.(png|jpg|jpeg|gif|tiff|bmp|svg)/,
-                            handler: 'StaleWhileRevalidate'
-                        },
-                        {
-                            urlPattern: /.*\/fonts\/.*\.(eot|ttf|svg|woff)/,
-                            handler: 'CacheFirst'
-                        },
-                        {
-                            urlPattern: /.*\/css\/.*\.css/,
-                            handler: 'CacheFirst'
-                        },
-                        {
-                            urlPattern: /.*\/js\/.*\.js/,
-                            handler: 'CacheFirst'
-                        }
-                    ],
-                    navigateFallback: '',
-                    skipWaiting: true,
-                    clientsClaim: true
+                    maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
                 }
             })
         ],
+        worker: {
+            plugins: () => [
+                minifyWorkerWithTerser()
+            ],
+            rolldownOptions: {
+                output: {
+                    chunkFileNames: 'js/[name]-[hash].js',
+                    entryFileNames: chunkInfo => {
+                        if (chunkInfo.name === 'editor.worker') {
+                            return 'js/sw.monaco-editor-[hash].js';
+                        } else if (chunkInfo.name === 'ts.worker') {
+                            return 'js/sw.monaco-editor-lang-ts-[hash].js';
+                        }
+
+                        return 'js/[name]-[hash].js';
+                    }
+                }
+            }
+        },
         build: {
             target: [
-                'chrome91',
-                'edge91',
-                'firefox91',
-                'safari15.4'
+                'chrome119',
+                'edge119',
+                'firefox128',
+                'safari16.4'
             ],
+            minify: 'terser',
             outDir: BUILD_DIR,
             sourcemap: false,
             assetsInlineLimit: 0,
             emptyOutDir: true,
-            rollupOptions: {
+            rolldownOptions: {
                 input: {
                     index: resolve(SRC_DIR, 'index.html'),
                     desktop: resolve(SRC_DIR, 'desktop.html'),
@@ -235,36 +272,70 @@ export default defineConfig(() => {
                     },
                     chunkFileNames: 'js/[name]-[hash].js',
                     entryFileNames: 'js/[name]-[hash].js',
-                    manualChunks: id => {
-                        if (/[\\/]node_modules[\\/]leaflet[\\/]/i.test(id)) {
-                            return 'leaflet';
-                        } else if (/[\\/]node_modules[\\/](moment|moment-timezone)[\\/]/i.test(id)) {
-                            return 'moment';
-                        } else if (/[\\/]node_modules[\\/](dom7|framework7.*|skeleton-elements|swiper)[\\/]/i.test(id)) {
-                            return 'vendor-mobile';
-                        } else if (/[\\/]node_modules[\\/](vuetify|vue-router|vue3-perfect-scrollbar|perfect-scrollbar|vuedraggable|sortablejs|@mdi.*)[\\/]/i.test(id)) {
-                            return 'vendor-desktop';
-                        } else if (/[\\/]node_modules[\\/](echarts|zrender|tslib|resize-detector|vue-echarts)[\\/]/i.test(id)) {
-                            return 'vendor-desktop';
-                        } else if (/plugin-vuetify:/i.test(id)) {
-                            return 'vendor-desktop';
-                        } else if (/[\\/]node_modules[\\/]/i.test(id)) {
-                            return 'vendor-common';
-                        } else if (/[\\/]src[\\/](core|consts|models|stores)[\\/]/i.test(id)) {
-                            return 'common';
-                        } else if (/[\\/]src[\\/]lib[\\/](map[\\/]|ui[\\/]common|[a-zA-Z0-9-_]+\.(js|ts))/i.test(id)) {
-                            return 'common';
-                        } else if (/[\\/]src[\\/]components[\\/](base|common)[\\/]/i.test(id)) {
-                            return 'common';
-                        } else if (/[\\/]src[\\/]views[\\/]base[\\/]/i.test(id)) {
-                            return 'common';
-                        } else if (/[\\/]src[\\/]locales[\\/]helpers\.(js|ts)/i.test(id)) {
-                            return 'common';
-                        } else if (/[\\/]src[\\/]locales[\\/]/i.test(id)) {
-                            return 'locales';
-                        } else {
-                            return null;
-                        }
+                    codeSplitting: {
+                        includeDependenciesRecursively: false,
+                        groups: [
+                            {
+                                name:  'leaflet',
+                                test: /[\\/]node_modules[\\/]leaflet[\\/]/i
+                            },
+                            {
+                                name:  'moment',
+                                test: /[\\/]node_modules[\\/](moment|moment-timezone)[\\/]/i
+                            },
+                            {
+                                name:  'echarts',
+                                test: /[\\/]node_modules[\\/](echarts|zrender|tslib|resize-detector)[\\/]/i
+                            },
+                            {
+                                name: 'monaco-editor',
+                                test: /[\\/]node_modules[\\/](monaco-editor|monaco-editor-core)[\\/]/i
+                            },
+                            {
+                                name:  'vendor-mobile',
+                                test: /[\\/]node_modules[\\/](dom7|framework7.*|skeleton-elements|swiper)[\\/]/i
+                            },
+                            {
+                                name:  'vendor-desktop',
+                                test: id => {
+                                    if (/[\\/]node_modules[\\/](vuetify|vue-router|vue3-perfect-scrollbar|perfect-scrollbar|vuedraggable|sortablejs|@mdi.*)[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]node_modules[\\/]vue-echarts[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/plugin-vuetify:/i.test(id)) {
+                                        return true;
+                                    } else {
+                                        return false;
+                                    }
+                                }
+                            },
+                            {
+                                name:  'vendor-common',
+                                test: /[\\/]node_modules[\\/]/i
+                            },
+                            {
+                                name:  'common',
+                                test: id => {
+                                    if (/[\\/]src[\\/](core|consts|models|stores)[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]src[\\/]lib[\\/](map[\\/]|ui[\\/]common|calendar[\\/]|[a-zA-Z0-9-_]+\.(js|ts))/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]src[\\/]components[\\/](base|common)[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]src[\\/]views[\\/]base[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]src[\\/]locales[\\/]helpers\.(js|ts)/i.test(id)) {
+                                        return true;
+                                    } else {
+                                        return false;
+                                    }
+                                }
+                            },
+                            {
+                                name:  'locales',
+                                test: /[\\/]src[\\/]locales[\\/]/i
+                            }
+                        ]
                     }
                 },
                 treeshake: false
@@ -313,6 +384,10 @@ export default defineConfig(() => {
                     changeOrigin: true
                 },
                 '/pictures': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/icons': {
                     target: 'http://127.0.0.1:8080/',
                     changeOrigin: true
                 },

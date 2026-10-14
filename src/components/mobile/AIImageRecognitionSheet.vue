@@ -5,11 +5,13 @@
             <div class="swipe-handler"></div>
             <div class="left">
                 <f7-link icon-f7="xmark" :class="{ 'disabled': loading || recognizing }"
+                         :aria-label="tt('Cancel')"
                          @click="cancel"></f7-link>
             </div>
             <div class="right">
                 <f7-button round fill icon-f7="checkmark_alt"
                            :class="{ 'disabled': loading || recognizing || !imageFile }"
+                           :aria-label="tt('Confirm')"
                            @click="confirm"></f7-button>
             </div>
         </f7-toolbar>
@@ -39,14 +41,20 @@ import { useI18nUIComponents, closeAllDialog } from '@/lib/ui/mobile.ts';
 
 import { useTransactionsStore } from '@/stores/transaction.ts';
 
+import { ImageUploadQualityType } from '@/core/image.ts';
 import { KnownFileType } from '@/core/file.ts';
 import { SUPPORTED_IMAGE_EXTENSIONS } from '@/consts/file.ts';
 
-import type { RecognizedReceiptImageResponse } from '@/models/large_language_model.ts';
+import type { RecognizedTransactionResponse } from '@/models/large_language_model.ts';
 
 import { generateRandomUUID } from '@/lib/misc.ts';
-import { compressJpgImage } from '@/lib/ui/common.ts';
+import { compressJpgImageByQuality } from '@/lib/ui/common.ts';
 import logger from '@/lib/logger.ts';
+
+export interface AIImageRecognitionResult {
+    response: RecognizedTransactionResponse;
+    imageFile: File;
+}
 
 defineProps<{
     show: boolean;
@@ -54,7 +62,7 @@ defineProps<{
 
 const emit = defineEmits<{
     (e: 'update:show', value: boolean): void;
-    (e: 'recognition:change', value: RecognizedReceiptImageResponse): void;
+    (e: 'recognition:change', value: AIImageRecognitionResult): void;
 }>();
 
 const { tt } = useI18n();
@@ -70,12 +78,12 @@ const cancelRecognizingUuid = ref<string | undefined>(undefined);
 const imageFile = ref<File | null>(null);
 const imageSrc = ref<string | undefined>(undefined);
 
-function loadImage(file: File): void {
+function loadImage(image: Blob): void {
     loading.value = true;
     imageFile.value = null;
     imageSrc.value = undefined;
 
-    compressJpgImage(file, 1280, 1280, 0.8).then(blob => {
+    compressJpgImageByQuality(image, ImageUploadQualityType.HD720P).then(blob => {
         imageFile.value = KnownFileType.JPG.createFileFromBlob(blob, "image");
         imageSrc.value = URL.createObjectURL(blob);
         loading.value = false;
@@ -119,6 +127,7 @@ function confirm(): void {
         return;
     }
 
+    const currentImageFile = imageFile.value;
     cancelRecognizingUuid.value = generateRandomUUID();
     recognizing.value = true;
     showCancelableLoading('Recognizing', 'AI can make mistakes. Check important info.', 'Cancel Recognition', cancelRecognize);
@@ -131,7 +140,7 @@ function confirm(): void {
         cancelRecognizingUuid.value = undefined;
         closeAllDialog();
         emit('update:show', false);
-        emit('recognition:change', response);
+        emit('recognition:change', { response: response, imageFile: currentImageFile });
     }).catch(error => {
         if (error.canceled) {
             return;
@@ -184,6 +193,10 @@ function onSheetOpen(): void {
 function onSheetClosed(): void {
     close();
 }
+
+defineExpose({
+    loadImage
+});
 </script>
 
 <style>

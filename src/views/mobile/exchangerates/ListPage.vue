@@ -4,11 +4,11 @@
             <f7-nav-left :class="{ 'disabled': loading }" :back-link="tt('Back')"></f7-nav-left>
             <f7-nav-title :title="tt('Exchange Rates Data')"></f7-nav-title>
             <f7-nav-right :class="{ 'disabled': loading }">
-                <f7-link icon-f7="ellipsis" @click="showMoreActionSheet = true"></f7-link>
+                <f7-link icon-f7="ellipsis" :aria-label="tt('More')" @click="showMoreActionSheet = true"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
-        <f7-list strong inset dividers class="margin-vertical" v-if="exchangeRatesData && exchangeRatesData.exchangeRates && exchangeRatesData.exchangeRates.length">
+        <f7-list strong inset dividers class="margin-vertical-half" v-if="exchangeRatesData && exchangeRatesData.exchangeRates && exchangeRatesData.exchangeRates.length">
             <f7-list-item
                 class="list-item-with-header-and-title list-item-no-item-after"
                 link="#"
@@ -50,7 +50,7 @@
             </f7-list-item>
         </f7-list>
 
-        <f7-list strong inset dividers class="margin-vertical" v-if="!exchangeRatesData || !exchangeRatesData.exchangeRates || !exchangeRatesData.exchangeRates.length">
+        <f7-list strong inset dividers class="margin-vertical-half" v-if="!exchangeRatesData || !exchangeRatesData.exchangeRates || !exchangeRatesData.exchangeRates.length">
             <f7-list-item :title="tt('No exchange rates data')"></f7-list-item>
         </f7-list>
 
@@ -74,7 +74,7 @@
                                         :class="{ 'disabled': exchangeRate.currencyCode === baseCurrency }"
                                         @click="setAsBaseline(exchangeRate.currencyCode, getFinalConvertedAmount(exchangeRate, false)); settingBaseLine = true"
                                         v-if="settingBaseLine || exchangeRate.currencyCode !== baseCurrency"></f7-swipeout-button>
-                    <f7-swipeout-button color="red" class="padding-horizontal"
+                    <f7-swipeout-button color="red" class="padding-horizontal" :aria-label="tt('Delete')"
                                         @click="remove(exchangeRate, false)"
                                         v-if="exchangeRate.currencyCode !== defaultCurrency && isUserCustomExchangeRates">
                         <f7-icon f7="trash"></f7-icon>
@@ -138,13 +138,13 @@ import { useExchangeRatesStore } from '@/stores/exchangeRates.ts';
 
 import { TextDirection } from '@/core/text.ts';
 import { NumeralSystem } from '@/core/numeral.ts';
+import { AMOUNT_FACTOR } from '@/consts/numeral.ts';
 import { TRANSACTION_MIN_AMOUNT, TRANSACTION_MAX_AMOUNT } from '@/consts/transaction.ts';
 
 import type { LocalizedLatestExchangeRate } from '@/models/exchange_rate.ts';
 
-import {
-    getCurrentUnixTime
-} from '@/lib/datetime.ts';
+import { parseBigDecimal} from '@/lib/numeral.ts';
+import { getCurrentUnixTime } from '@/lib/datetime.ts';
 
 const props = defineProps<{
     f7router: Router.Router;
@@ -186,9 +186,11 @@ const showDeleteActionSheet = ref<boolean>(false);
 
 const textDirection = computed<TextDirection>(() => getCurrentLanguageTextDirection());
 const numeralSystem = computed<NumeralSystem>(() => getCurrentNumeralSystemType());
-const displayBaseAmount = computed<string>(() => formatAmountToLocalizedNumerals(baseAmount.value, baseCurrency.value));
+const displayBaseAmount = computed<string>(() => formatAmountToLocalizedNumerals(parseBigDecimal(baseAmount.value), baseCurrency.value));
 const baseAmountFontSizeClass = computed<string>(() => {
-    if (baseAmount.value >= 100000000 || baseAmount.value <= -100000000) {
+    if (baseAmount.value >= 10000000000 || baseAmount.value <= -10000000000) {
+        return 'ebk-extra-small-amount';
+    } else if (baseAmount.value >= 100000000 || baseAmount.value <= -100000000) {
         return 'ebk-small-amount';
     } else if (baseAmount.value >= 1000000 || baseAmount.value <= -1000000) {
         return 'ebk-normal-amount';
@@ -277,7 +279,7 @@ function remove(customExchangeRate: LocalizedLatestExchangeRate | null, confirm:
 
 function getFinalConvertedAmount(toExchangeRate: LocalizedLatestExchangeRate, displayLocalizedDigits: boolean): string {
     const fromExchangeRate = exchangeRatesStore.latestExchangeRateMap[baseCurrency.value];
-    const exchangeRateAmount = getConvertedAmount(baseAmount.value / 100, fromExchangeRate, toExchangeRate);
+    const exchangeRateAmount = getConvertedAmount(parseBigDecimal(baseAmount.value).divide(AMOUNT_FACTOR), fromExchangeRate, toExchangeRate);
 
     if (!exchangeRateAmount) {
         if (displayLocalizedDigits) {

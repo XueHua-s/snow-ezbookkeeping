@@ -15,6 +15,8 @@ var feideeMymoneyTransactionTypeNameMapping = map[models.TransactionType]string{
 }
 
 var feideeMymoneyTransactionTypeModifyOutstandingBalanceName = "负债变更"
+var feideeMymoneyTransactionTypeDebtModificationName = "债务变更"
+var feideeMymoneyTransactionTypeReceivableModificationName = "债权变更"
 
 // feideeMymoneyTransactionDataRowParser defines the structure of feidee mymoney transaction data row parser
 type feideeMymoneyTransactionDataRowParser struct {
@@ -26,7 +28,7 @@ func (p *feideeMymoneyTransactionDataRowParser) GetAddedColumns() []datatable.Tr
 }
 
 // Parse returns the converted transaction data row
-func (p *feideeMymoneyTransactionDataRowParser) Parse(data map[datatable.TransactionDataTableColumn]string) (rowData map[datatable.TransactionDataTableColumn]string, rowDataValid bool, err error) {
+func (p *feideeMymoneyTransactionDataRowParser) Parse(data map[datatable.TransactionDataTableColumn]string, rowId string) (rowData map[datatable.TransactionDataTableColumn]string, rowDataValid bool, err error) {
 	rowData = make(map[datatable.TransactionDataTableColumn]string, len(data))
 
 	for column, value := range data {
@@ -41,7 +43,7 @@ func (p *feideeMymoneyTransactionDataRowParser) Parse(data map[datatable.Transac
 		amount, err := utils.ParseAmount(rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT])
 
 		if err != nil {
-			return nil, false, errs.ErrAmountInvalid
+			return nil, false, errs.NewImportError(errs.ErrAmountInvalid, rowId, rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT])
 		}
 
 		// balance modification transaction in feidee mymoney app is not the opening balance transaction, it can be added many times
@@ -55,7 +57,7 @@ func (p *feideeMymoneyTransactionDataRowParser) Parse(data map[datatable.Transac
 		amount, err := utils.ParseAmount(rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT])
 
 		if err != nil {
-			return nil, false, errs.ErrAmountInvalid
+			return nil, false, errs.NewImportError(errs.ErrAmountInvalid, rowId, rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT])
 		}
 
 		// outstanding balance modification transaction in feidee mymoney app is not the opening balance transaction, it can be added many times
@@ -63,6 +65,34 @@ func (p *feideeMymoneyTransactionDataRowParser) Parse(data map[datatable.Transac
 			rowData[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TYPE] = feideeMymoneyTransactionTypeNameMapping[models.TRANSACTION_TYPE_EXPENSE]
 		} else {
 			rowData[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TYPE] = feideeMymoneyTransactionTypeNameMapping[models.TRANSACTION_TYPE_INCOME]
+			rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT] = utils.FormatAmount(-amount)
+		}
+	} else if rowData[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TYPE] == feideeMymoneyTransactionTypeDebtModificationName {
+		amount, err := utils.ParseAmount(rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT])
+
+		if err != nil {
+			return nil, false, errs.NewImportError(errs.ErrAmountInvalid, rowId, rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT])
+		}
+
+		// debt modification transaction in feidee mymoney (web) is not the opening balance transaction, it can be added many times
+		if amount >= 0 {
+			rowData[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TYPE] = feideeMymoneyTransactionTypeNameMapping[models.TRANSACTION_TYPE_EXPENSE]
+		} else {
+			rowData[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TYPE] = feideeMymoneyTransactionTypeNameMapping[models.TRANSACTION_TYPE_INCOME]
+			rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT] = utils.FormatAmount(-amount)
+		}
+	} else if rowData[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TYPE] == feideeMymoneyTransactionTypeReceivableModificationName {
+		amount, err := utils.ParseAmount(rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT])
+
+		if err != nil {
+			return nil, false, errs.NewImportError(errs.ErrAmountInvalid, rowId, rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT])
+		}
+
+		// receivable modification transaction in feidee mymoney (web) is not the opening balance transaction, it can be added many times
+		if amount >= 0 {
+			rowData[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TYPE] = feideeMymoneyTransactionTypeNameMapping[models.TRANSACTION_TYPE_INCOME]
+		} else {
+			rowData[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TYPE] = feideeMymoneyTransactionTypeNameMapping[models.TRANSACTION_TYPE_EXPENSE]
 			rowData[datatable.TRANSACTION_DATA_TABLE_AMOUNT] = utils.FormatAmount(-amount)
 		}
 	}

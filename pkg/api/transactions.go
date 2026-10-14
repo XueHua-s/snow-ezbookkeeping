@@ -1,10 +1,12 @@
 package api
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"math"
+	"math/big"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -25,6 +27,7 @@ import (
 )
 
 const pageCountForAccountStatement = 1000
+const pageCountForMovingAccountTransactions = 1000
 
 // TransactionsApi represents transaction api
 type TransactionsApi struct {
@@ -97,7 +100,7 @@ func (a *TransactionsApi) TransactionCountHandler(c *core.WebContext) (any, *err
 		}
 	}
 
-	totalCount, err := a.transactions.GetTransactionCount(c, uid, transactionCountReq.MaxTime, transactionCountReq.MinTime, transactionCountReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionCountReq.AmountFilter, transactionCountReq.Keyword)
+	totalCount, err := a.transactions.GetTransactionCount(c, uid, transactionCountReq.MaxTime, transactionCountReq.MinTime, transactionCountReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionCountReq.AmountFilter, transactionCountReq.Keyword, transactionCountReq.MatchMode, transactionCountReq.MustHavePictures)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionCountHandler] failed to get transaction count for user \"uid:%d\", because %s", uid, err.Error())
@@ -168,7 +171,7 @@ func (a *TransactionsApi) TransactionListHandler(c *core.WebContext) (any, *errs
 	var totalCount int64
 
 	if transactionListReq.WithCount {
-		totalCount, err = a.transactions.GetTransactionCount(c, uid, transactionListReq.MaxTime, transactionListReq.MinTime, transactionListReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionListReq.AmountFilter, transactionListReq.Keyword)
+		totalCount, err = a.transactions.GetTransactionCount(c, uid, transactionListReq.MaxTime, transactionListReq.MinTime, transactionListReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionListReq.AmountFilter, transactionListReq.Keyword, transactionListReq.MatchMode, transactionListReq.MustHavePictures)
 
 		if err != nil {
 			log.Errorf(c, "[transactions.TransactionListHandler] failed to get transaction count for user \"uid:%d\", because %s", uid, err.Error())
@@ -176,7 +179,7 @@ func (a *TransactionsApi) TransactionListHandler(c *core.WebContext) (any, *errs
 		}
 	}
 
-	transactions, err := a.transactions.GetTransactionsByMaxTime(c, uid, transactionListReq.MaxTime, transactionListReq.MinTime, transactionListReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionListReq.AmountFilter, transactionListReq.Keyword, transactionListReq.Page, transactionListReq.Count, true, true)
+	transactions, err := a.transactions.GetTransactionsByMaxTime(c, uid, transactionListReq.MaxTime, transactionListReq.MinTime, transactionListReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionListReq.AmountFilter, transactionListReq.Keyword, transactionListReq.MatchMode, transactionListReq.MustHavePictures, transactionListReq.Page, transactionListReq.Count, true, true)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionListHandler] failed to get transactions earlier than \"%d\" for user \"uid:%d\", because %s", transactionListReq.MaxTime, uid, err.Error())
@@ -192,7 +195,15 @@ func (a *TransactionsApi) TransactionListHandler(c *core.WebContext) (any, *errs
 		transactions = transactions[:transactionListReq.Count]
 	}
 
-	transactionResult, err := a.getTransactionResponseListResult(c, user, transactions, clientTimezone, transactionListReq.WithPictures, transactionListReq.TrimAccount, transactionListReq.TrimCategory, transactionListReq.TrimTag)
+	accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, err := a.getTransactionEssentialDataByTransactionIds(c, user, transactions, transactionListReq.WithPictures, transactionListReq.TrimCategory, transactionListReq.TrimTag)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionListHandler] failed to get essential data for assembling transaction result for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	transactions = a.filterTransactions(c, uid, transactions, accountMap)
+	transactionResult, err := a.getTransactionResponseListResult(c, user, transactions, accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, clientTimezone, transactionListReq.WithPictures, transactionListReq.TrimAccount, transactionListReq.TrimCategory, transactionListReq.TrimTag)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionListHandler] failed to assemble transaction result for user \"uid:%d\", because %s", uid, err.Error())
@@ -268,14 +279,22 @@ func (a *TransactionsApi) TransactionMonthListHandler(c *core.WebContext) (any, 
 		}
 	}
 
-	transactions, err := a.transactions.GetTransactionsInMonthByPage(c, uid, transactionListReq.Year, transactionListReq.Month, transactionListReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionListReq.AmountFilter, transactionListReq.Keyword)
+	transactions, err := a.transactions.GetTransactionsInMonthByPage(c, uid, transactionListReq.Year, transactionListReq.Month, transactionListReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionListReq.AmountFilter, transactionListReq.Keyword, transactionListReq.MatchMode, transactionListReq.MustHavePictures)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionMonthListHandler] failed to get transactions in month \"%d-%d\" for user \"uid:%d\", because %s", transactionListReq.Year, transactionListReq.Month, uid, err.Error())
 		return nil, errs.Or(err, errs.ErrOperationFailed)
 	}
 
-	transactionResult, err := a.getTransactionResponseListResult(c, user, transactions, clientTimezone, transactionListReq.WithPictures, transactionListReq.TrimAccount, transactionListReq.TrimCategory, transactionListReq.TrimTag)
+	accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, err := a.getTransactionEssentialDataByTransactionIds(c, user, transactions, transactionListReq.WithPictures, transactionListReq.TrimCategory, transactionListReq.TrimTag)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionMonthListHandler] failed to get essential data for assembling transaction result for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	transactions = a.filterTransactions(c, uid, transactions, accountMap)
+	transactionResult, err := a.getTransactionResponseListResult(c, user, transactions, accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, clientTimezone, transactionListReq.WithPictures, transactionListReq.TrimAccount, transactionListReq.TrimCategory, transactionListReq.TrimTag)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionMonthListHandler] failed to assemble transaction result for user \"uid:%d\", because %s", uid, err.Error())
@@ -355,14 +374,32 @@ func (a *TransactionsApi) TransactionListAllHandler(c *core.WebContext) (any, *e
 		minTransactionTime = utils.GetMinTransactionTimeFromUnixTime(transactionAllListReq.StartTime)
 	}
 
-	allTransactions, err := a.transactions.GetAllSpecifiedTransactions(c, uid, maxTransactionTime, minTransactionTime, transactionAllListReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionAllListReq.AmountFilter, transactionAllListReq.Keyword, pageCountForDataExport, true)
+	allTransactions, err := a.transactions.GetAllSpecifiedTransactions(c, uid, maxTransactionTime, minTransactionTime, transactionAllListReq.Type, allCategoryIds, allAccountIds, tagFilters, noTags, transactionAllListReq.AmountFilter, transactionAllListReq.Keyword, transactionAllListReq.MatchMode, transactionAllListReq.MustHavePictures, pageCountForDataExport, true)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionListAllHandler] failed to get all transactions for user \"uid:%d\", because %s", uid, err.Error())
 		return nil, errs.Or(err, errs.ErrOperationFailed)
 	}
 
-	transactionResult, err := a.getTransactionResponseListResult(c, user, allTransactions, clientTimezone, transactionAllListReq.WithPictures, transactionAllListReq.TrimAccount, transactionAllListReq.TrimCategory, transactionAllListReq.TrimTag)
+	var accountMap map[int64]*models.Account
+	var categoryMap map[int64]*models.TransactionCategory
+	var tagMap map[int64]*models.TransactionTag
+	var allTransactionTagIds map[int64][]int64
+	var pictureInfoMap map[int64][]*models.TransactionPictureInfo
+
+	if minTransactionTime == 0 && maxTransactionTime == math.MaxInt64 && len(allCategoryIds) < 1 && len(allAccountIds) < 1 && len(tagFilters) < 1 && transactionAllListReq.AmountFilter == "" && transactionAllListReq.Keyword == "" {
+		accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, err = a.getTransactionAllEssentialData(c, user, transactionAllListReq.WithPictures, transactionAllListReq.TrimCategory, transactionAllListReq.TrimTag)
+	} else {
+		accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, err = a.getTransactionEssentialDataByTransactionIds(c, user, allTransactions, transactionAllListReq.WithPictures, transactionAllListReq.TrimCategory, transactionAllListReq.TrimTag)
+	}
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionListAllHandler] failed to get essential data for assembling transaction result for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allTransactions = a.filterTransactions(c, uid, allTransactions, accountMap)
+	transactionResult, err := a.getTransactionResponseListResult(c, user, allTransactions, accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, clientTimezone, transactionAllListReq.WithPictures, transactionAllListReq.TrimAccount, transactionAllListReq.TrimCategory, transactionAllListReq.TrimTag)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionListAllHandler] failed to assemble transaction result for user \"uid:%d\", because %s", uid, err.Error())
@@ -441,7 +478,24 @@ func (a *TransactionsApi) TransactionReconciliationStatementHandler(c *core.WebC
 		transactionAccountBalanceMap[transactionWithBalance.RelatedId] = transactionWithBalance
 	}
 
-	transactionResult, err := a.getTransactionResponseListResult(c, user, transactions, clientTimezone, false, true, true, true)
+	allAccountIds := make([]int64, 0, len(transactions)*2)
+
+	for i := 0; i < len(transactions); i++ {
+		allAccountIds = append(allAccountIds, transactions[i].AccountId)
+
+		if transactions[i].Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN || transactions[i].Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT {
+			allAccountIds = append(allAccountIds, transactions[i].RelatedAccountId)
+		}
+	}
+
+	allAccounts, err := a.accounts.GetAccountsByAccountIds(c, uid, utils.ToUniqueInt64Slice(allAccountIds))
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionReconciliationStatementHandler] failed to get essential data for assembling transaction result for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	transactionResult, err := a.getTransactionResponseListResult(c, user, transactions, allAccounts, nil, nil, nil, nil, clientTimezone, false, true, true, true)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionReconciliationStatementHandler] failed to assemble transaction result for user \"uid:%d\", because %s", uid, err.Error())
@@ -452,8 +506,8 @@ func (a *TransactionsApi) TransactionReconciliationStatementHandler(c *core.WebC
 
 	for i := 0; i < len(transactionResult); i++ {
 		transactionResult := transactionResult[i]
-		accountOpeningBalance := int64(0)
-		accountClosingBalance := int64(0)
+		accountOpeningBalance := big.NewInt(0)
+		accountClosingBalance := big.NewInt(0)
 
 		if transactionWithBalance, exists := transactionAccountBalanceMap[transactionResult.Id]; exists {
 			accountOpeningBalance = transactionWithBalance.AccountOpeningBalance
@@ -464,20 +518,96 @@ func (a *TransactionsApi) TransactionReconciliationStatementHandler(c *core.WebC
 
 		responseItems[i] = &models.TransactionReconciliationStatementResponseItem{
 			TransactionInfoResponse: transactionResult,
-			AccountOpeningBalance:   accountOpeningBalance,
-			AccountClosingBalance:   accountClosingBalance,
+			AccountOpeningBalance:   accountOpeningBalance.String(),
+			AccountClosingBalance:   accountClosingBalance.String(),
 		}
 	}
 
 	reconciliationStatementResp := &models.TransactionReconciliationStatementResponse{
 		Transactions:   responseItems,
-		TotalInflows:   totalInflows,
-		TotalOutflows:  totalOutflows,
-		OpeningBalance: openingBalance,
-		ClosingBalance: closingBalance,
+		TotalInflows:   totalInflows.String(),
+		TotalOutflows:  totalOutflows.String(),
+		OpeningBalance: openingBalance.String(),
+		ClosingBalance: closingBalance.String(),
 	}
 
 	return reconciliationStatementResp, nil
+}
+
+// TransactionUnreconciledTransactionCountsHandler returns unreconciled transaction counts of current user's accounts
+func (a *TransactionsApi) TransactionUnreconciledTransactionCountsHandler(c *core.WebContext) (any, *errs.Error) {
+	var unreconciledCountReq models.TransactionUnreconciledCountRequest
+	err := c.ShouldBindQuery(&unreconciledCountReq)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionUnreconciledTransactionCountsHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	selectedAccountIds := make(map[int64]bool)
+
+	if unreconciledCountReq.AccountIds != "" {
+		accountIds, err := utils.StringArrayToInt64Array(strings.Split(unreconciledCountReq.AccountIds, ","))
+
+		if err != nil {
+			return nil, errs.ErrAccountIdInvalid
+		}
+
+		for _, accountId := range accountIds {
+			selectedAccountIds[accountId] = true
+		}
+	}
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Errorf(c, "[transactions.TransactionUnreconciledTransactionCountsHandler] failed to get user, because %s", err.Error())
+		}
+
+		return nil, errs.ErrUserNotFound
+	}
+
+	if !user.UseLastReconciledTime {
+		return nil, errs.ErrLastReconciledTimeIsNotEnabled
+	}
+
+	accounts, err := a.accounts.GetAllAccountsByUid(c, uid)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionUnreconciledTransactionCountsHandler] failed to get all accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	accountLastReconciledTimes := make(map[int64]int64, len(accounts))
+
+	for _, account := range accounts {
+		if account.Hidden || account.Type == models.ACCOUNT_TYPE_MULTI_SUB_ACCOUNTS {
+			continue
+		}
+
+		if len(selectedAccountIds) > 0 && !selectedAccountIds[account.AccountId] {
+			continue
+		}
+
+		if account.Extend != nil && account.Extend.LastReconciledTime != nil && *account.Extend.LastReconciledTime > 0 {
+			accountLastReconciledTimes[account.AccountId] = *account.Extend.LastReconciledTime
+		} else {
+			accountLastReconciledTimes[account.AccountId] = 0
+		}
+	}
+
+	counts, err := a.transactions.GetUnreconciledTransactionCounts(c, uid, accountLastReconciledTimes)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionUnreconciledTransactionCountsHandler] failed to get unreconciled transaction counts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	return &models.TransactionUnreconciledCountResponse{
+		Items: counts,
+	}, nil
 }
 
 // TransactionStatisticsHandler returns transaction statistics of current user
@@ -510,7 +640,7 @@ func (a *TransactionsApi) TransactionStatisticsHandler(c *core.WebContext) (any,
 	}
 
 	uid := c.GetCurrentUid()
-	totalAmounts, err := a.transactions.GetAccountsAndCategoriesTotalInflowAndOutflow(c, uid, statisticReq.StartTime, statisticReq.EndTime, tagFilters, noTags, statisticReq.Keyword, clientTimezone, statisticReq.UseTransactionTimezone)
+	totalAmounts, err := a.transactions.GetAccountsAndCategoriesTotalInflowAndOutflow(c, uid, statisticReq.StartTime, statisticReq.EndTime, tagFilters, noTags, statisticReq.Keyword, statisticReq.MatchMode, clientTimezone, statisticReq.UseTransactionTimezone)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionStatisticsHandler] failed to get accounts and categories total income and expense for user \"uid:%d\", because %s", uid, err.Error())
@@ -529,7 +659,7 @@ func (a *TransactionsApi) TransactionStatisticsHandler(c *core.WebContext) (any,
 		statisticResp.Items[i] = &models.TransactionStatisticResponseItem{
 			CategoryId:  totalAmountItem.CategoryId,
 			AccountId:   totalAmountItem.AccountId,
-			TotalAmount: totalAmountItem.Amount,
+			TotalAmount: totalAmountItem.Amount.String(),
 		}
 
 		if totalAmountItem.Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT || totalAmountItem.Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN {
@@ -578,7 +708,7 @@ func (a *TransactionsApi) TransactionStatisticsTrendsHandler(c *core.WebContext)
 	}
 
 	uid := c.GetCurrentUid()
-	allMonthlyTotalAmounts, err := a.transactions.GetAccountsAndCategoriesMonthlyInflowAndOutflow(c, uid, startYear, startMonth, endYear, endMonth, tagFilters, noTags, statisticTrendsReq.Keyword, clientTimezone, statisticTrendsReq.UseTransactionTimezone)
+	allMonthlyTotalAmounts, err := a.transactions.GetAccountsAndCategoriesMonthlyInflowAndOutflow(c, uid, startYear, startMonth, endYear, endMonth, tagFilters, noTags, statisticTrendsReq.Keyword, statisticTrendsReq.MatchMode, clientTimezone, statisticTrendsReq.UseTransactionTimezone)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionStatisticsTrendsHandler] failed to get accounts and categories total income and expense for user \"uid:%d\", because %s", uid, err.Error())
@@ -599,7 +729,7 @@ func (a *TransactionsApi) TransactionStatisticsTrendsHandler(c *core.WebContext)
 			monthlyStatisticResp.Items[i] = &models.TransactionStatisticResponseItem{
 				CategoryId:  totalAmountItem.CategoryId,
 				AccountId:   totalAmountItem.AccountId,
-				TotalAmount: totalAmountItem.Amount,
+				TotalAmount: totalAmountItem.Amount.String(),
 			}
 
 			if totalAmountItem.Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT || totalAmountItem.Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN {
@@ -668,8 +798,8 @@ func (a *TransactionsApi) TransactionStatisticsAssetTrendsHandler(c *core.WebCon
 			accountBalance := dailyAccountBalances[i]
 			dailyStatisticResp.Items[i] = &models.TransactionStatisticAssetTrendsResponseDataItem{
 				AccountId:             accountBalance.AccountId,
-				AccountOpeningBalance: accountBalance.AccountOpeningBalance,
-				AccountClosingBalance: accountBalance.AccountClosingBalance,
+				AccountOpeningBalance: accountBalance.AccountOpeningBalance.String(),
+				AccountClosingBalance: accountBalance.AccountClosingBalance.String(),
 			}
 		}
 
@@ -727,6 +857,13 @@ func (a *TransactionsApi) TransactionAmountsHandler(c *core.WebContext) (any, *e
 		}
 	}
 
+	tagFilters, err := models.ParseTransactionTagFilter(transactionAmountsReq.TagFilter)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionAmountsHandler] parse transaction tag filters error, because %s", err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
 	clientTimezone, err := c.GetClientTimezone()
 
 	if err != nil {
@@ -749,14 +886,14 @@ func (a *TransactionsApi) TransactionAmountsHandler(c *core.WebContext) (any, *e
 	for i := 0; i < len(requestItems); i++ {
 		requestItem := requestItems[i]
 
-		incomeAmounts, expenseAmounts, err := a.transactions.GetAccountsTotalIncomeAndExpense(c, uid, requestItem.StartTime, requestItem.EndTime, excludeAccountIds, excludeCategoryIds, clientTimezone, transactionAmountsReq.UseTransactionTimezone)
+		incomeAmounts, expenseAmounts, err := a.transactions.GetAccountsTotalIncomeAndExpense(c, uid, requestItem.StartTime, requestItem.EndTime, excludeAccountIds, excludeCategoryIds, tagFilters, clientTimezone, transactionAmountsReq.UseTransactionTimezone)
 
 		if err != nil {
 			log.Errorf(c, "[transactions.TransactionAmountsHandler] failed to get transaction amounts item for user \"uid:%d\", because %s", uid, err.Error())
 			return nil, errs.Or(err, errs.ErrOperationFailed)
 		}
 
-		amountsMap := make(map[string]*models.TransactionAmountsResponseItemAmountInfo)
+		amountsMap := make(map[string]*models.TransactionAmountsAndCurrency)
 
 		for accountId, incomeAmount := range incomeAmounts {
 			account, exists := accountMap[accountId]
@@ -769,14 +906,14 @@ func (a *TransactionsApi) TransactionAmountsHandler(c *core.WebContext) (any, *e
 			totalAmounts, exists := amountsMap[account.Currency]
 
 			if !exists {
-				totalAmounts = &models.TransactionAmountsResponseItemAmountInfo{
+				totalAmounts = &models.TransactionAmountsAndCurrency{
 					Currency:      account.Currency,
-					IncomeAmount:  0,
-					ExpenseAmount: 0,
+					IncomeAmount:  big.NewInt(0),
+					ExpenseAmount: big.NewInt(0),
 				}
 			}
 
-			totalAmounts.IncomeAmount += incomeAmount
+			totalAmounts.IncomeAmount.Add(totalAmounts.IncomeAmount, incomeAmount)
 			amountsMap[account.Currency] = totalAmounts
 		}
 
@@ -791,21 +928,25 @@ func (a *TransactionsApi) TransactionAmountsHandler(c *core.WebContext) (any, *e
 			totalAmounts, exists := amountsMap[account.Currency]
 
 			if !exists {
-				totalAmounts = &models.TransactionAmountsResponseItemAmountInfo{
+				totalAmounts = &models.TransactionAmountsAndCurrency{
 					Currency:      account.Currency,
-					IncomeAmount:  0,
-					ExpenseAmount: 0,
+					IncomeAmount:  big.NewInt(0),
+					ExpenseAmount: big.NewInt(0),
 				}
 			}
 
-			totalAmounts.ExpenseAmount += expenseAmount
+			totalAmounts.ExpenseAmount.Add(totalAmounts.ExpenseAmount, expenseAmount)
 			amountsMap[account.Currency] = totalAmounts
 		}
 
 		allTotalAmounts := make(models.TransactionAmountsResponseItemAmountInfoSlice, 0)
 
 		for _, totalAmounts := range amountsMap {
-			allTotalAmounts = append(allTotalAmounts, totalAmounts)
+			allTotalAmounts = append(allTotalAmounts, &models.TransactionAmountsResponseItemAmountInfo{
+				Currency:      totalAmounts.Currency,
+				IncomeAmount:  totalAmounts.IncomeAmount.String(),
+				ExpenseAmount: totalAmounts.ExpenseAmount.String(),
+			})
 		}
 
 		sort.Sort(allTotalAmounts)
@@ -818,6 +959,157 @@ func (a *TransactionsApi) TransactionAmountsHandler(c *core.WebContext) (any, *e
 	}
 
 	return amountsResp, nil
+}
+
+// TransactionDailyAmountsHandler returns daily transaction amounts of current user
+func (a *TransactionsApi) TransactionDailyAmountsHandler(c *core.WebContext) (any, *errs.Error) {
+	var transactionAmountsReq models.TransactionDailyAmountsRequest
+	err := c.ShouldBindQuery(&transactionAmountsReq)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionDailyAmountsHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	if transactionAmountsReq.EndTime < transactionAmountsReq.StartTime {
+		return nil, errs.ErrDateRangeInvalid
+	}
+
+	excludeAccountIds := make([]int64, 0)
+	excludeCategoryIds := make([]int64, 0)
+
+	if transactionAmountsReq.ExcludeAccountIds != "" {
+		excludeAccountIds, err = utils.StringArrayToInt64Array(strings.Split(transactionAmountsReq.ExcludeAccountIds, ","))
+
+		if err != nil {
+			return nil, errs.ErrAccountIdInvalid
+		}
+	}
+
+	if transactionAmountsReq.ExcludeCategoryIds != "" {
+		excludeCategoryIds, err = utils.StringArrayToInt64Array(strings.Split(transactionAmountsReq.ExcludeCategoryIds, ","))
+
+		if err != nil {
+			return nil, errs.ErrTransactionCategoryIdInvalid
+		}
+	}
+
+	tagFilters, err := models.ParseTransactionTagFilter(transactionAmountsReq.TagFilter)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionDailyAmountsHandler] parse transaction tag filters error, because %s", err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionDailyAmountsHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	uid := c.GetCurrentUid()
+	accounts, err := a.accounts.GetAllAccountsByUid(c, uid)
+	accountMap := a.accounts.GetAccountMapByList(accounts)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionDailyAmountsHandler] failed to get all accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	incomeAmounts, expenseAmounts, err := a.transactions.GetAccountsDailyIncomeAndExpense(c, uid, transactionAmountsReq.StartTime, transactionAmountsReq.EndTime, excludeAccountIds, excludeCategoryIds, tagFilters, clientTimezone, transactionAmountsReq.UseTransactionTimezone)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionDailyAmountsHandler] failed to get daily amounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allDates := make(map[int32]bool)
+
+	for date := range incomeAmounts {
+		allDates[date] = true
+	}
+
+	for date := range expenseAmounts {
+		allDates[date] = true
+	}
+
+	dates := make([]int32, 0, len(allDates))
+
+	for date := range allDates {
+		dates = append(dates, date)
+	}
+
+	slices.Sort(dates)
+
+	result := make([]*models.TransactionDailyAmountsResponseItem, 0, len(dates))
+
+	for _, date := range dates {
+		amountsByCurrency := make(map[string]*models.TransactionAmountsAndCurrency)
+
+		for accountId, amount := range incomeAmounts[date] {
+			account, exists := accountMap[accountId]
+
+			if !exists {
+				log.Warnf(c, "[transactions.TransactionDailyAmountsHandler] cannot find account for account \"id:%d\" of user \"uid:%d\"", accountId, uid)
+				continue
+			}
+
+			totalAmounts, exists := amountsByCurrency[account.Currency]
+
+			if !exists {
+				totalAmounts = &models.TransactionAmountsAndCurrency{
+					Currency:      account.Currency,
+					IncomeAmount:  big.NewInt(0),
+					ExpenseAmount: big.NewInt(0),
+				}
+			}
+
+			totalAmounts.IncomeAmount.Add(totalAmounts.IncomeAmount, amount)
+			amountsByCurrency[account.Currency] = totalAmounts
+		}
+
+		for accountId, amount := range expenseAmounts[date] {
+			account, exists := accountMap[accountId]
+
+			if !exists {
+				log.Warnf(c, "[transactions.TransactionDailyAmountsHandler] cannot find account for account \"id:%d\" of user \"uid:%d\"", accountId, uid)
+				continue
+			}
+
+			totalAmounts, exists := amountsByCurrency[account.Currency]
+
+			if !exists {
+				totalAmounts = &models.TransactionAmountsAndCurrency{
+					Currency:      account.Currency,
+					IncomeAmount:  big.NewInt(0),
+					ExpenseAmount: big.NewInt(0),
+				}
+			}
+
+			totalAmounts.ExpenseAmount.Add(totalAmounts.ExpenseAmount, amount)
+			amountsByCurrency[account.Currency] = totalAmounts
+		}
+
+		dailyTotalAmounts := make(models.TransactionAmountsResponseItemAmountInfoSlice, 0, len(amountsByCurrency))
+
+		for _, total := range amountsByCurrency {
+			dailyTotalAmounts = append(dailyTotalAmounts, &models.TransactionAmountsResponseItemAmountInfo{
+				Currency:      total.Currency,
+				IncomeAmount:  total.IncomeAmount.String(),
+				ExpenseAmount: total.ExpenseAmount.String(),
+			})
+		}
+
+		sort.Sort(dailyTotalAmounts)
+
+		result = append(result, &models.TransactionDailyAmountsResponseItem{
+			Date:    utils.FormatNumericYearMonthDayToLongDate(date),
+			Amounts: dailyTotalAmounts,
+		})
+	}
+
+	return result, nil
 }
 
 // TransactionGetHandler returns one specific transaction of current user
@@ -892,7 +1184,7 @@ func (a *TransactionsApi) TransactionGetHandler(c *core.WebContext) (any, *errs.
 	var tagMap map[int64]*models.TransactionTag
 	var pictureInfos []*models.TransactionPictureInfo
 
-	if !transactionGetReq.TrimCategory {
+	if !transactionGetReq.TrimCategory && transaction.Type != models.TRANSACTION_DB_TYPE_MODIFY_BALANCE {
 		category, err = a.transactionCategories.GetCategoryByCategoryId(c, uid, transaction.CategoryId)
 
 		if err != nil {
@@ -1024,7 +1316,15 @@ func (a *TransactionsApi) TransactionCreateHandler(c *core.WebContext) (any, *er
 	}
 
 	transaction := a.createNewTransactionModel(uid, &transactionCreateReq, c.ClientIP())
-	transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone)
+
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, []*models.Transaction{transaction})
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionCreateHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
 
 	if !transactionEditable {
 		return nil, errs.ErrCannotCreateTransactionWithThisTransactionTime
@@ -1149,6 +1449,20 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 		return nil, errs.ErrTransactionTypeInvalid
 	}
 
+	newTransactionType, err := transactionModifyReq.Type.ToTransactionDbType()
+
+	if err != nil {
+		return nil, errs.ErrTransactionTypeInvalid
+	}
+
+	if (transaction.Type == models.TRANSACTION_DB_TYPE_MODIFY_BALANCE && newTransactionType != models.TRANSACTION_DB_TYPE_MODIFY_BALANCE) ||
+		(transaction.Type != models.TRANSACTION_DB_TYPE_MODIFY_BALANCE && newTransactionType == models.TRANSACTION_DB_TYPE_MODIFY_BALANCE) {
+		log.Warnf(c, "[transactions.TransactionModifyHandler] cannot modify transaction type from \"%d\" to \"%d\"", transaction.Type, newTransactionType)
+		return nil, errs.ErrTransactionTypeInvalid
+	}
+
+	changeToTransfer := newTransactionType == models.TRANSACTION_DB_TYPE_TRANSFER_OUT && transaction.Type != models.TRANSACTION_DB_TYPE_TRANSFER_OUT
+
 	if transaction.Type == models.TRANSACTION_DB_TYPE_MODIFY_BALANCE && transactionModifyReq.CategoryId != 0 {
 		log.Warnf(c, "[transactions.TransactionModifyHandler] balance modification transaction cannot set category id")
 		return nil, errs.ErrBalanceModificationTransactionCannotSetCategory
@@ -1182,6 +1496,7 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 	newTransaction := &models.Transaction{
 		TransactionId:     transaction.TransactionId,
 		Uid:               uid,
+		Type:              newTransactionType,
 		CategoryId:        transactionModifyReq.CategoryId,
 		TransactionTime:   utils.GetMinTransactionTimeFromUnixTime(transactionModifyReq.Time),
 		TimezoneUtcOffset: transactionModifyReq.UtcOffset,
@@ -1191,7 +1506,7 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 		Comment:           transactionModifyReq.Comment,
 	}
 
-	if transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT {
+	if newTransaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT {
 		newTransaction.RelatedAccountId = transactionModifyReq.DestinationAccountId
 		newTransaction.RelatedAccountAmount = transactionModifyReq.DestinationAmount
 	}
@@ -1201,13 +1516,14 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 		newTransaction.GeoLatitude = transactionModifyReq.GeoLocation.Latitude
 	}
 
-	if newTransaction.CategoryId == transaction.CategoryId &&
+	if newTransaction.Type == transaction.Type &&
+		newTransaction.CategoryId == transaction.CategoryId &&
 		utils.GetUnixTimeFromTransactionTime(newTransaction.TransactionTime) == utils.GetUnixTimeFromTransactionTime(transaction.TransactionTime) &&
 		newTransaction.TimezoneUtcOffset == transaction.TimezoneUtcOffset &&
 		newTransaction.AccountId == transaction.AccountId &&
 		newTransaction.Amount == transaction.Amount &&
-		(transaction.Type != models.TRANSACTION_DB_TYPE_TRANSFER_OUT || newTransaction.RelatedAccountId == transaction.RelatedAccountId) &&
-		(transaction.Type != models.TRANSACTION_DB_TYPE_TRANSFER_OUT || newTransaction.RelatedAccountAmount == transaction.RelatedAccountAmount) &&
+		(newTransaction.Type != models.TRANSACTION_DB_TYPE_TRANSFER_OUT || newTransaction.RelatedAccountId == transaction.RelatedAccountId) &&
+		(newTransaction.Type != models.TRANSACTION_DB_TYPE_TRANSFER_OUT || newTransaction.RelatedAccountAmount == transaction.RelatedAccountAmount) &&
 		newTransaction.HideAmount == transaction.HideAmount &&
 		newTransaction.Comment == transaction.Comment &&
 		newTransaction.GeoLongitude == transaction.GeoLongitude &&
@@ -1217,8 +1533,15 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 		return nil, errs.ErrNothingWillBeUpdated
 	}
 
-	transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone)
-	newTransactionEditable := user.CanEditTransactionByTransactionTime(newTransaction.TransactionTime, clientTimezone)
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, []*models.Transaction{transaction, newTransaction})
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionModifyHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
+	newTransactionEditable := user.CanEditTransactionByTransactionTime(newTransaction.TransactionTime, clientTimezone, allUsedAccounts[newTransaction.AccountId], allUsedAccounts[newTransaction.RelatedAccountId])
 
 	if !transactionEditable || !newTransactionEditable {
 		return nil, errs.ErrCannotModifyTransactionWithThisTransactionTime
@@ -1271,7 +1594,7 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 		}
 	}
 
-	err = a.transactions.ModifyTransaction(c, newTransaction, len(transactionTagIds), addTransactionTagIds, removeTransactionTagIds, addTransactionPictureIds, removeTransactionPictureIds)
+	err = a.transactions.ModifyTransaction(c, newTransaction, changeToTransfer, len(transactionTagIds), addTransactionTagIds, removeTransactionTagIds, addTransactionPictureIds, removeTransactionPictureIds)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionModifyHandler] failed to update transaction \"id:%d\" for user \"uid:%d\", because %s", transactionModifyReq.Id, uid, err.Error())
@@ -1280,11 +1603,583 @@ func (a *TransactionsApi) TransactionModifyHandler(c *core.WebContext) (any, *er
 
 	log.Infof(c, "[transactions.TransactionModifyHandler] user \"uid:%d\" has updated transaction \"id:%d\" successfully", uid, transactionModifyReq.Id)
 
-	newTransaction.Type = transaction.Type
 	newTransactionResp := newTransaction.ToTransactionInfoResponse(tagIds, transactionEditable)
 	newTransactionResp.Pictures = a.GetTransactionPictureInfoResponseList(newPictureInfos)
 
 	return newTransactionResp, nil
+}
+
+// TransactionBatchUpdateCategoriesHandler batch updates categories of transactions by request parameters for current user
+func (a *TransactionsApi) TransactionBatchUpdateCategoriesHandler(c *core.WebContext) (any, *errs.Error) {
+	var transactionBatchUpdateReq models.TransactionBatchUpdateCategoryRequest
+	err := c.ShouldBindJSON(&transactionBatchUpdateReq)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	transactionIds, err := utils.StringArrayToInt64Array(transactionBatchUpdateReq.TransactionIds)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] parse transaction ids failed, because %s", err.Error())
+		return nil, errs.ErrTransactionIdInvalid
+	}
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Errorf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] failed to get user, because %s", err.Error())
+		}
+
+		return nil, errs.ErrUserNotFound
+	}
+
+	category, err := a.transactionCategories.GetCategoryByCategoryId(c, uid, transactionBatchUpdateReq.CategoryId)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] failed to get category \"id:%d\" for user \"uid:%d\", because %s", transactionBatchUpdateReq.CategoryId, uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	if category.ParentCategoryId == models.LevelOneTransactionCategoryParentId {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] transaction category \"id:%d\" is not a sub category", category.CategoryId)
+		return nil, errs.ErrCannotUsePrimaryCategoryForTransaction
+	}
+
+	var expectedTransactionType models.TransactionDbType
+
+	if category.Type == models.CATEGORY_TYPE_EXPENSE {
+		expectedTransactionType = models.TRANSACTION_DB_TYPE_EXPENSE
+	} else if category.Type == models.CATEGORY_TYPE_INCOME {
+		expectedTransactionType = models.TRANSACTION_DB_TYPE_INCOME
+	} else if category.Type == models.CATEGORY_TYPE_TRANSFER {
+		expectedTransactionType = models.TRANSACTION_DB_TYPE_TRANSFER_OUT
+	}
+
+	transactions, err := a.transactions.GetTransactionsByTransactionIds(c, uid, transactionIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] failed to get transactions for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, transactions)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allTransactionIds := make([]int64, 0, len(transactions))
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+
+		if transaction.Type != expectedTransactionType {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] transaction \"id:%d\" type is not expected type \"%d\" for user \"uid:%d\"", transaction.TransactionId, expectedTransactionType, uid)
+			return nil, errs.ErrTransactionTypeInvalid
+		}
+
+		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
+
+		if !transactionEditable {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] transaction \"id:%d\" is not editable for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrCannotModifyTransactionWithThisTransactionTime
+		}
+
+		allTransactionIds = append(allTransactionIds, transaction.TransactionId)
+
+		if transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT {
+			allTransactionIds = append(allTransactionIds, transaction.RelatedId)
+		}
+	}
+
+	err = a.transactions.BatchUpdateTransactionsCategory(c, uid, allTransactionIds, category.CategoryId)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchUpdateCategoriesHandler] failed to batch update transactions category for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	log.Infof(c, "[transactions.TransactionBatchUpdateCategoriesHandler] user \"uid:%d\" has batch updated category of %d transactions successfully", uid, len(transactionBatchUpdateReq.TransactionIds))
+	return true, nil
+}
+
+// TransactionBatchUpdateAccountsHandler batch updates accounts of transactions by request parameters for current user
+func (a *TransactionsApi) TransactionBatchUpdateAccountsHandler(c *core.WebContext) (any, *errs.Error) {
+	var transactionBatchUpdateReq models.TransactionBatchUpdateAccountRequest
+	err := c.ShouldBindJSON(&transactionBatchUpdateReq)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	transactionIds, err := utils.StringArrayToInt64Array(transactionBatchUpdateReq.TransactionIds)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] parse transaction ids failed, because %s", err.Error())
+		return nil, errs.ErrTransactionIdInvalid
+	}
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Errorf(c, "[transactions.TransactionBatchUpdateAccountsHandler] failed to get user, because %s", err.Error())
+		}
+
+		return nil, errs.ErrUserNotFound
+	}
+
+	allAccounts, err := a.accounts.GetAllAccountsByUid(c, uid)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchUpdateAccountsHandler] failed to get all accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	accountMap := a.accounts.GetAccountMapByList(allAccounts)
+	account, exists := accountMap[transactionBatchUpdateReq.AccountId]
+
+	if !exists || account == nil {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] account \"id:%d\" does not exist for user \"uid:%d\"", transactionBatchUpdateReq.AccountId, uid)
+		return nil, errs.ErrAccountNotFound
+	}
+
+	if account.Hidden {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] account \"id:%d\" is hidden for user \"uid:%d\"", account.AccountId, uid)
+		return nil, errs.ErrCannotMoveTransactionFromOrToHiddenAccount
+	}
+
+	if account.Type == models.ACCOUNT_TYPE_MULTI_SUB_ACCOUNTS {
+		log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] account \"id:%d\" is a parent account, cannot be used for transaction of user \"uid:%d\"", account.AccountId, uid)
+		return nil, errs.ErrCannotModifyTransactionInParentAccount
+	}
+
+	transactions, err := a.transactions.GetTransactionsByTransactionIds(c, uid, transactionIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchUpdateAccountsHandler] failed to get transactions for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+
+		if transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] cannot modify transaction \"id:%d\" for user \"uid:%d\", because transaction type is transfer in", transaction.TransactionId, uid)
+			return nil, errs.ErrTransactionTypeInvalid
+		}
+
+		if transactionBatchUpdateReq.IsDestinationAccount && transaction.Type != models.TRANSACTION_DB_TYPE_TRANSFER_OUT {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] cannot update destination account of non-transfer transaction \"id:%d\" for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrTransactionDestinationAccountCannotBeSet
+		}
+
+		if !transactionBatchUpdateReq.IsDestinationAccount && account.AccountId == transaction.RelatedAccountId {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] cannot update account to same destination account of transaction \"id:%d\" for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrTransactionSourceAndDestinationIdCannotBeEqual
+		} else if transactionBatchUpdateReq.IsDestinationAccount && account.AccountId == transaction.AccountId {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] cannot update destination account to same source account of transaction \"id:%d\" for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrTransactionSourceAndDestinationIdCannotBeEqual
+		}
+
+		var oldAccount *models.Account
+
+		if !transactionBatchUpdateReq.IsDestinationAccount {
+			oldAccount = accountMap[transaction.AccountId]
+		} else if transactionBatchUpdateReq.IsDestinationAccount {
+			oldAccount = accountMap[transaction.RelatedAccountId]
+		}
+
+		if oldAccount == nil {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] the original account of transaction \"id:%d\" does not exist for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrAccountNotFound
+		}
+
+		if oldAccount.Hidden {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] the original account of transaction \"id:%d\" is hidden for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrCannotMoveTransactionFromOrToHiddenAccount
+		}
+
+		if oldAccount.Currency != account.Currency {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] cannot update account of transaction \"id:%d\", because the original account currency \"%s\" is different from updated account currency \"%s\" for user \"uid:%d\"", transaction.TransactionId, oldAccount.Currency, account.Currency, uid)
+			return nil, errs.ErrCannotMoveTransactionBetweenAccountsWithDifferentCurrencies
+		}
+
+		newSourceAccount := accountMap[transaction.AccountId]
+		newDestinationAccount := accountMap[transaction.RelatedAccountId]
+
+		if !transactionBatchUpdateReq.IsDestinationAccount && transaction.AccountId != account.AccountId {
+			newSourceAccount = account
+		} else if transactionBatchUpdateReq.IsDestinationAccount && transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT && transaction.RelatedAccountId != account.AccountId {
+			newDestinationAccount = account
+		}
+
+		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, accountMap[transaction.AccountId], accountMap[transaction.RelatedAccountId])
+		newTransactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, newSourceAccount, newDestinationAccount)
+
+		if !transactionEditable || !newTransactionEditable {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] transaction \"id:%d\" is not editable for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrCannotModifyTransactionWithThisTransactionTime
+		}
+	}
+
+	updatedCount := 0
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+
+		if !transactionBatchUpdateReq.IsDestinationAccount && transaction.AccountId != account.AccountId {
+			transaction.AccountId = account.AccountId
+		} else if transactionBatchUpdateReq.IsDestinationAccount && transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT && transaction.RelatedAccountId != account.AccountId {
+			transaction.RelatedAccountId = account.AccountId
+		} else {
+			log.Warnf(c, "[transactions.TransactionBatchUpdateAccountsHandler] skip updating transaction \"id:%d\", because the original account is same as updated account for user \"uid:%d\"", transaction.TransactionId, uid)
+			continue
+		}
+
+		err = a.transactions.ModifyTransaction(c, transaction, false, 0, nil, nil, nil, nil)
+
+		if err != nil {
+			log.Errorf(c, "[transactions.TransactionBatchUpdateAccountsHandler] failed to update transaction \"id:%d\" for user \"uid:%d\", because %s", transaction.TransactionId, uid, err.Error())
+			return nil, errs.Or(err, errs.ErrOperationFailed)
+		}
+
+		updatedCount++
+	}
+
+	if updatedCount < 1 {
+		return nil, errs.ErrNothingWillBeUpdated
+	}
+
+	log.Infof(c, "[transactions.TransactionBatchUpdateAccountsHandler] user \"uid:%d\" has batch updated account of %d transactions successfully", uid, updatedCount)
+	return true, nil
+}
+
+// TransactionBatchAddTagsHandler batch add tags to transactions by request parameters for current user
+func (a *TransactionsApi) TransactionBatchAddTagsHandler(c *core.WebContext) (any, *errs.Error) {
+	var transactionBatchUpdateReq models.TransactionBatchAddTagsRequest
+	err := c.ShouldBindJSON(&transactionBatchUpdateReq)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchAddTagsHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchAddTagsHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	transactionIds, err := utils.StringArrayToInt64Array(transactionBatchUpdateReq.TransactionIds)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchAddTagsHandler] parse transaction ids failed, because %s", err.Error())
+		return nil, errs.ErrTransactionIdInvalid
+	}
+
+	tagIds, err := utils.StringArrayToInt64Array(transactionBatchUpdateReq.TagIds)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchAddTagsHandler] parse tag ids failed, because %s", err.Error())
+		return nil, errs.ErrTransactionTagIdInvalid
+	}
+
+	tagIds = utils.ToUniqueInt64Slice(tagIds)
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Errorf(c, "[transactions.TransactionBatchAddTagsHandler] failed to get user, because %s", err.Error())
+		}
+
+		return nil, errs.ErrUserNotFound
+	}
+
+	tags, err := a.transactionTags.GetTagsByTagIds(c, uid, tagIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchAddTagsHandler] failed to get tags for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	if len(tags) != len(tagIds) {
+		log.Warnf(c, "[transactions.TransactionBatchAddTagsHandler] some tags do not exist for user \"uid:%d\"", uid)
+		return nil, errs.ErrTransactionTagNotFound
+	}
+
+	transactions, err := a.transactions.GetTransactionsByTransactionIds(c, uid, transactionIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchAddTagsHandler] failed to get transactions for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, transactions)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchAddTagsHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	transactionTagIndexes, err := a.transactionTags.GetAllTagIdsOfTransactions(c, uid, transactionIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchAddTagsHandler] failed to get transactions tag indexes for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allNewTransactionTagIndexes := make(map[int64][]int64, len(transactions))
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+
+		if transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN {
+			log.Warnf(c, "[transactions.TransactionBatchAddTagsHandler] cannot modify transaction \"id:%d\" for user \"uid:%d\", because transaction type is transfer in", transaction.TransactionId, uid)
+			return nil, errs.ErrTransactionTypeInvalid
+		}
+
+		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
+
+		if !transactionEditable {
+			log.Warnf(c, "[transactions.TransactionBatchAddTagsHandler] transaction \"id:%d\" is not editable for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrCannotModifyTransactionWithThisTransactionTime
+		}
+
+		existedTagIds := transactionTagIndexes[transaction.TransactionId]
+		existedTagIdsMap := make(map[int64]bool, len(existedTagIds))
+
+		for j := 0; j < len(existedTagIds); j++ {
+			existedTagIdsMap[existedTagIds[j]] = true
+		}
+
+		var newTagIds []int64
+
+		for j := 0; j < len(tagIds); j++ {
+			tagId := tagIds[j]
+
+			if _, exists := existedTagIdsMap[tagId]; !exists {
+				newTagIds = append(newTagIds, tagId)
+			}
+		}
+
+		allNewTransactionTagIndexes[transaction.TransactionId] = newTagIds
+	}
+
+	err = a.transactions.BatchAddTagsToTransactions(c, uid, transactions, allNewTransactionTagIndexes)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchAddTagsHandler] failed to batch update transactions tags for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	log.Infof(c, "[transactions.TransactionBatchAddTagsHandler] user \"uid:%d\" has batch updated tag of %d transactions successfully", uid, len(allNewTransactionTagIndexes))
+	return true, nil
+}
+
+// TransactionBatchRemoveTagsHandler batch remove tags from transactions by request parameters for current user
+func (a *TransactionsApi) TransactionBatchRemoveTagsHandler(c *core.WebContext) (any, *errs.Error) {
+	var transactionBatchUpdateReq models.TransactionBatchRemoveTagsRequest
+	err := c.ShouldBindJSON(&transactionBatchUpdateReq)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchRemoveTagsHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchRemoveTagsHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	transactionIds, err := utils.StringArrayToInt64Array(transactionBatchUpdateReq.TransactionIds)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchRemoveTagsHandler] parse transaction ids failed, because %s", err.Error())
+		return nil, errs.ErrTransactionIdInvalid
+	}
+
+	tagIds, err := utils.StringArrayToInt64Array(transactionBatchUpdateReq.TagIds)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchRemoveTagsHandler] parse tag ids failed, because %s", err.Error())
+		return nil, errs.ErrTransactionTagIdInvalid
+	}
+
+	tagIds = utils.ToUniqueInt64Slice(tagIds)
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Errorf(c, "[transactions.TransactionBatchRemoveTagsHandler] failed to get user, because %s", err.Error())
+		}
+
+		return nil, errs.ErrUserNotFound
+	}
+
+	tags, err := a.transactionTags.GetTagsByTagIds(c, uid, tagIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchRemoveTagsHandler] failed to get tags for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	if len(tags) != len(tagIds) {
+		log.Warnf(c, "[transactions.TransactionBatchRemoveTagsHandler] some tags do not exist for user \"uid:%d\"", uid)
+		return nil, errs.ErrTransactionTagNotFound
+	}
+
+	transactions, err := a.transactions.GetTransactionsByTransactionIds(c, uid, transactionIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchRemoveTagsHandler] failed to get transactions for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, transactions)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchRemoveTagsHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allTransactionIds := make([]int64, 0, len(transactions))
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+
+		if transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN {
+			log.Warnf(c, "[transactions.TransactionBatchRemoveTagsHandler] cannot modify transaction \"id:%d\" for user \"uid:%d\", because transaction type is transfer in", transaction.TransactionId, uid)
+			return nil, errs.ErrTransactionTypeInvalid
+		}
+
+		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
+
+		if !transactionEditable {
+			log.Warnf(c, "[transactions.TransactionBatchRemoveTagsHandler] transaction \"id:%d\" is not editable for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrCannotModifyTransactionWithThisTransactionTime
+		}
+
+		allTransactionIds = append(allTransactionIds, transaction.TransactionId)
+	}
+
+	err = a.transactions.BatchRemoveTagsFromTransactions(c, uid, allTransactionIds, tagIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchRemoveTagsHandler] failed to batch update transactions tags for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	log.Infof(c, "[transactions.TransactionBatchRemoveTagsHandler] user \"uid:%d\" has batch updated tag of %d transactions successfully", uid, len(allTransactionIds))
+	return true, nil
+}
+
+// TransactionBatchClearTagsHandler batch clear all tags from transactions by request parameters for current user
+func (a *TransactionsApi) TransactionBatchClearTagsHandler(c *core.WebContext) (any, *errs.Error) {
+	var transactionBatchUpdateReq models.TransactionBatchClearTagsRequest
+	err := c.ShouldBindJSON(&transactionBatchUpdateReq)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchClearTagsHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchClearTagsHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	transactionIds, err := utils.StringArrayToInt64Array(transactionBatchUpdateReq.TransactionIds)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchClearTagsHandler] parse transaction ids failed, because %s", err.Error())
+		return nil, errs.ErrTransactionIdInvalid
+	}
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Errorf(c, "[transactions.TransactionBatchClearTagsHandler] failed to get user, because %s", err.Error())
+		}
+
+		return nil, errs.ErrUserNotFound
+	}
+
+	transactions, err := a.transactions.GetTransactionsByTransactionIds(c, uid, transactionIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchClearTagsHandler] failed to get transactions for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, transactions)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchClearTagsHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allTransactionIds := make([]int64, 0, len(transactions))
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+
+		if transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN {
+			log.Warnf(c, "[transactions.TransactionBatchClearTagsHandler] cannot modify transaction \"id:%d\" for user \"uid:%d\", because transaction type is transfer in", transaction.TransactionId, uid)
+			return nil, errs.ErrTransactionTypeInvalid
+		}
+
+		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
+
+		if !transactionEditable {
+			log.Warnf(c, "[transactions.TransactionBatchClearTagsHandler] transaction \"id:%d\" is not editable for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrCannotModifyTransactionWithThisTransactionTime
+		}
+
+		allTransactionIds = append(allTransactionIds, transaction.TransactionId)
+	}
+
+	err = a.transactions.BatchClearAllTagsFromTransactions(c, uid, allTransactionIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchClearTagsHandler] failed to batch update transactions tags for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	log.Infof(c, "[transactions.TransactionBatchClearTagsHandler] user \"uid:%d\" has batch updated tag of %d transactions successfully", uid, len(allTransactionIds))
+	return true, nil
 }
 
 // TransactionMoveAllBetweenAccountsHandler moves all transactions from one account to another account for current user
@@ -1297,11 +2192,28 @@ func (a *TransactionsApi) TransactionMoveAllBetweenAccountsHandler(c *core.WebCo
 		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
 	}
 
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionMoveAllBetweenAccountsHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Errorf(c, "[transactions.TransactionMoveAllBetweenAccountsHandler] failed to get user, because %s", err.Error())
+		}
+
+		return nil, errs.ErrUserNotFound
+	}
+
 	if transactionMoveReq.FromAccountId == transactionMoveReq.ToAccountId {
 		return nil, errs.ErrCannotMoveTransactionToSameAccount
 	}
 
-	uid := c.GetCurrentUid()
 	accountMap, err := a.accounts.GetAccountsByAccountIds(c, uid, []int64{transactionMoveReq.FromAccountId, transactionMoveReq.ToAccountId})
 
 	if err != nil {
@@ -1333,7 +2245,38 @@ func (a *TransactionsApi) TransactionMoveAllBetweenAccountsHandler(c *core.WebCo
 		return nil, errs.ErrCannotMoveTransactionBetweenAccountsWithDifferentCurrencies
 	}
 
-	err = a.transactions.MoveAllTransactionsBetweenAccounts(c, uid, transactionMoveReq.FromAccountId, transactionMoveReq.ToAccountId)
+	transactions, err := a.transactions.GetAllSpecifiedTransactions(c, uid, 0, 0, 0, nil, []int64{fromAccount.AccountId}, nil, false, "", "", core.MATCH_MODE_DEFAULT, false, pageCountForMovingAccountTransactions, true)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionMoveAllBetweenAccountsHandler] failed to get all transactions of account \"id:%d\" for user \"uid:%d\", because %s", fromAccount.AccountId, uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, transactions)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionMoveAllBetweenAccountsHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
+		newTransactionEditable := transactionEditable
+
+		if transaction.AccountId == fromAccount.AccountId {
+			newTransactionEditable = user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, toAccount, allUsedAccounts[transaction.RelatedAccountId])
+		} else if transaction.RelatedAccountId == fromAccount.AccountId {
+			newTransactionEditable = user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], toAccount)
+		}
+
+		if !transactionEditable || !newTransactionEditable {
+			log.Warnf(c, "[transactions.TransactionMoveAllBetweenAccountsHandler] transaction \"id:%d\" is not editable for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrCannotModifyTransactionWithThisTransactionTime
+		}
+	}
+
+	err = a.transactions.MoveAllTransactionsBetweenAccounts(c, uid, fromAccount.AccountId, toAccount.AccountId)
 
 	if err != nil {
 		log.Errorf(c, "[transactions.TransactionMoveAllBetweenAccountsHandler] failed to move all transactions from account \"id:%d\" to account \"id:%d\" for user \"uid:%d\", because %s", transactionMoveReq.FromAccountId, transactionMoveReq.ToAccountId, uid, err.Error())
@@ -1384,7 +2327,14 @@ func (a *TransactionsApi) TransactionDeleteHandler(c *core.WebContext) (any, *er
 		return nil, errs.ErrTransactionTypeInvalid
 	}
 
-	transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone)
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, []*models.Transaction{transaction})
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionDeleteHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
 
 	if !transactionEditable {
 		return nil, errs.ErrCannotDeleteTransactionWithThisTransactionTime
@@ -1401,13 +2351,94 @@ func (a *TransactionsApi) TransactionDeleteHandler(c *core.WebContext) (any, *er
 	return true, nil
 }
 
-// TransactionParseImportDsvFileDataHandler returns the parsed file data by request parameters for current user
-func (a *TransactionsApi) TransactionParseImportDsvFileDataHandler(c *core.WebContext) (any, *errs.Error) {
+// TransactionBatchDeleteHandler deletes existed transactions by request parameters for current user
+func (a *TransactionsApi) TransactionBatchDeleteHandler(c *core.WebContext) (any, *errs.Error) {
+	var transactionBatchDeleteReq models.TransactionBatchDeleteRequest
+	err := c.ShouldBindJSON(&transactionBatchDeleteReq)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchDeleteHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchDeleteHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	transactionIds, err := utils.StringArrayToInt64Array(transactionBatchDeleteReq.Ids)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionBatchDeleteHandler] parse transaction ids failed, because %s", err.Error())
+		return nil, errs.ErrTransactionIdInvalid
+	}
+
+	uid := c.GetCurrentUid()
+	user, err := a.users.GetUserById(c, uid)
+
+	if err != nil {
+		if !errs.IsCustomError(err) {
+			log.Errorf(c, "[transactions.TransactionBatchDeleteHandler] failed to get user, because %s", err.Error())
+		}
+
+		return nil, errs.ErrUserNotFound
+	}
+
+	if !a.users.IsPasswordEqualsUserPassword(transactionBatchDeleteReq.Password, user) {
+		return nil, errs.ErrUserPasswordWrong
+	}
+
+	transactions, err := a.transactions.GetTransactionsByTransactionIds(c, uid, transactionIds)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchDeleteHandler] failed to get transactions for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, transactions)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionBatchDeleteHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
+
+		if !transactionEditable {
+			log.Warnf(c, "[transactions.TransactionBatchDeleteHandler] transaction \"id:%d\" is not editable for user \"uid:%d\"", transaction.TransactionId, uid)
+			return nil, errs.ErrCannotDeleteTransactionWithThisTransactionTime
+		}
+	}
+
+	deletedCount := 0
+
+	for i := 0; i < len(transactions); i++ {
+		transaction := transactions[i]
+		err = a.transactions.DeleteTransaction(c, uid, transaction.TransactionId)
+
+		if err != nil {
+			log.Errorf(c, "[transactions.TransactionBatchDeleteHandler] failed to delete transaction \"id:%d\" for user \"uid:%d\", because %s", transaction.TransactionId, uid, err.Error())
+			return nil, errs.Or(err, errs.ErrOperationFailed)
+		}
+
+		deletedCount++
+	}
+
+	log.Infof(c, "[transactions.TransactionBatchDeleteHandler] user \"uid:%d\" has deleted %d transactions", uid, deletedCount)
+	return true, nil
+}
+
+// TransactionParseImportCustomFileDataHandler returns the parsed file data by request parameters for current user
+func (a *TransactionsApi) TransactionParseImportCustomFileDataHandler(c *core.WebContext) (any, *errs.Error) {
 	uid := c.GetCurrentUid()
 	form, err := c.MultipartForm()
 
 	if err != nil {
-		log.Errorf(c, "[transactions.TransactionParseImportDsvFileDataHandler] failed to get multi-part form data for user \"uid:%d\", because %s", uid, err.Error())
+		log.Errorf(c, "[transactions.TransactionParseImportCustomFileDataHandler] failed to get multi-part form data for user \"uid:%d\", because %s", uid, err.Error())
 		return nil, errs.ErrParameterInvalid
 	}
 
@@ -1419,18 +2450,18 @@ func (a *TransactionsApi) TransactionParseImportDsvFileDataHandler(c *core.WebCo
 
 	fileType := fileTypes[0]
 
-	if !converters.IsCustomDelimiterSeparatedValuesFileType(fileType) {
+	if !converters.IsCustomFileFormatFileType(fileType) {
 		return nil, errs.Or(err, errs.ErrImportFileTypeNotSupported)
 	}
 
 	fileEncodings := form.Value["fileEncoding"]
+	fileEncoding := ""
 
-	if len(fileEncodings) < 1 || fileEncodings[0] == "" {
-		return nil, errs.ErrImportFileEncodingIsEmpty
+	if len(fileEncodings) > 0 {
+		fileEncoding = fileEncodings[0]
 	}
 
-	fileEncoding := fileEncodings[0]
-	dataParser, err := converters.CreateNewDelimiterSeparatedValuesDataParser(fileType, fileEncoding)
+	dataParser, err := converters.CreateNewCustomFileFormatTransactionDataParser(fileType, fileEncoding)
 
 	if err != nil {
 		return nil, errs.Or(err, errs.ErrImportFileTypeNotSupported)
@@ -1439,24 +2470,24 @@ func (a *TransactionsApi) TransactionParseImportDsvFileDataHandler(c *core.WebCo
 	importFiles := form.File["file"]
 
 	if len(importFiles) < 1 {
-		log.Warnf(c, "[transactions.TransactionParseImportDsvFileDataHandler] there is no import file in request for user \"uid:%d\"", uid)
+		log.Warnf(c, "[transactions.TransactionParseImportCustomFileDataHandler] there is no import file in request for user \"uid:%d\"", uid)
 		return nil, errs.ErrNoFilesUpload
 	}
 
 	if importFiles[0].Size < 1 {
-		log.Warnf(c, "[transactions.TransactionParseImportDsvFileDataHandler] the size of import file in request is zero for user \"uid:%d\"", uid)
+		log.Warnf(c, "[transactions.TransactionParseImportCustomFileDataHandler] the size of import file in request is zero for user \"uid:%d\"", uid)
 		return nil, errs.ErrUploadedFileEmpty
 	}
 
 	if importFiles[0].Size > int64(a.CurrentConfig().MaxImportFileSize) {
-		log.Warnf(c, "[transactions.TransactionParseImportDsvFileDataHandler] the upload file size \"%d\" exceeds the maximum size \"%d\" of import file for user \"uid:%d\"", importFiles[0].Size, a.CurrentConfig().MaxImportFileSize, uid)
+		log.Warnf(c, "[transactions.TransactionParseImportCustomFileDataHandler] the upload file size \"%d\" exceeds the maximum size \"%d\" of import file for user \"uid:%d\"", importFiles[0].Size, a.CurrentConfig().MaxImportFileSize, uid)
 		return nil, errs.ErrExceedMaxUploadFileSize
 	}
 
 	importFile, err := importFiles[0].Open()
 
 	if err != nil {
-		log.Errorf(c, "[transactions.TransactionParseImportDsvFileDataHandler] failed to get import file from request for user \"uid:%d\", because %s", uid, err.Error())
+		log.Errorf(c, "[transactions.TransactionParseImportCustomFileDataHandler] failed to get import file from request for user \"uid:%d\", because %s", uid, err.Error())
 		return nil, errs.ErrOperationFailed
 	}
 
@@ -1464,14 +2495,14 @@ func (a *TransactionsApi) TransactionParseImportDsvFileDataHandler(c *core.WebCo
 	fileData, err := io.ReadAll(importFile)
 
 	if err != nil {
-		log.Errorf(c, "[transactions.TransactionParseImportDsvFileDataHandler] failed to read import file data for user \"uid:%d\", because %s", uid, err.Error())
+		log.Errorf(c, "[transactions.TransactionParseImportCustomFileDataHandler] failed to read import file data for user \"uid:%d\", because %s", uid, err.Error())
 		return nil, errs.Or(err, errs.ErrOperationFailed)
 	}
 
-	allLines, err := dataParser.ParseDsvFileLines(c, fileData)
+	allLines, err := dataParser.ParseDataLines(c, fileData)
 
 	if err != nil {
-		log.Errorf(c, "[transactions.TransactionParseImportDsvFileDataHandler] failed to parse import file data for user \"uid:%d\", because %s", uid, err.Error())
+		log.Errorf(c, "[transactions.TransactionParseImportCustomFileDataHandler] failed to parse import file data for user \"uid:%d\", because %s", uid, err.Error())
 		return nil, errs.Or(err, errs.ErrOperationFailed)
 	}
 
@@ -1510,18 +2541,27 @@ func (a *TransactionsApi) TransactionParseImportFileHandler(c *core.WebContext) 
 		textualOption = textualOptions[0]
 	}
 
-	additionalOptions := converter.ParseImporterOptions(textualOption)
+	additionalOptions := converter.ParseImporterOptions(a.CurrentConfig(), textualOption)
+
+	if fileType == "ai_txt" || fileType == "ai_image" {
+		aiAdditionalPrompts := form.Value["aiPrompt"]
+		aiAdditionalPrompt := ""
+
+		if len(aiAdditionalPrompts) > 0 {
+			aiAdditionalPrompt = aiAdditionalPrompts[0]
+			additionalOptions = additionalOptions.WithAIAdditionalPrompt(aiAdditionalPrompt)
+		}
+	}
 
 	var dataImporter converter.TransactionDataImporter
 
-	if converters.IsCustomDelimiterSeparatedValuesFileType(fileType) {
+	if converters.IsCustomFileFormatFileType(fileType) {
 		fileEncodings := form.Value["fileEncoding"]
+		fileEncoding := ""
 
-		if len(fileEncodings) < 1 || fileEncodings[0] == "" {
-			return nil, errs.ErrImportFileEncodingIsEmpty
+		if len(fileEncodings) > 0 {
+			fileEncoding = fileEncodings[0]
 		}
-
-		fileEncoding := fileEncodings[0]
 
 		columnMappings := form.Value["columnMapping"]
 
@@ -1606,13 +2646,21 @@ func (a *TransactionsApi) TransactionParseImportFileHandler(c *core.WebContext) 
 			transactionTagSeparator = transactionTagSeparators[0]
 		}
 
-		dataImporter, err = converters.CreateNewDelimiterSeparatedValuesDataImporter(fileType, fileEncoding, columnIndexMapping, transactionTypeNameMapping, hasHeaderLine, timeFormats[0], timezoneFormat, amountDecimalSeparator, amountDigitGroupingSymbol, geoLocationSeparator, geoLocationOrder, transactionTagSeparator)
+		dataImporter, err = converters.CreateNewCustomTransactionDataImporter(fileType, fileEncoding, columnIndexMapping, transactionTypeNameMapping, hasHeaderLine, timeFormats[0], timezoneFormat, amountDecimalSeparator, amountDigitGroupingSymbol, geoLocationSeparator, geoLocationOrder, transactionTagSeparator)
 	} else {
 		dataImporter, err = converters.GetTransactionDataImporter(fileType)
 	}
 
 	if err != nil {
 		return nil, errs.Or(err, errs.ErrImportFileTypeNotSupported)
+	}
+
+	if fileType == "ai_txt" && (a.CurrentConfig().TextRecognitionLLMConfig == nil || a.CurrentConfig().TextRecognitionLLMConfig.LLMProvider == "" || !a.CurrentConfig().TransactionFromAITextRecognition) {
+		return nil, errs.ErrLargeLanguageModelProviderNotEnabled
+	}
+
+	if fileType == "ai_image" && (a.CurrentConfig().ReceiptImageRecognitionLLMConfig == nil || a.CurrentConfig().ReceiptImageRecognitionLLMConfig.LLMProvider == "" || !a.CurrentConfig().TransactionFromAIImageRecognition) {
+		return nil, errs.ErrLargeLanguageModelProviderNotEnabled
 	}
 
 	importFiles := form.File["file"]
@@ -1627,9 +2675,27 @@ func (a *TransactionsApi) TransactionParseImportFileHandler(c *core.WebContext) 
 		return nil, errs.ErrUploadedFileEmpty
 	}
 
-	if importFiles[0].Size > int64(a.CurrentConfig().MaxImportFileSize) {
-		log.Warnf(c, "[transactions.TransactionParseImportFileHandler] the upload file size \"%d\" exceeds the maximum size \"%d\" of import file for user \"uid:%d\"", importFiles[0].Size, a.CurrentConfig().MaxImportFileSize, uid)
+	maxImportFileSize := int64(a.CurrentConfig().MaxImportFileSize)
+
+	if fileType == "ai_image" {
+		maxImportFileSize = int64(a.CurrentConfig().MaxAIRecognitionPictureFileSize)
+	}
+
+	if importFiles[0].Size > maxImportFileSize {
+		log.Warnf(c, "[transactions.TransactionParseImportFileHandler] the upload file size \"%d\" exceeds the maximum size \"%d\" of import file for user \"uid:%d\"", importFiles[0].Size, maxImportFileSize, uid)
 		return nil, errs.ErrExceedMaxUploadFileSize
+	}
+
+	if fileType == "ai_image" {
+		fileExtension := utils.GetFileNameExtension(importFiles[0].Filename)
+		contentType := utils.GetImageContentType(fileExtension)
+
+		if contentType == "" {
+			log.Warnf(c, "[transactions.TransactionParseImportFileHandler] the file extension \"%s\" of image in request is not supported for user \"uid:%d\"", fileExtension, uid)
+			return nil, errs.ErrImageTypeNotSupported
+		}
+
+		additionalOptions = additionalOptions.WithAIImageContentType(contentType)
 	}
 
 	importFile, err := importFiles[0].Open()
@@ -1658,6 +2724,14 @@ func (a *TransactionsApi) TransactionParseImportFileHandler(c *core.WebContext) 
 	}
 
 	if user.FeatureRestriction.Contains(core.USER_FEATURE_RESTRICTION_TYPE_IMPORT_TRANSACTION) {
+		return nil, errs.ErrNotPermittedToPerformThisAction
+	}
+
+	if fileType == "ai_txt" && user.FeatureRestriction.Contains(core.USER_FEATURE_RESTRICTION_TYPE_CREATE_TRANSACTION_FROM_AI_TEXT_RECOGNITION) {
+		return nil, errs.ErrNotPermittedToPerformThisAction
+	}
+
+	if fileType == "ai_image" && user.FeatureRestriction.Contains(core.USER_FEATURE_RESTRICTION_TYPE_CREATE_TRANSACTION_FROM_AI_IMAGE_RECOGNITION) {
 		return nil, errs.ErrNotPermittedToPerformThisAction
 	}
 
@@ -1811,13 +2885,24 @@ func (a *TransactionsApi) TransactionImportHandler(c *core.WebContext) (any, *er
 	for i := 0; i < len(transactionImportReq.Transactions); i++ {
 		transactionCreateReq := transactionImportReq.Transactions[i]
 		transaction := a.createNewTransactionModel(uid, transactionCreateReq, c.ClientIP())
-		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone)
+		newTransactions[i] = transaction
+	}
+
+	allUsedAccounts, err := a.getTransactionUsedAccounts(c, uid, newTransactions)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionImportHandler] failed to get transaction used accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	for i := 0; i < len(newTransactions); i++ {
+		transaction := newTransactions[i]
+		transactionEditable := user.CanEditTransactionByTransactionTime(transaction.TransactionTime, clientTimezone, allUsedAccounts[transaction.AccountId], allUsedAccounts[transaction.RelatedAccountId])
 
 		if !transactionEditable {
+			log.Warnf(c, "[transactions.TransactionImportHandler] transaction \"index:%d\" is not editable for user \"uid:%d\"", i, uid)
 			return nil, errs.ErrCannotCreateTransactionWithThisTransactionTime
 		}
-
-		newTransactions[i] = transaction
 	}
 
 	err = a.transactions.BatchCreateTransactions(c, user.Uid, newTransactions, newTransactionTagIdsMap, func(currentProcess float64) {
@@ -1928,7 +3013,61 @@ func (a *TransactionsApi) getTransactionTagInfoResponses(tagIds []int64, allTran
 	return allTags
 }
 
-func (a *TransactionsApi) getTransactionResponseListResult(c *core.WebContext, user *models.User, transactions []*models.Transaction, clientTimezone *time.Location, withPictures bool, trimAccount bool, trimCategory bool, trimTag bool) (models.TransactionInfoResponseSlice, error) {
+func (a *TransactionsApi) getTransactionAllEssentialData(c *core.WebContext, user *models.User, withPictures bool, trimCategory bool, trimTag bool) (accountMap map[int64]*models.Account, categoryMap map[int64]*models.TransactionCategory, tagMap map[int64]*models.TransactionTag, allTransactionTagIds map[int64][]int64, pictureInfoMap map[int64][]*models.TransactionPictureInfo, err error) {
+	uid := user.Uid
+	allAccounts, err := a.accounts.GetAllAccountsByUid(c, uid)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.getTransactionAllEssentialData] failed to get all accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, nil, nil, nil, nil, err
+	}
+
+	accountMap = a.accounts.GetAccountMapByList(allAccounts)
+
+	allTagIndexes, err := a.transactionTags.GetAllTagIdsOfAllTransactions(c, uid)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.getTransactionAllEssentialData] failed to get all transactions tag ids for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, nil, nil, nil, nil, err
+	}
+
+	allTransactionTagIds = a.transactionTags.GetGroupedTransactionTagIds(allTagIndexes)
+
+	if !trimCategory {
+		allCategories, err := a.transactionCategories.GetAllCategoriesByUid(c, uid, 0, -1)
+
+		if err != nil {
+			log.Errorf(c, "[transactions.getTransactionAllEssentialData] failed to get all transactions categories for user \"uid:%d\", because %s", uid, err.Error())
+			return nil, nil, nil, nil, nil, err
+		}
+
+		categoryMap = a.transactionCategories.GetCategoryMapByList(allCategories)
+	}
+
+	if !trimTag {
+		allTags, err := a.transactionTags.GetAllTagsByUid(c, uid)
+
+		if err != nil {
+			log.Errorf(c, "[transactions.getTransactionAllEssentialData] failed to get all transactions tags for user \"uid:%d\", because %s", uid, err.Error())
+			return nil, nil, nil, nil, nil, err
+		}
+
+		tagMap = a.transactionTags.GetTagMapByList(allTags)
+	}
+
+	if withPictures && a.CurrentConfig().EnableTransactionPictures {
+		pictureInfoMap, err = a.transactionPictures.GetAllPictureInfosOfAllTransactions(c, uid)
+
+		if err != nil {
+			log.Errorf(c, "[transactions.getTransactionAllEssentialData] failed to get all transactions pictures for user \"uid:%d\", because %s", uid, err.Error())
+			return nil, nil, nil, nil, nil, err
+		}
+	}
+
+	return accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, nil
+}
+
+func (a *TransactionsApi) getTransactionEssentialDataByTransactionIds(c *core.WebContext, user *models.User, transactions []*models.Transaction, withPictures bool, trimCategory bool, trimTag bool) (accountMap map[int64]*models.Account, categoryMap map[int64]*models.TransactionCategory, tagMap map[int64]*models.TransactionTag, allTransactionTagIds map[int64][]int64, pictureInfoMap map[int64][]*models.TransactionPictureInfo, err error) {
 	uid := user.Uid
 	transactionIds := make([]int64, len(transactions))
 	accountIds := make([]int64, 0, len(transactions)*2)
@@ -1951,32 +3090,26 @@ func (a *TransactionsApi) getTransactionResponseListResult(c *core.WebContext, u
 		categoryIds = append(categoryIds, transactions[i].CategoryId)
 	}
 
-	allAccounts, err := a.accounts.GetAccountsByAccountIds(c, uid, utils.ToUniqueInt64Slice(accountIds))
+	accountMap, err = a.accounts.GetAccountsByAccountIds(c, uid, utils.ToUniqueInt64Slice(accountIds))
 
 	if err != nil {
-		log.Errorf(c, "[transactions.getTransactionResponseListResult] failed to get accounts for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, err
+		log.Errorf(c, "[transactions.getTransactionEssentialDataByTransactionIds] failed to get accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, nil, nil, nil, nil, err
 	}
 
-	transactions = a.filterTransactions(c, uid, transactions, allAccounts)
-
-	allTransactionTagIds, err := a.transactionTags.GetAllTagIdsOfTransactions(c, uid, transactionIds)
+	allTransactionTagIds, err = a.transactionTags.GetAllTagIdsOfTransactions(c, uid, transactionIds)
 
 	if err != nil {
-		log.Errorf(c, "[transactions.getTransactionResponseListResult] failed to get transactions tag ids for user \"uid:%d\", because %s", uid, err.Error())
-		return nil, err
+		log.Errorf(c, "[transactions.getTransactionEssentialDataByTransactionIds] failed to get transactions tag ids for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, nil, nil, nil, nil, err
 	}
-
-	var categoryMap map[int64]*models.TransactionCategory
-	var tagMap map[int64]*models.TransactionTag
-	var pictureInfoMap map[int64][]*models.TransactionPictureInfo
 
 	if !trimCategory {
 		categoryMap, err = a.transactionCategories.GetCategoriesByCategoryIds(c, uid, utils.ToUniqueInt64Slice(categoryIds))
 
 		if err != nil {
-			log.Errorf(c, "[transactions.getTransactionResponseListResult] failed to get transactions categories for user \"uid:%d\", because %s", uid, err.Error())
-			return nil, err
+			log.Errorf(c, "[transactions.getTransactionEssentialDataByTransactionIds] failed to get transactions categories for user \"uid:%d\", because %s", uid, err.Error())
+			return nil, nil, nil, nil, nil, err
 		}
 	}
 
@@ -1984,8 +3117,8 @@ func (a *TransactionsApi) getTransactionResponseListResult(c *core.WebContext, u
 		tagMap, err = a.transactionTags.GetTagsByTagIds(c, uid, utils.ToUniqueInt64Slice(a.transactionTags.GetTransactionTagIds(allTransactionTagIds)))
 
 		if err != nil {
-			log.Errorf(c, "[transactions.getTransactionResponseListResult] failed to get transactions tags for user \"uid:%d\", because %s", uid, err.Error())
-			return nil, err
+			log.Errorf(c, "[transactions.getTransactionEssentialDataByTransactionIds] failed to get transactions tags for user \"uid:%d\", because %s", uid, err.Error())
+			return nil, nil, nil, nil, nil, err
 		}
 	}
 
@@ -1993,11 +3126,50 @@ func (a *TransactionsApi) getTransactionResponseListResult(c *core.WebContext, u
 		pictureInfoMap, err = a.transactionPictures.GetPictureInfosByTransactionIds(c, uid, utils.ToUniqueInt64Slice(a.transactions.GetTransactionIds(transactions)))
 
 		if err != nil {
-			log.Errorf(c, "[transactions.getTransactionResponseListResult] failed to get transactions pictures for user \"uid:%d\", because %s", uid, err.Error())
-			return nil, err
+			log.Errorf(c, "[transactions.getTransactionEssentialDataByTransactionIds] failed to get transactions pictures for user \"uid:%d\", because %s", uid, err.Error())
+			return nil, nil, nil, nil, nil, err
 		}
 	}
 
+	return accountMap, categoryMap, tagMap, allTransactionTagIds, pictureInfoMap, nil
+}
+
+func (a *TransactionsApi) getTransactionUsedAccounts(c *core.WebContext, uid int64, transactions []*models.Transaction) (map[int64]*models.Account, error) {
+	accountIds := make([]int64, 0, len(transactions)*2)
+
+	for i := 0; i < len(transactions); i++ {
+		accountIds = append(accountIds, transactions[i].AccountId)
+
+		if transactions[i].Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN || transactions[i].Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT {
+			accountIds = append(accountIds, transactions[i].RelatedAccountId)
+		}
+	}
+
+	accountMap, err := a.accounts.GetAccountsByAccountIds(c, uid, utils.ToUniqueInt64Slice(accountIds))
+
+	if err != nil {
+		log.Errorf(c, "[transactions.getTransactionUsedAccounts] failed to get accounts for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	for i := 0; i < len(transactions); i++ {
+		if _, exists := accountMap[transactions[i].AccountId]; !exists {
+			log.Warnf(c, "[transactions.getTransactionUsedAccounts] account of transaction \"id:%d\" does not exist for user \"uid:%d\"", transactions[i].TransactionId, uid)
+			return nil, errs.ErrSourceAccountNotFound
+		}
+
+		if transactions[i].Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN || transactions[i].Type == models.TRANSACTION_DB_TYPE_TRANSFER_OUT {
+			if _, exists := accountMap[transactions[i].RelatedAccountId]; !exists {
+				log.Warnf(c, "[transactions.getTransactionUsedAccounts] related account of transaction \"id:%d\" does not exist for user \"uid:%d\"", transactions[i].TransactionId, uid)
+				return nil, errs.ErrDestinationAccountNotFound
+			}
+		}
+	}
+
+	return accountMap, nil
+}
+
+func (a *TransactionsApi) getTransactionResponseListResult(c *core.WebContext, user *models.User, transactions []*models.Transaction, allAccounts map[int64]*models.Account, categoryMap map[int64]*models.TransactionCategory, tagMap map[int64]*models.TransactionTag, allTransactionTagIds map[int64][]int64, pictureInfoMap map[int64][]*models.TransactionPictureInfo, clientTimezone *time.Location, withPictures bool, trimAccount bool, trimCategory bool, trimTag bool) (models.TransactionInfoResponseSlice, error) {
 	result := make(models.TransactionInfoResponseSlice, len(transactions))
 
 	for i := 0; i < len(transactions); i++ {
@@ -2021,17 +3193,17 @@ func (a *TransactionsApi) getTransactionResponseListResult(c *core.WebContext, u
 			}
 		}
 
-		if !trimCategory {
+		if !trimCategory && categoryMap != nil {
 			if category := categoryMap[transaction.CategoryId]; category != nil {
 				result[i].Category = category.ToTransactionCategoryInfoResponse()
 			}
 		}
 
-		if !trimTag {
+		if !trimTag && tagMap != nil && transactionTagIds != nil {
 			result[i].Tags = a.getTransactionTagInfoResponses(transactionTagIds, tagMap)
 		}
 
-		if withPictures && a.CurrentConfig().EnableTransactionPictures {
+		if withPictures && a.CurrentConfig().EnableTransactionPictures && pictureInfoMap != nil {
 			pictureInfos, exists := pictureInfoMap[transaction.TransactionId]
 
 			if exists {

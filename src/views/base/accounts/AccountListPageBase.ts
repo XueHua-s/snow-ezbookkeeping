@@ -6,12 +6,15 @@ import { useSettingsStore } from '@/stores/setting.ts';
 import { useUserStore } from '@/stores/user.ts';
 import { useAccountsStore } from '@/stores/account.ts';
 
-import type { HiddenAmount, NumberWithSuffix } from '@/core/numeral.ts';
+import type { BigDecimal, HiddenAmount, BigDecimalWithSuffix } from '@/core/numeral.ts';
 import type { WeekDayValue } from '@/core/datetime.ts';
 import { AccountCategory, AccountType } from '@/core/account.ts';
+import { ACCOUNT_CURRENCY_NOT_SET_VALUE } from '@/consts/currency.ts';
+
 import type { Account, CategorizedAccount } from '@/models/account.ts';
 
-import { isObject, isNumber, isString } from '@/lib/common.ts';
+import { isDefined, isObject, isString } from '@/lib/common.ts';
+import { isBigDecimal, parseBigDecimal } from '@/lib/numeral.ts';
 
 export function useAccountListPageBase() {
     const { formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
@@ -35,46 +38,57 @@ export function useAccountListPageBase() {
     const firstDayOfWeek = computed<WeekDayValue>(() => userStore.currentUserFirstDayOfWeek);
     const fiscalYearStart = computed<number>(() => userStore.currentUserFiscalYearStart);
     const defaultCurrency = computed<string>(() => userStore.currentUserDefaultCurrency);
+    const useLastReconciledTime = computed(() => userStore.currentUserUseLastReconciledTime);
 
     const allAccounts = computed<Account[]>(() => accountsStore.allAccounts);
     const allCategorizedAccountsMap = computed<Record<number, CategorizedAccount>>(() => accountsStore.allCategorizedAccountsMap);
     const allAccountCount = computed<number>(() => accountsStore.allAvailableAccountsCount);
+    const maxCategoryAccountCount = computed<number>(() => accountsStore.maxCategoryAccountCount);
 
     const netAssets = computed<string>(() => {
-        const netAssets: number | HiddenAmount | NumberWithSuffix = accountsStore.getNetAssets(showAccountBalance.value);
+        const netAssets: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getNetAssets(showAccountBalance.value, settingsStore.appSettings.totalAmountExcludeAccountIds);
         return formatAmountToLocalizedNumeralsWithCurrency(netAssets, defaultCurrency.value);
     });
 
     const totalAssets = computed<string>(() => {
-        const totalAssets: number | HiddenAmount | NumberWithSuffix = accountsStore.getTotalAssets(showAccountBalance.value);
+        const totalAssets: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getTotalAssets(showAccountBalance.value, settingsStore.appSettings.totalAmountExcludeAccountIds);
         return formatAmountToLocalizedNumeralsWithCurrency(totalAssets, defaultCurrency.value);
     });
 
     const totalLiabilities = computed<string>(() => {
-        const totalLiabilities: number | HiddenAmount | NumberWithSuffix = accountsStore.getTotalLiabilities(showAccountBalance.value);
+        const totalLiabilities: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getTotalLiabilities(showAccountBalance.value, settingsStore.appSettings.totalAmountExcludeAccountIds);
         return formatAmountToLocalizedNumeralsWithCurrency(totalLiabilities, defaultCurrency.value);
     });
 
-    function accountCategoryTotalBalance(accountCategory?: AccountCategory): string {
+    function canShowAvailableCredit(account: Account): boolean {
+        return account.category === AccountCategory.CreditCard.type && account.numericCreditCardLimit > 0 && !!account.currency && account.currency !== ACCOUNT_CURRENCY_NOT_SET_VALUE;
+    }
+
+    function accountCategoryTotalBalance(accountCategory: AccountCategory | undefined, showAvailableCreditForCreditCard: boolean): string {
         if (!accountCategory) {
             return '';
         }
 
-        const totalBalance: number | HiddenAmount | NumberWithSuffix = accountsStore.getAccountCategoryTotalBalance(showAccountBalance.value, accountCategory);
-        return formatAmountToLocalizedNumeralsWithCurrency(totalBalance, defaultCurrency.value);
+        const totalBalance: BigDecimal | HiddenAmount | BigDecimalWithSuffix | undefined = accountsStore.getAccountCategoryTotalBalance(showAccountBalance.value, accountCategory, showAvailableCreditForCreditCard);
+
+        if (isDefined(totalBalance)) {
+            return formatAmountToLocalizedNumeralsWithCurrency(totalBalance, defaultCurrency.value);
+        } else {
+            return '';
+        }
     }
 
-    function accountBalance(account: Account, currentSubAccountId?: string): string | null {
+    function accountBalance(account: Account, currentSubAccountId: string | undefined, showBalance: boolean, onlyShowSelectedAccountIds?: string[]): string | null {
         if (account.type === AccountType.SingleAccount.type) {
-            const balance: number| HiddenAmount | null = accountsStore.getAccountBalance(showAccountBalance.value, account);
+            const balance: BigDecimal | HiddenAmount | null = accountsStore.getAccountBalance(showBalance, account);
 
-            if (!isNumber(balance) && !isString(balance)) {
+            if (isBigDecimal(balance) || isString(balance)) {
+                return formatAmountToLocalizedNumeralsWithCurrency(balance, account.currency);
+            } else {
                 return '';
             }
-
-            return formatAmountToLocalizedNumeralsWithCurrency(balance, account.currency);
         } else if (account.type === AccountType.MultiSubAccounts.type) {
-            const balanceResult = accountsStore.getAccountSubAccountBalance(showAccountBalance.value, showHidden.value, account, currentSubAccountId);
+            const balanceResult = accountsStore.getAccountSubAccountBalance(showBalance, showHidden.value, account, currentSubAccountId, onlyShowSelectedAccountIds);
 
             if (!isObject(balanceResult)) {
                 return '';
@@ -83,6 +97,54 @@ export function useAccountListPageBase() {
             return formatAmountToLocalizedNumeralsWithCurrency(balanceResult.balance, balanceResult.currency);
         } else {
             return null;
+        }
+    }
+
+    function accountAvailableCredit(account: Account, showBalance: boolean): string | null {
+        if (!canShowAvailableCredit(account)) {
+            return null;
+        }
+
+        const creditCardLimit = parseBigDecimal(account.creditCardLimit);
+
+        if (account.type === AccountType.SingleAccount.type) {
+            const balance: BigDecimal | HiddenAmount | null = accountsStore.getAccountBalance(showBalance, account);
+
+            if (isBigDecimal(balance)) {
+                return formatAmountToLocalizedNumeralsWithCurrency(creditCardLimit.subtract(balance), account.currency);
+            } else if (isString(balance)) {
+                return formatAmountToLocalizedNumeralsWithCurrency(balance, account.currency);
+            } else {
+                return null;
+            }
+        } else if (account.type === AccountType.MultiSubAccounts.type) {
+            const balanceResult = accountsStore.getAccountSubAccountBalance(showBalance, showHidden.value, account, undefined, undefined);
+
+            if (!isObject(balanceResult)) {
+                return null;
+            }
+
+            const balance: BigDecimal | HiddenAmount | BigDecimalWithSuffix = balanceResult.balance;
+
+            if (isBigDecimal(balance)) {
+                return formatAmountToLocalizedNumeralsWithCurrency(creditCardLimit.subtract(balance), balanceResult.currency);
+            } else if (isObject(balance) && !balance.suffix) {
+                return formatAmountToLocalizedNumeralsWithCurrency(creditCardLimit.subtract(balance.value), balanceResult.currency);
+            } else if (isString(balance)) {
+                return formatAmountToLocalizedNumeralsWithCurrency(balance, balanceResult.currency);
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+
+    function accountBalanceOrAvailableCredit(account: Account, currentSubAccountId: string | undefined, showAvailableCreditForCreditCard: boolean, showBalance: boolean, onlyShowSelectedAccountIds?: string[]): string | null {
+        if (showAvailableCreditForCreditCard && account.category === AccountCategory.CreditCard.type) {
+            return accountAvailableCredit(account, showBalance);
+        } else {
+            return accountBalance(account, currentSubAccountId, showBalance, onlyShowSelectedAccountIds);
         }
     }
 
@@ -98,14 +160,19 @@ export function useAccountListPageBase() {
         firstDayOfWeek,
         fiscalYearStart,
         defaultCurrency,
+        useLastReconciledTime,
         allAccounts,
         allCategorizedAccountsMap,
         allAccountCount,
+        maxCategoryAccountCount,
         netAssets,
         totalAssets,
         totalLiabilities,
         // functions
+        canShowAvailableCredit,
         accountCategoryTotalBalance,
-        accountBalance
+        accountBalance,
+        accountAvailableCredit,
+        accountBalanceOrAvailableCredit
     };
 }

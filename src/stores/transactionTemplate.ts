@@ -81,21 +81,21 @@ export const useTransactionTemplatesStore = defineStore('transactionTemplates', 
         }
     }
 
-    function updateTemplateInTransactionTemplateList(templateType: number, template: TransactionTemplate): void {
+    function updateTemplateInTransactionTemplateList(templateType: number, currentTemplate: TransactionTemplate): void {
         const templates = allTransactionTemplates.value[templateType];
         const templateMap = allTransactionTemplatesMap.value[templateType];
 
         if (isArray(templates)) {
             for (const [template, index] of itemAndIndex(templates)) {
-                if (template.id === template.id) {
-                    templates.splice(index, 1, template);
+                if (template.id === currentTemplate.id) {
+                    templates.splice(index, 1, currentTemplate);
                     break;
                 }
             }
         }
 
         if (isObject(templateMap)) {
-            templateMap[template.id] = template;
+            templateMap[currentTemplate.id] = currentTemplate;
         }
     }
 
@@ -334,11 +334,13 @@ export const useTransactionTemplatesStore = defineStore('transactionTemplates', 
                     return;
                 }
 
-                if (!isDefined(transactionTemplateListStatesInvalid.value[templateType]) || transactionTemplateListStatesInvalid.value[templateType]) {
-                    updateTransactionTemplateListInvalidState(templateType, false);
-                }
+                loadAllTemplates({ templateType: templateType, force: false }).finally(() => {
+                    if (!isDefined(transactionTemplateListStatesInvalid.value[templateType]) || transactionTemplateListStatesInvalid.value[templateType]) {
+                        updateTransactionTemplateListInvalidState(templateType, false);
+                    }
 
-                resolve(data.result);
+                    resolve(data.result);
+                });
             }).catch(error => {
                 logger.error('failed to save templates display order', error);
 

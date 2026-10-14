@@ -3,7 +3,7 @@
         <f7-navbar>
             <f7-nav-left :class="{ 'disabled': loading }" :back-link="tt('Back')" v-if="!sortable"></f7-nav-left>
             <f7-nav-left v-else-if="sortable">
-                <f7-link icon-f7="xmark" :class="{ 'disabled': displayOrderSaving }" @click="cancelSort"></f7-link>
+                <f7-link icon-f7="xmark" :class="{ 'disabled': displayOrderSaving }" :aria-label="tt('Cancel')" @click="cancelSort"></f7-link>
             </f7-nav-left>
             <f7-nav-title>
                 <f7-link popover-open=".tag-group-popover-menu" :class="{ 'disabled': loading || sortable || displayOrderModified || hasEditingTag }">
@@ -12,9 +12,9 @@
                 </f7-link>
             </f7-nav-title>
             <f7-nav-right :class="{ 'navbar-compact-icons': true, 'disabled': loading }">
-                <f7-link icon-f7="ellipsis" :class="{ 'disabled': hasEditingTag || sortable }" @click="showMoreActionSheet = true"></f7-link>
-                <f7-link icon-f7="plus" :class="{ 'disabled': hasEditingTag }" v-if="!sortable" @click="add"></f7-link>
-                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': displayOrderSaving || !displayOrderModified || hasEditingTag }" @click="saveSortResult" v-else-if="sortable"></f7-link>
+                <f7-link icon-f7="ellipsis" :class="{ 'disabled': hasEditingTag || sortable }" :aria-label="tt('More')" @click="showMoreActionSheet = true"></f7-link>
+                <f7-link icon-f7="plus" :class="{ 'disabled': hasEditingTag }" :aria-label="tt('Add')" v-if="!sortable" @click="add"></f7-link>
+                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': displayOrderSaving || !displayOrderModified || hasEditingTag }" :aria-label="tt('Save')" @click="saveSortResult" v-else-if="sortable"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
@@ -34,7 +34,7 @@
             </f7-list>
         </f7-popover>
 
-        <f7-list strong inset dividers class="tag-item-list margin-top skeleton-text" v-if="loading">
+        <f7-list strong inset dividers class="tag-item-list margin-top-half skeleton-text" v-if="loading">
             <f7-list-item :key="itemIdx" v-for="itemIdx in [ 1, 2, 3 ]">
                 <template #media>
                     <f7-icon class="transaction-tag-icon" f7="number"></f7-icon>
@@ -47,11 +47,11 @@
             </f7-list-item>
         </f7-list>
 
-        <f7-list strong inset dividers class="tag-item-list margin-top" v-if="!loading && noAvailableTag && !newTag">
+        <f7-list strong inset dividers class="tag-item-list margin-top-half" v-if="!loading && noAvailableTag && !newTag">
             <f7-list-item :title="tt('No available tag')"></f7-list-item>
         </f7-list>
 
-        <f7-list strong inset dividers sortable class="tag-item-list margin-top"
+        <f7-list strong inset dividers sortable class="tag-item-list margin-top-half"
                  :sortable-enabled="sortable" @sortable:sort="onSort"
                  v-if="!loading">
             <f7-list-item swipeout
@@ -84,17 +84,15 @@
                     </div>
                 </template>
                 <template #after>
-                    <f7-button :class="{ 'no-padding': true, 'disabled': !isTagModified(tag) }"
-                               raised fill
-                               icon-f7="checkmark_alt"
-                               color="blue"
+                    <f7-button raised fill icon-f7="checkmark_alt" color="blue"
+                               :class="{ 'no-padding': true, 'disabled': !isTagModified(tag) }"
+                               :aria-label="tt('Save')"
                                v-if="editingTag.id === tag.id"
                                @click="save(editingTag)">
                     </f7-button>
-                    <f7-button class="no-padding margin-inline-start-half"
-                               raised fill
-                               icon-f7="xmark"
-                               color="gray"
+                    <f7-button raised fill icon-f7="xmark" color="gray"
+                               class="no-padding margin-inline-start-half"
+                               :aria-label="tt('Cancel')"
                                v-if="editingTag.id === tag.id"
                                @click="cancelSave(editingTag)">
                     </f7-button>
@@ -102,8 +100,10 @@
                 <f7-swipeout-actions :left="textDirection === TextDirection.LTR"
                                      :right="textDirection === TextDirection.RTL"
                                      v-if="sortable && editingTag.id !== tag.id">
-                    <f7-swipeout-button :color="tag.hidden ? 'blue' : 'gray'" class="padding-horizontal"
-                                        overswipe close @click="hide(tag, !tag.hidden)">
+                    <f7-swipeout-button class="padding-horizontal" overswipe close
+                                        :aria-label="tag.hidden ? tt('Show') : tt('Hide')"
+                                        :color="tag.hidden ? 'blue' : 'gray'"
+                                        @click="hide(tag, !tag.hidden)">
                         <f7-icon :f7="tag.hidden ? 'eye' : 'eye_slash'"></f7-icon>
                     </f7-swipeout-button>
                 </f7-swipeout-actions>
@@ -112,13 +112,13 @@
                                      v-if="!sortable && editingTag.id !== tag.id">
                     <f7-swipeout-button color="primary" close :class="{ 'disabled': allTagGroupsWithDefault.length < 2 }" :text="tt('Move')" @click="moveTagToGroup(tag)"></f7-swipeout-button>
                     <f7-swipeout-button color="orange" close :text="tt('Edit')" @click="edit(tag)"></f7-swipeout-button>
-                    <f7-swipeout-button color="red" class="padding-horizontal" @click="remove(tag, false)">
+                    <f7-swipeout-button color="red" class="padding-horizontal" :aria-label="tt('Delete')" @click="remove(tag, false)">
                         <f7-icon f7="trash"></f7-icon>
                     </f7-swipeout-button>
                 </f7-swipeout-actions>
             </f7-list-item>
 
-            <f7-list-item class="editing-list-item" v-if="newTag">
+            <f7-list-item ref="newTagItem" class="editing-list-item" v-if="newTag">
                 <template #media>
                     <f7-icon class="transaction-tag-icon" f7="number"></f7-icon>
                 </template>
@@ -133,16 +133,14 @@
                     </div>
                 </template>
                 <template #after>
-                    <f7-button :class="{ 'no-padding': true, 'disabled': !isTagModified(newTag) }"
-                               raised fill
-                               icon-f7="checkmark_alt"
-                               color="blue"
+                    <f7-button raised fill icon-f7="checkmark_alt" color="blue"
+                               :class="{ 'no-padding': true, 'disabled': !isTagModified(newTag) }"
+                               :aria-label="tt('Save')"
                                @click="save(newTag)">
                     </f7-button>
-                    <f7-button class="no-padding margin-inline-start-half"
-                               raised fill
-                               icon-f7="xmark"
-                               color="gray"
+                    <f7-button raised fill icon-f7="xmark" color="gray"
+                               class="no-padding margin-inline-start-half"
+                               :aria-label="tt('Cancel')"
                                @click="cancelSave(newTag)">
                     </f7-button>
                 </template>
@@ -154,12 +152,13 @@
             <f7-page>
                 <f7-navbar>
                     <f7-nav-left>
-                        <f7-link popup-close icon-f7="xmark"></f7-link>
+                        <f7-link popup-close icon-f7="xmark" :aria-label="tt('Cancel')"></f7-link>
                     </f7-nav-left>
                     <f7-nav-title :title="tt('Move to...')"></f7-nav-title>
                     <f7-nav-right>
                         <f7-link icon-f7="checkmark_alt"
                                  :class="{ 'disabled': !tagToMove || !moveToTagGroupId }"
+                                 :aria-label="tt('Move')"
                                  @click="moveTagToGroup(tagToMove, moveToTagGroupId)"></f7-link>
                     </f7-nav-right>
                 </f7-navbar>
@@ -195,7 +194,9 @@
                 <f7-actions-button @click="changeTagGroupDisplayOrder">{{ tt('Change Group Display Order') }}</f7-actions-button>
             </f7-actions-group>
             <f7-actions-group>
-                <f7-actions-button @click="setSortable()">{{ tt('Sort') }}</f7-actions-button>
+                <f7-actions-button :class="{ 'disabled': !tags || tags.length < 2 }" @click="setSortable()">{{ tt('Sort') }}</f7-actions-button>
+                <f7-actions-button :class="{ 'disabled': !tags || tags.length < 2 }" @click="sortByName(false)">{{ tt('Sort by Name (A to Z)') }}</f7-actions-button>
+                <f7-actions-button :class="{ 'disabled': !tags || tags.length < 2 }" @click="sortByName(true)">{{ tt('Sort by Name (Z to A)') }}</f7-actions-button>
                 <f7-actions-button v-if="!showHidden" @click="showHidden = true">{{ tt('Show Hidden Transaction Tags') }}</f7-actions-button>
                 <f7-actions-button v-if="showHidden" @click="showHidden = false">{{ tt('Hide Hidden Transaction Tags') }}</f7-actions-button>
             </f7-actions-group>
@@ -217,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, useTemplateRef, nextTick } from 'vue';
 import type { Router } from 'framework7/types';
 
 import { useI18n } from '@/locales/helpers.ts';
@@ -255,11 +256,13 @@ const {
     hasEditingTag,
     isTagModified,
     switchTagGroup,
-    add,
+    createNewTag,
     edit
 } = useTagListPageBase();
 
 const transactionTagsStore = useTransactionTagsStore();
+
+const newTagItem = useTemplateRef<{ $el: HTMLElement }>('newTagItem');
 
 const loadingError = ref<unknown | null>(null);
 const sortable = ref<boolean>(false);
@@ -330,6 +333,18 @@ function reload(done?: () => void): void {
 
         if (!error.processed) {
             showToast(error.message || error);
+        }
+    });
+}
+
+function add(): void {
+    createNewTag();
+
+    nextTick(() => {
+        const el = newTagItem.value?.$el as HTMLElement | undefined;
+
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     });
 }
@@ -460,6 +475,17 @@ function remove(tag: TransactionTag | null, confirm: boolean): void {
             showToast(error.message || error);
         }
     });
+}
+
+function sortByName(desc: boolean): void {
+    showHidden.value = true;
+    sortable.value = true;
+
+    const changed = transactionTagsStore.sortTagDisplayOrderByTagName(activeTagGroupId.value, desc);
+
+    if (changed) {
+        displayOrderModified.value = true;
+    }
 }
 
 function setSortable(): void {

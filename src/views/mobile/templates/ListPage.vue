@@ -3,17 +3,17 @@
         <f7-navbar>
             <f7-nav-left :class="{ 'disabled': loading }" :back-link="tt('Back')" v-if="!sortable"></f7-nav-left>
             <f7-nav-left v-else-if="sortable">
-                <f7-link icon-f7="xmark" :class="{ 'disabled': displayOrderSaving }" @click="cancelSort"></f7-link>
+                <f7-link icon-f7="xmark" :class="{ 'disabled': displayOrderSaving }" :aria-label="tt('Cancel')" @click="cancelSort"></f7-link>
             </f7-nav-left>
             <f7-nav-title :title="templateType === TemplateType.Schedule.type ? tt('Scheduled Transactions') : tt('Transaction Templates')"></f7-nav-title>
             <f7-nav-right :class="{ 'navbar-compact-icons': true, 'disabled': loading }">
-                <f7-link icon-f7="ellipsis" :class="{ 'disabled': !templates.length || sortable }" @click="showMoreActionSheet = true"></f7-link>
-                <f7-link icon-f7="plus" :href="'/template/add?templateType=' + templateType" v-if="!sortable"></f7-link>
-                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': displayOrderSaving || !displayOrderModified }" @click="saveSortResult" v-else-if="sortable"></f7-link>
+                <f7-link icon-f7="ellipsis" :class="{ 'disabled': !templates.length || sortable }" :aria-label="tt('More')" @click="showMoreActionSheet = true"></f7-link>
+                <f7-link icon-f7="plus" :aria-label="tt('Add')" :href="'/template/add?templateType=' + templateType" v-if="!sortable"></f7-link>
+                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': displayOrderSaving || !displayOrderModified }" :aria-label="tt('Save')" @click="saveSortResult" v-else-if="sortable"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
-        <f7-list strong inset dividers class="margin-top skeleton-text" v-if="loading">
+        <f7-list strong inset dividers class="margin-top-half skeleton-text" v-if="loading">
             <f7-list-item title="Template Name"
                           :key="itemIdx" v-for="itemIdx in [ 1, 2, 3 ]">
                 <template #media>
@@ -22,7 +22,7 @@
             </f7-list-item>
         </f7-list>
 
-        <f7-list strong inset dividers class="margin-top" v-if="!loading && noAvailableTemplate">
+        <f7-list strong inset dividers class="margin-top-half" v-if="!loading && noAvailableTemplate">
             <f7-list-item :title="tt('No available template')"
                           :footer="tt('Once you add templates, you can long-press the Add button on the home page to quickly add a new transaction')"
                           v-if="templateType === TemplateType.Normal.type"></f7-list-item>
@@ -30,7 +30,7 @@
             <f7-list-item :title="tt('No available template')" v-else></f7-list-item>
         </f7-list>
 
-        <f7-list strong inset dividers sortable class="margin-top template-list"
+        <f7-list strong inset dividers sortable class="margin-top-half template-list"
                  :sortable-enabled="sortable"
                  v-if="!loading"
                  @sortable:sort="onSort">
@@ -52,8 +52,10 @@
                 <f7-swipeout-actions :left="textDirection === TextDirection.LTR"
                                      :right="textDirection === TextDirection.RTL"
                                      v-if="sortable">
-                    <f7-swipeout-button :color="template.hidden ? 'blue' : 'gray'" class="padding-horizontal"
-                                        overswipe close @click="hide(template, !template.hidden)">
+                    <f7-swipeout-button class="padding-horizontal" overswipe close
+                                        :aria-label="template.hidden ? tt('Show') : tt('Hide')"
+                                        :color="template.hidden ? 'blue' : 'gray'"
+                                        @click="hide(template, !template.hidden)">
                         <f7-icon :f7="template.hidden ? 'eye' : 'eye_slash'"></f7-icon>
                     </f7-swipeout-button>
                 </f7-swipeout-actions>
@@ -61,7 +63,7 @@
                                      :right="textDirection === TextDirection.LTR"
                                      v-if="!sortable">
                     <f7-swipeout-button color="orange" close :text="tt('Edit')" @click="edit(template)"></f7-swipeout-button>
-                    <f7-swipeout-button color="red" class="padding-horizontal" @click="remove(template, false)">
+                    <f7-swipeout-button color="red" class="padding-horizontal" :aria-label="tt('Delete')" @click="remove(template, false)">
                         <f7-icon f7="trash"></f7-icon>
                     </f7-swipeout-button>
                 </f7-swipeout-actions>
@@ -70,7 +72,7 @@
 
         <f7-actions close-by-outside-click close-on-escape :opened="showMoreActionSheet" @actions:closed="showMoreActionSheet = false">
             <f7-actions-group>
-                <f7-actions-button @click="setSortable()">{{ tt('Sort') }}</f7-actions-button>
+                <f7-actions-button :class="{ 'disabled': !templates || templates.length < 2 }" @click="setSortable()">{{ tt('Sort') }}</f7-actions-button>
                 <f7-actions-button v-if="!showHidden" @click="showHidden = true">{{ tt('Show Hidden Transaction Templates') }}</f7-actions-button>
                 <f7-actions-button v-if="showHidden" @click="showHidden = false">{{ tt('Hide Hidden Transaction Templates') }}</f7-actions-button>
             </f7-actions-group>

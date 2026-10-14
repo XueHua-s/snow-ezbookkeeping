@@ -105,13 +105,25 @@ check_type_dependencies() {
 
     check_dependency "git"
 
-    if [ "$TYPE" = "backend" ]; then
-        check_dependency "go gcc"
-    elif [ "$TYPE" = "frontend" ]; then
+    if [ "$TYPE" = "backend" ] || [ "$TYPE" = "package" ]; then
+        check_dependency "go"
+
+        if [ "$(uname -s)" = "Darwin" ] || [ "$(uname -s)" = "FreeBSD" ]; then
+            check_dependency "clang"
+        else
+            check_dependency "gcc"
+        fi
+    fi
+
+    if [ "$TYPE" = "frontend" ] || [ "$TYPE" = "package" ]; then
         check_dependency "node npm"
-    elif [ "$TYPE" = "package" ]; then
-        check_dependency "go gcc node npm tar"
-    elif [ "$TYPE" = "docker" ]; then
+    fi
+
+    if [ "$TYPE" = "package" ]; then
+        check_dependency "tar"
+    fi
+
+    if [ "$TYPE" = "docker" ]; then
         check_dependency "docker"
     fi
 }
@@ -160,6 +172,12 @@ build_backend() {
         fi
     fi
 
+    ld_static_link_flags=""
+
+    if [ "$(uname -s)" = "Linux" ]; then
+       ld_static_link_flags="-linkmode external -extldflags '-static'"
+    fi
+
     backend_build_extra_arguments="-X main.Version=$VERSION"
     backend_build_extra_arguments="$backend_build_extra_arguments -X main.CommitHash=$COMMIT_HASH"
 
@@ -169,7 +187,7 @@ build_backend() {
 
     echo "Building backend binary file ($RELEASE_TYPE)..."
 
-    CGO_ENABLED=1 go build -a -v -trimpath -ldflags "-w -s -linkmode external -extldflags '-static' $backend_build_extra_arguments" -o ezbookkeeping ezbookkeeping.go
+    CGO_ENABLED=1 go build -a -v -trimpath -ldflags "-w -s $ld_static_link_flags $backend_build_extra_arguments" -o ezbookkeeping ezbookkeeping.go
     chmod +x ezbookkeeping
 }
 

@@ -1,3 +1,5 @@
+import type { BigDecimal } from './numeral.ts';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PartialRecord<K extends keyof any, T> = {
     [P in K]?: T;
@@ -65,14 +67,24 @@ export function* values<K extends string | number | symbol, V>(obj: Record<K, V>
     }
 }
 
-export interface NameValue {
+export interface GenericNameValue<T> {
+    readonly name: string;
+    readonly value: T;
+}
+
+export interface NameValue extends GenericNameValue<string> {
     readonly name: string;
     readonly value: string;
 }
 
-export interface NameNumeralValue {
+export interface NameNumeralValue extends GenericNameValue<number> {
     readonly name: string;
     readonly value: number;
+}
+
+export interface NameBigDecimalValue extends GenericNameValue<BigDecimal> {
+    readonly name: string;
+    readonly value: BigDecimal;
 }
 
 export interface KeyAndName {
@@ -83,6 +95,10 @@ export interface KeyAndName {
 export interface TypeAndName {
     readonly type: number;
     readonly name: string;
+}
+
+export interface TypeAndNameWithAlternativeName extends TypeAndName {
+    readonly alternativeName?: string;
 }
 
 export interface TypeAndDisplayName {

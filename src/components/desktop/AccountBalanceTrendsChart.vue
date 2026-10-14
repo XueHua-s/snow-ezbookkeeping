@@ -1,5 +1,6 @@
 <template>
-    <v-chart autoresize class="account-balance-trends-chart-container" :class="{ 'transition-in': skeleton }" :option="chartOptions"/>
+    <v-chart autoresize class="account-balance-trends-chart-container" :class="{ 'transition-in': skeleton }"
+             :option="chartOptions" :update-options="{ notMerge: true }" />
 </template>
 
 <script setup lang="ts">
@@ -14,22 +15,29 @@ import {
     useAccountBalanceTrendsChartBase
 } from '@/components/base/AccountBalanceTrendsChartBase.ts'
 
+import { useSettingsStore } from '@/stores/setting.ts';
 import { useUserStore } from '@/stores/user.ts';
 
-import { type NameValue, itemAndIndex } from '@/core/base.ts';
+import { type NameBigDecimalValue, itemAndIndex } from '@/core/base.ts';
 import { TextDirection } from '@/core/text.ts';
-import type { ColorStyleValue } from '@/core/color.ts';
+import type { BigDecimal } from '@/core/numeral.ts';
+import type { ColorValue, ColorStyleValue } from '@/core/color.ts';
 import { ThemeType } from '@/core/theme.ts';
-import { AccountBalanceTrendChartType } from '@/core/statistics.ts';
-import { DEFAULT_CHART_COLORS } from '@/consts/color.ts';
+import { AccountBalanceTrendChartType, ChartDateAggregationType } from '@/core/statistics.ts';
 
 import { isArray } from '@/lib/common.ts';
+import { BIG_DECIMAL_POSITIVE_INFINITY, BIG_DECIMAL_NEGATIVE_INFINITY, parseBigDecimal } from '@/lib/numeral.ts';
 import { getExpenseAndIncomeAmountColor } from '@/lib/ui/common.ts';
 
 interface DesktopAccountBalanceTrendsChartProps extends CommonAccountBalanceTrendsChartProps {
     legendName: string;
     skeleton?: boolean;
     type?: number;
+}
+
+interface AccountBalanceTrendsChartData {
+    allSeries: AccountBalanceTrendsChartDataItem[];
+    seriesOriginalData: (BigDecimal | BigDecimal[])[];
 }
 
 interface AccountBalanceTrendsChartDataItem {
@@ -44,28 +52,42 @@ interface AccountBalanceTrendsChartDataItem {
     selected: boolean;
     type: string;
     areaStyle?: object;
+    smooth?: boolean;
     stack: string;
     animation: boolean;
-    data: (number | number[])[];
+    data: (string | string[])[]; // only used for echarts rendering, the actual value is in seriesOriginalData
 }
 
 const props = defineProps<DesktopAccountBalanceTrendsChartProps>();
 
 const theme = useTheme();
-const { tt, getCurrentLanguageTextDirection, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
-const { allDataItems, allDisplayDateRanges } = useAccountBalanceTrendsChartBase(props);
+const {
+    tt,
+    getCurrentLanguageTextDirection,
+    formatAmountToLocalizedNumeralsWithCurrency,
+    formatPercentToLocalizedNumerals
+} = useI18n();
+const {
+    showYearOverYearOnTooltip,
+    showPeriodOverPeriodOnTooltip,
+    allDataItems,
+    allDataItemsMap,
+    allDisplayDateRanges
+} = useAccountBalanceTrendsChartBase(props);
 
+const settingsStore = useSettingsStore();
 const userStore = useUserStore();
 
 const textDirection = computed<TextDirection>(() => getCurrentLanguageTextDirection());
 const isDarkMode = computed<boolean>(() => theme.global.name.value === ThemeType.Dark);
+const chartColors = computed<ColorValue[]>(() => settingsStore.chartColorList);
 
-const allSeries = computed<AccountBalanceTrendsChartDataItem[]>(() => {
+const trendsChartData = computed<AccountBalanceTrendsChartData>(() => {
     const series: AccountBalanceTrendsChartDataItem = {
         id: 'accountBalance',
         name: props.legendName,
         itemStyle: {
-            color: `#${DEFAULT_CHART_COLORS[0]}`
+            color: `#${chartColors.value[0]}`
         },
         selected: true,
         type: 'line',
@@ -73,11 +95,17 @@ const allSeries = computed<AccountBalanceTrendsChartDataItem[]>(() => {
         animation: !props.skeleton,
         data: []
     };
+    const originalData: (BigDecimal | BigDecimal[])[] = [];
 
-    if (props.type === AccountBalanceTrendChartType.Area.type) {
+    if (props.type === AccountBalanceTrendChartType.Area.type
+        || props.type === AccountBalanceTrendChartType.SmoothArea.type) {
         series.areaStyle = {};
+        series.smooth = props.type === AccountBalanceTrendChartType.SmoothArea.type;
     } else if (props.type === AccountBalanceTrendChartType.Column.type) {
         series.type = 'bar';
+    } else if (props.type === AccountBalanceTrendChartType.Boxplot.type) {
+        series.type = 'boxplot';
+        series.itemStyle.borderColor = series.itemStyle.color;
     } else if (props.type === AccountBalanceTrendChartType.Candlestick.type) {
         const expenseIncomeAmountColor = getExpenseAndIncomeAmountColor(userStore.currentUserExpenseAmountColor, userStore.currentUserIncomeAmountColor, isDarkMode.value);
         series.type = 'candlestick';
@@ -88,47 +116,76 @@ const allSeries = computed<AccountBalanceTrendsChartDataItem[]>(() => {
     }
 
     for (const item of allDataItems.value) {
-        if (props.type === AccountBalanceTrendChartType.Candlestick.type) {
+        if (props.type === AccountBalanceTrendChartType.Boxplot.type) {
             series.data.push([
+                item.minimumBalance.toString(),
+                item.q1Balance.toString(),
+                item.medianBalance.toString(),
+                item.q3Balance.toString(),
+                item.maximumBalance.toString()
+            ]);
+            originalData.push([
+                item.minimumBalance,
+                item.q1Balance,
+                item.medianBalance,
+                item.q3Balance,
+                item.maximumBalance
+            ]);
+        } else if (props.type === AccountBalanceTrendChartType.Candlestick.type) {
+            series.data.push([
+                item.openingBalance.toString(),
+                item.closingBalance.toString(),
+                item.minimumBalance.toString(),
+                item.maximumBalance.toString()
+            ]);
+            originalData.push([
                 item.openingBalance,
                 item.closingBalance,
                 item.minimumBalance,
                 item.maximumBalance
             ]);
         } else {
-            series.data.push(item.closingBalance);
+            series.data.push(item.closingBalance.toString());
+            originalData.push(item.closingBalance);
         }
     }
 
-    return [series];
+    return {
+        allSeries: [series],
+        seriesOriginalData: originalData
+    };
 });
 
 const yAxisWidth = computed<number>(() => {
-    let maxValue = Number.MIN_SAFE_INTEGER;
-    let minValue = Number.MAX_SAFE_INTEGER;
+    let maxValue: BigDecimal = BIG_DECIMAL_NEGATIVE_INFINITY;
+    let minValue: BigDecimal = BIG_DECIMAL_POSITIVE_INFINITY;
     let width = 90;
 
-    if (!allSeries.value || !allSeries.value.length) {
+    if (!trendsChartData.value || !trendsChartData.value.seriesOriginalData || !trendsChartData.value.seriesOriginalData.length) {
         return width;
     }
 
-    for (const series of allSeries.value) {
-        for (const data of series.data) {
-            let value: number;
+    for (const data of trendsChartData.value.seriesOriginalData) {
+        let currentMinValue: BigDecimal;
+        let currentMaxValue: BigDecimal;
 
-            if (isArray(data)) {
-                value = data[1] as number; // for candlestick, use closing balance
-            } else {
-                value = data as number; // for line or bar chart
-            }
+        if (isArray(data) && props.type === AccountBalanceTrendChartType.Boxplot.type) {
+            currentMinValue = data[0]!;
+            currentMaxValue = data[4]!;
+        } else if (isArray(data) && props.type === AccountBalanceTrendChartType.Candlestick.type) {
+            currentMinValue = data[2]!;
+            currentMaxValue = data[3]!;
+        } else {
+            currentMinValue = data as BigDecimal;
+            currentMaxValue = data as BigDecimal;
+        }
 
-            if (value > maxValue) {
-                maxValue = value;
-            }
+        if (currentMaxValue.greaterThan(maxValue)) {
+            maxValue = currentMaxValue;
+        }
 
-            if (value < minValue) {
-                minValue = value;
-            }
+        if (currentMinValue.lessThan(minValue)) {
+            minValue = currentMinValue;
         }
     }
 
@@ -172,54 +229,88 @@ const chartOptions = computed<object>(() => {
                 color: isDarkMode.value ? '#eee' : '#333'
             },
             formatter: (params: CallbackDataParams[]) => {
-                if (props.type === AccountBalanceTrendChartType.Candlestick.type) {
-                    const dataIndex = params[0]!.dataIndex;
-                    const dataItem = allDataItems.value[dataIndex] as AccountBalanceTrendsChartItem;
-                    const displayItems: NameValue[] = [
-                        {
-                            name: tt('Opening Balance'),
-                            value: formatAmountToLocalizedNumeralsWithCurrency(dataItem.openingBalance, props.account.currency)
-                        },
-                        {
-                            name: tt('Closing Balance'),
-                            value: formatAmountToLocalizedNumeralsWithCurrency(dataItem.closingBalance, props.account.currency)
-                        },
-                        {
-                            name: tt('Minimum Balance'),
-                            value: formatAmountToLocalizedNumeralsWithCurrency(dataItem.minimumBalance, props.account.currency)
-                        },
-                        {
-                            name: tt('Maximum Balance'),
-                            value: formatAmountToLocalizedNumeralsWithCurrency(dataItem.maximumBalance, props.account.currency)
-                        },
-                        {
-                            name: tt('Median Balance'),
-                            value: formatAmountToLocalizedNumeralsWithCurrency(dataItem.medianBalance, props.account.currency)
-                        },
-                        {
-                            name: tt('Average Balance'),
-                            value: formatAmountToLocalizedNumeralsWithCurrency(dataItem.averageBalance, props.account.currency)
-                        }
-                    ];
+                const dataIndex = params[0]!.dataIndex;
+                const dataItem: AccountBalanceTrendsChartItem = allDataItems.value[dataIndex] as AccountBalanceTrendsChartItem;
+                const yearOverYearDataItem: AccountBalanceTrendsChartItem | undefined = showYearOverYearOnTooltip.value ? allDataItemsMap.value[dataItem.lastYearDateRangeKey] : undefined;
+                const periodOverPeriodDataItem: AccountBalanceTrendsChartItem | undefined = showPeriodOverPeriodOnTooltip.value ? allDataItems.value[dataIndex - 1] : undefined;
 
-                    let tooltip = `${params[0]!.name} ${props.legendName}<br/>`;
+                let header: string = params[0]!.name;
+                let displayItems: NameBigDecimalValue[] = [];
+                let yearOverYearDataItemDisplayItems: NameBigDecimalValue[] | undefined = undefined;
+                let periodOverPeriodDataItemDisplayItems: NameBigDecimalValue[] | undefined = undefined;
+                let separatorLineIndex: number | undefined = undefined;
 
-                    for (const [displayItem, index] of itemAndIndex(displayItems)) {
-                        tooltip += `<div><span class="chart-pointer" style="background-color: #${DEFAULT_CHART_COLORS[index]}"></span>`
-                            + `<span>${displayItem.name}</span><span class="ms-5" style="float: inline-end">${displayItem.value}</span><br/>`
-                            + `</div>`;
+                if (dataItem.alternativeDisplayDate) {
+                    header = dataItem.alternativeDisplayDate;
+                }
+
+                if (props.type === AccountBalanceTrendChartType.Boxplot.type) {
+                    header += ` ${props.legendName}`;
+                    displayItems = getBoxplotChartTooltip(dataItem);
+                    yearOverYearDataItemDisplayItems = yearOverYearDataItem ? getBoxplotChartTooltip(yearOverYearDataItem) : undefined;
+                    periodOverPeriodDataItemDisplayItems = periodOverPeriodDataItem ? getBoxplotChartTooltip(periodOverPeriodDataItem) : undefined;
+                    separatorLineIndex = 5;
+                } else if (props.type === AccountBalanceTrendChartType.Candlestick.type) {
+                    header += ` ${props.legendName}`;
+                    displayItems = getCandlestickChartTooltip(dataItem);
+                    yearOverYearDataItemDisplayItems = yearOverYearDataItem ? getCandlestickChartTooltip(yearOverYearDataItem) : undefined;
+                    periodOverPeriodDataItemDisplayItems = periodOverPeriodDataItem ? getCandlestickChartTooltip(periodOverPeriodDataItem) : undefined;
+                    separatorLineIndex = 4;
+                } else {
+                    displayItems = getDefaultChartTooltip(dataItem);
+                    yearOverYearDataItemDisplayItems = yearOverYearDataItem ? getDefaultChartTooltip(yearOverYearDataItem) : undefined;
+                    periodOverPeriodDataItemDisplayItems = periodOverPeriodDataItem ? getDefaultChartTooltip(periodOverPeriodDataItem) : undefined;
+                }
+
+                const totalColumnCount = 2 + (yearOverYearDataItemDisplayItems && yearOverYearDataItemDisplayItems.length ? 1 : 0) + (periodOverPeriodDataItemDisplayItems && periodOverPeriodDataItemDisplayItems.length ? 1 : 0);
+                let tooltip = `<table class="chart-tooltip-table"><tbody><tr><td colspan="2">${header}</td>`;
+
+                if (yearOverYearDataItemDisplayItems && yearOverYearDataItemDisplayItems.length) {
+                    tooltip += `<td><span class="ms-5" style="float: inline-end">${tt('Year-over-Year')}</span></td>`;
+                }
+
+                if (periodOverPeriodDataItemDisplayItems && periodOverPeriodDataItemDisplayItems.length) {
+                    let periodOverPeriodText = tt('Period-over-Period');
+
+                    if (props.dateAggregationType === ChartDateAggregationType.Quarter.type) {
+                        periodOverPeriodText = tt('Quarter-over-Quarter');
+                    } else if (props.dateAggregationType === ChartDateAggregationType.Month.type) {
+                        periodOverPeriodText = tt('Month-over-Month');
+                    } else if (props.dateAggregationType === ChartDateAggregationType.Day.type) {
+                        periodOverPeriodText = tt('Day-over-Day');
                     }
 
-                    return tooltip;
-                } else {
-                    const amount = params[0]!.data as number;
-                    const value = formatAmountToLocalizedNumeralsWithCurrency(amount, props.account.currency);
-
-                    return `${params[0]!.name}<br/>`
-                        + '<div><span class="chart-pointer" style="background-color: #' + DEFAULT_CHART_COLORS[0] + '"></span>'
-                        + `<span>${props.legendName}</span><span class="ms-5" style="float: inline-end">${value}</span><br/>`
-                        + '</div>';
+                    tooltip += `<td><span class="ms-5" style="float: inline-end">${periodOverPeriodText}</span></td>`;
                 }
+
+                tooltip += '</tr>';
+
+                for (const [displayItem, index] of itemAndIndex(displayItems)) {
+                    const displayValue = formatAmountToLocalizedNumeralsWithCurrency(displayItem.value, props.account.currency);
+                    tooltip += `<tr><td><span class="chart-pointer" style="background-color: #${chartColors.value[index]}"></span>`
+                        + `<span>${displayItem.name}</span></td><td><span class="ms-5" style="float: inline-end">${displayValue}</span></td>`;
+
+                    if (yearOverYearDataItemDisplayItems && yearOverYearDataItemDisplayItems.length && yearOverYearDataItemDisplayItems[index]) {
+                        const yearOverYearDisplayItem = yearOverYearDataItemDisplayItems[index];
+                        const displayGrowthRate = formatDisplayChangeRate(displayItem.value, yearOverYearDisplayItem.value);
+                        tooltip += `<td><span class="ms-5" style="float: inline-end">${displayGrowthRate}</span></td>`;
+                    }
+
+                    if (periodOverPeriodDataItemDisplayItems && periodOverPeriodDataItemDisplayItems.length && periodOverPeriodDataItemDisplayItems[index]) {
+                        const periodOverPeriodDisplayItem = periodOverPeriodDataItemDisplayItems[index];
+                        const displayGrowthRate = formatDisplayChangeRate(displayItem.value, periodOverPeriodDisplayItem.value);
+                        tooltip += `<td><span class="ms-5" style="float: inline-end">${displayGrowthRate}</span></td>`;
+                    }
+
+                    tooltip += '</tr>';
+
+                    if (separatorLineIndex !== undefined && index === separatorLineIndex - 1) {
+                        tooltip += `<tr><td colspan="${totalColumnCount}" style="border-bottom: ${(isDarkMode.value ? '#eee' : '#333')} dashed 1px"></td></tr>`;
+                    }
+                }
+
+                tooltip += `</tbody></table>`;
+                return tooltip;
             }
         },
         grid: {
@@ -243,14 +334,14 @@ const chartOptions = computed<object>(() => {
                 type: 'value',
                 axisLabel: {
                     color: isDarkMode.value ? '#888' : '#666',
-                    formatter: (value: string) => {
-                        return formatAmountToLocalizedNumeralsWithCurrency(parseInt(value), props.account.currency);
+                    formatter: (value: number) => {
+                        return formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(value), props.account.currency);
                     }
                 },
                 axisPointer: {
                     label: {
                         formatter: (params: CallbackDataParams) => {
-                            return formatAmountToLocalizedNumeralsWithCurrency(Math.trunc(params.value as number), props.account.currency);
+                            return formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(params.value as number).truncate(), props.account.currency);
                         }
                     }
                 },
@@ -261,15 +352,100 @@ const chartOptions = computed<object>(() => {
                 }
             }
         ],
-        series: allSeries.value
+        series: trendsChartData.value.allSeries
     };
 });
+
+function getBoxplotChartTooltip(dataItem: AccountBalanceTrendsChartItem): NameBigDecimalValue[] {
+    return [
+        {
+            name: tt('Minimum Balance'),
+            value: dataItem.minimumBalance
+        },
+        {
+            name: tt('Q1 Balance (First Quartile)'),
+            value: dataItem.q1Balance
+        },
+        {
+            name: tt('Median Balance'),
+            value: dataItem.medianBalance
+        },
+        {
+            name: tt('Q3 Balance (Third Quartile)'),
+            value: dataItem.q3Balance
+        },
+        {
+            name: tt('Maximum Balance'),
+            value: dataItem.maximumBalance
+        },
+        {
+            name: tt('Opening Balance'),
+            value: dataItem.openingBalance
+        },
+        {
+            name: tt('Closing Balance'),
+            value: dataItem.closingBalance
+        }
+    ];
+}
+
+function getCandlestickChartTooltip(dataItem: AccountBalanceTrendsChartItem): NameBigDecimalValue[] {
+    return [
+        {
+            name: tt('Opening Balance'),
+            value: dataItem.openingBalance
+        },
+        {
+            name: tt('Closing Balance'),
+            value: dataItem.closingBalance
+        },
+        {
+            name: tt('Minimum Balance'),
+            value: dataItem.minimumBalance
+        },
+        {
+            name: tt('Maximum Balance'),
+            value: dataItem.maximumBalance
+        },
+        {
+            name: tt('Median Balance'),
+            value: dataItem.medianBalance
+        },
+        {
+            name: tt('Average Balance'),
+            value: dataItem.averageBalance
+        }
+    ];
+}
+
+function getDefaultChartTooltip(dataItem: AccountBalanceTrendsChartItem): NameBigDecimalValue[] {
+    return [
+        {
+            name: props.legendName,
+            value: dataItem.closingBalance
+        }
+    ];
+}
+
+
+function formatDisplayChangeRate(current: BigDecimal, reference: BigDecimal): string {
+    if (reference.isZero() && current.isZero()) {
+        return formatPercentToLocalizedNumerals(0, 2, '<0.01');
+    }
+
+    if (reference.isZero()) {
+        return '-';
+    }
+
+    const rate = (current.subtract(reference)).divide(reference).multiply(100).toDoubleNumber();
+    return formatPercentToLocalizedNumerals(rate, 2, '<0.01');
+}
 </script>
 
 <style scoped>
 .account-balance-trends-chart-container {
     width: 100%;
-    height: 418px;
+    height: 438px;
     margin-top: 10px;
 }
 </style>

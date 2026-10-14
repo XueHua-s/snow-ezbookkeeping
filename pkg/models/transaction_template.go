@@ -21,9 +21,12 @@ type TransactionScheduleFrequencyType byte
 
 // Transaction template schedule frequency types
 const (
-	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_DISABLED TransactionScheduleFrequencyType = 0
-	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_WEEKLY   TransactionScheduleFrequencyType = 1
-	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_MONTHLY  TransactionScheduleFrequencyType = 2
+	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_DISABLED     TransactionScheduleFrequencyType = 0
+	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_WEEKLY       TransactionScheduleFrequencyType = 1
+	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_MONTHLY      TransactionScheduleFrequencyType = 2
+	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_DAILY        TransactionScheduleFrequencyType = 3
+	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_YEARLY       TransactionScheduleFrequencyType = 4
+	TRANSACTION_SCHEDULE_FREQUENCY_TYPE_EVERY_N_DAYS TransactionScheduleFrequencyType = 5
 )
 
 // TransactionTemplate represents transaction template stored in database
@@ -41,6 +44,7 @@ type TransactionTemplate struct {
 	ScheduledStartTime         *int64                           `xorm:"INDEX(IDX_transaction_template_deleted_type_freqtype_scheduled_time)"`
 	ScheduledEndTime           *int64                           `xorm:"INDEX(IDX_transaction_template_deleted_type_freqtype_scheduled_time)"`
 	ScheduledAt                int16                            `xorm:"INDEX(IDX_transaction_template_deleted_type_freqtype_scheduled_time)"`
+	ScheduledTimezoneName      string                           `xorm:"VARCHAR(100)"`
 	ScheduledTimezoneUtcOffset int16
 	TagIds                     string `xorm:"VARCHAR(255) NOT NULL"`
 	Amount                     int64  `xorm:"NOT NULL"`
@@ -73,8 +77,8 @@ type TransactionTemplateCreateRequest struct {
 	CategoryId                 int64                             `json:"categoryId,string" binding:"required,min=1"`
 	SourceAccountId            int64                             `json:"sourceAccountId,string" binding:"required,min=1"`
 	DestinationAccountId       int64                             `json:"destinationAccountId,string" binding:"min=0"`
-	SourceAmount               int64                             `json:"sourceAmount" binding:"min=-99999999999,max=99999999999"`
-	DestinationAmount          int64                             `json:"destinationAmount" binding:"min=-99999999999,max=99999999999"`
+	SourceAmount               int64                             `json:"sourceAmount" binding:"validTransactionAmount"`
+	DestinationAmount          int64                             `json:"destinationAmount" binding:"validTransactionAmount"`
 	HideAmount                 bool                              `json:"hideAmount"`
 	TagIds                     []string                          `json:"tagIds"`
 	Comment                    string                            `json:"comment" binding:"max=255"`
@@ -82,6 +86,7 @@ type TransactionTemplateCreateRequest struct {
 	ScheduledFrequency         *string                           `json:"scheduledFrequency" binding:"omitempty"`
 	ScheduledStartDate         *string                           `json:"scheduledStartDate" binding:"omitempty"`
 	ScheduledEndDate           *string                           `json:"scheduledEndDate" binding:"omitempty"`
+	ScheduledTimezoneName      *string                           `json:"timeZone" binding:"omitempty,min=3,max=100"`
 	ScheduledTimezoneUtcOffset *int16                            `json:"utcOffset" binding:"omitempty,min=-720,max=840"`
 	ClientSessionId            string                            `json:"clientSessionId"`
 }
@@ -100,8 +105,8 @@ type TransactionTemplateModifyRequest struct {
 	CategoryId                 int64                             `json:"categoryId,string" binding:"required,min=1"`
 	SourceAccountId            int64                             `json:"sourceAccountId,string" binding:"required,min=1"`
 	DestinationAccountId       int64                             `json:"destinationAccountId,string" binding:"min=0"`
-	SourceAmount               int64                             `json:"sourceAmount" binding:"min=-99999999999,max=99999999999"`
-	DestinationAmount          int64                             `json:"destinationAmount" binding:"min=-99999999999,max=99999999999"`
+	SourceAmount               int64                             `json:"sourceAmount" binding:"validTransactionAmount"`
+	DestinationAmount          int64                             `json:"destinationAmount" binding:"validTransactionAmount"`
 	HideAmount                 bool                              `json:"hideAmount"`
 	TagIds                     []string                          `json:"tagIds"`
 	Comment                    string                            `json:"comment" binding:"max=255"`
@@ -109,6 +114,7 @@ type TransactionTemplateModifyRequest struct {
 	ScheduledFrequency         *string                           `json:"scheduledFrequency" binding:"omitempty"`
 	ScheduledStartDate         *string                           `json:"scheduledStartDate" binding:"omitempty"`
 	ScheduledEndDate           *string                           `json:"scheduledEndDate" binding:"omitempty"`
+	ScheduledTimezoneName      *string                           `json:"timeZone" binding:"omitempty,min=3,max=100"`
 	ScheduledTimezoneUtcOffset *int16                            `json:"utcOffset" binding:"omitempty,min=-720,max=840"`
 }
 
@@ -143,6 +149,7 @@ type TransactionTemplateInfoResponse struct {
 	ScheduledStartDate     *string                           `json:"scheduledStartDate" binding:"omitempty"`
 	ScheduledEndDate       *string                           `json:"scheduledEndDate" binding:"omitempty"`
 	ScheduledAt            *int16                            `json:"scheduledAt,omitempty"`
+	ScheduledTimezoneName  string                            `json:"timeZone,omitempty"`
 	DisplayOrder           int32                             `json:"displayOrder"`
 	Hidden                 bool                              `json:"hidden"`
 }
@@ -180,16 +187,23 @@ func (t *TransactionTemplate) ToTransactionTemplateInfoResponse(serverUtcOffset 
 		response.ScheduledFrequencyType = &t.ScheduledFrequencyType
 		response.ScheduledFrequency = &t.ScheduledFrequency
 		response.ScheduledAt = &t.ScheduledAt
+		response.ScheduledTimezoneName = t.ScheduledTimezoneName
 
-		templateTimeZone := time.FixedZone("Template Timezone", int(t.ScheduledTimezoneUtcOffset)*60)
+		templateTimezone := time.FixedZone("Template Timezone", int(t.ScheduledTimezoneUtcOffset)*60)
+
+		if len(t.ScheduledTimezoneName) > 0 {
+			if location, err := time.LoadLocation(t.ScheduledTimezoneName); err == nil {
+				templateTimezone = location
+			}
+		}
 
 		if t.ScheduledStartTime != nil {
-			startDate := utils.FormatUnixTimeToLongDate(*t.ScheduledStartTime, templateTimeZone)
+			startDate := utils.FormatUnixTimeToLongDate(*t.ScheduledStartTime, templateTimezone)
 			response.ScheduledStartDate = &startDate
 		}
 
 		if t.ScheduledEndTime != nil {
-			endDate := utils.FormatUnixTimeToLongDate(*t.ScheduledEndTime, templateTimeZone)
+			endDate := utils.FormatUnixTimeToLongDate(*t.ScheduledEndTime, templateTimezone)
 			response.ScheduledEndDate = &endDate
 		}
 	}
@@ -204,6 +218,12 @@ func (t *TransactionTemplate) toTransactionInfoResponse(utcOffset int16) *Transa
 		tagIds = strings.Split(t.TagIds, ",")
 	}
 
+	var destinationAmount *int64
+
+	if t.Type == TRANSACTION_TYPE_TRANSFER {
+		destinationAmount = &t.RelatedAccountAmount
+	}
+
 	return &TransactionInfoResponse{
 		Id:                   t.TemplateId,
 		TimeSequenceId:       utils.GetMinTransactionTimeFromUnixTime(t.CreatedUnixTime),
@@ -214,7 +234,7 @@ func (t *TransactionTemplate) toTransactionInfoResponse(utcOffset int16) *Transa
 		SourceAccountId:      t.AccountId,
 		DestinationAccountId: t.RelatedAccountId,
 		SourceAmount:         t.Amount,
-		DestinationAmount:    t.RelatedAccountAmount,
+		DestinationAmount:    destinationAmount,
 		HideAmount:           t.HideAmount,
 		TagIds:               tagIds,
 		Comment:              t.Comment,

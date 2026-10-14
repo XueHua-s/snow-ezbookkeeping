@@ -148,11 +148,20 @@ dist/
 # Roo Code
 .roo/
 
+# Codex
+.codex
+.planning
+
 # Binary and build files
 ezbookkeeping
-package/
+!**/ezbookkeeping/
+/package/
+
+# Environment variable files
+.env
+**/.env
 
 # Other directories
-data/
-storage/
-log/
+/data/
+/storage/
+/log/

@@ -15,13 +15,16 @@ import {
     ALL_ALLOWED_CLOUD_SYNC_APP_SETTING_KEY_TYPES
 } from '@/core/setting.ts';
 
-
+import type { ColorValue } from '@/core/color.ts';
 import { AccountCategory } from '@/core/account.ts';
+
+import { DEFAULT_CHART_COLORS } from '@/consts/color.ts';
 
 import {
     isObject,
     isString,
     isBoolean,
+    isHextualColor,
     getObjectOwnFieldCount,
     arrayItemToObjectField
 } from '@/lib/common.ts';
@@ -43,6 +46,17 @@ export const useSettingsStore = defineStore('settings', () => {
     const localeDefaultSettings = ref<LocaleDefaultSettings>(getLocaleDefaultSettings());
 
     const enableApplicationCloudSync = computed<boolean>(() => getObjectOwnFieldCount(syncedAppSettings.value) > 0);
+
+    const chartColorList = computed<ColorValue[]>(() => {
+        const chartColors = appSettings.value.chartColors;
+
+        if (!chartColors) {
+            return [...DEFAULT_CHART_COLORS];
+        }
+
+        const colors = chartColors.split(',').map(c => c.trim().toLowerCase()).filter(c => isHextualColor(c));
+        return colors.length > 0 ? colors : [...DEFAULT_CHART_COLORS];
+    });
 
     const accountCategoryDisplayOrders = computed<Record<number, number>>(() => AccountCategory.allDisplayOrders(appSettings.value.accountCategoryOrders));
 
@@ -133,7 +147,7 @@ export const useSettingsStore = defineStore('settings', () => {
         });
     }
 
-    // Basic Settings
+    // General Settings
     function setTheme(value: string): void {
         updateApplicationSettingsValue('theme', value);
         appSettings.value.theme = value;
@@ -152,12 +166,25 @@ export const useSettingsStore = defineStore('settings', () => {
     function setAutoUpdateExchangeRatesData(value: boolean): void {
         updateApplicationSettingsValue('autoUpdateExchangeRatesData', value);
         appSettings.value.autoUpdateExchangeRatesData = value;
+        updateUserApplicationCloudSettingValue('autoUpdateExchangeRatesData', value);
     }
 
     function setShowAccountBalance(value: boolean): void {
         updateApplicationSettingsValue('showAccountBalance', value);
         appSettings.value.showAccountBalance = value;
         updateUserApplicationCloudSettingValue('showAccountBalance', value);
+    }
+
+    function setAccountCategoryOrders(value: string): void {
+        updateApplicationSettingsValue('accountCategoryOrders', value);
+        appSettings.value.accountCategoryOrders = value;
+        updateUserApplicationCloudSettingValue('accountCategoryOrders', value);
+    }
+
+    function setChartColors(value: string): void {
+        updateApplicationSettingsValue('chartColors', value);
+        appSettings.value.chartColors = value;
+        updateUserApplicationCloudSettingValue('chartColors', value);
     }
 
     function setEnableSwipeBack(value: boolean): void {
@@ -185,9 +212,22 @@ export const useSettingsStore = defineStore('settings', () => {
     function setShowAddTransactionButtonInDesktopNavbar(value: boolean): void {
         updateApplicationSettingsValue('showAddTransactionButtonInDesktopNavbar', value);
         appSettings.value.showAddTransactionButtonInDesktopNavbar = value;
+        updateUserApplicationCloudSettingValue('showAddTransactionButtonInDesktopNavbar', value);
     }
 
     // Overview Page
+    function setDesktopOverviewPageLayout(value: string): void {
+        updateApplicationSettingsValue('desktopOverviewPageLayout', value);
+        appSettings.value.desktopOverviewPageLayout = value;
+        updateUserApplicationCloudSettingValue('desktopOverviewPageLayout', value);
+    }
+
+    function setMobileOverviewPageLayout(value: string): void {
+        updateApplicationSettingsValue('mobileOverviewPageLayout', value);
+        appSettings.value.mobileOverviewPageLayout = value;
+        updateUserApplicationCloudSettingValue('mobileOverviewPageLayout', value);
+    }
+
     function setShowAmountInHomePage(value: boolean): void {
         updateApplicationSettingsValue('showAmountInHomePage', value);
         appSettings.value.showAmountInHomePage = value;
@@ -212,6 +252,12 @@ export const useSettingsStore = defineStore('settings', () => {
         updateUserApplicationCloudSettingValue('overviewTransactionCategoryFilterInHomePage', value);
     }
 
+    function setOverviewTransactionTagFilterInHomePage(value: string): void {
+        updateApplicationSettingsValue('overviewTransactionTagFilterInHomePage', value);
+        appSettings.value.overviewTransactionTagFilterInHomePage = value;
+        updateUserApplicationCloudSettingValue('overviewTransactionTagFilterInHomePage', value);
+    }
+
     // Transaction List Page
     function setItemsCountInTransactionListPage(value: number): void {
         updateApplicationSettingsValue('itemsCountInTransactionListPage', value);
@@ -225,13 +271,37 @@ export const useSettingsStore = defineStore('settings', () => {
         updateUserApplicationCloudSettingValue('showTotalAmountInTransactionListPage', value);
     }
 
+    function setTotalAmountTypeInTransactionListPage(value: number): void {
+        updateApplicationSettingsValue('totalAmountTypeInTransactionListPage', value);
+        appSettings.value.totalAmountTypeInTransactionListPage = value;
+        updateUserApplicationCloudSettingValue('totalAmountTypeInTransactionListPage', value);
+    }
+
     function setShowTagInTransactionListPage(value: boolean): void {
         updateApplicationSettingsValue('showTagInTransactionListPage', value);
         appSettings.value.showTagInTransactionListPage = value;
         updateUserApplicationCloudSettingValue('showTagInTransactionListPage', value);
     }
 
+    function setDefaultKeywordMatchModeInTransactionListPage(value: number): void {
+        updateApplicationSettingsValue('defaultKeywordMatchModeInTransactionListPage', value);
+        appSettings.value.defaultKeywordMatchModeInTransactionListPage = value;
+        updateUserApplicationCloudSettingValue('defaultKeywordMatchModeInTransactionListPage', value);
+    }
+
     // Transaction Edit Page
+    function setQuickSaveButtonStyleInMobileTransactionListPage(value: number): void {
+        updateApplicationSettingsValue('quickSaveButtonStyleInMobileTransactionListPage', value);
+        appSettings.value.quickSaveButtonStyleInMobileTransactionListPage = value;
+        updateUserApplicationCloudSettingValue('quickSaveButtonStyleInMobileTransactionListPage', value);
+    }
+
+    function setQuickAddButtonActionInMobileTransactionEditPage(value: number): void {
+        updateApplicationSettingsValue('quickAddButtonActionInMobileTransactionEditPage', value);
+        appSettings.value.quickAddButtonActionInMobileTransactionEditPage = value;
+        updateUserApplicationCloudSettingValue('quickAddButtonActionInMobileTransactionEditPage', value);
+    }
+
     function setAutoSaveTransactionDraft(value: string): void {
         updateApplicationSettingsValue('autoSaveTransactionDraft', value);
         appSettings.value.autoSaveTransactionDraft = value;
@@ -248,6 +318,26 @@ export const useSettingsStore = defineStore('settings', () => {
         updateApplicationSettingsValue('alwaysShowTransactionPicturesInMobileTransactionEditPage', value);
         appSettings.value.alwaysShowTransactionPicturesInMobileTransactionEditPage = value;
         updateUserApplicationCloudSettingValue('alwaysShowTransactionPicturesInMobileTransactionEditPage', value);
+    }
+
+    function setTransactionPictureQuality(value: number): void {
+        updateApplicationSettingsValue('transactionPictureQuality', value);
+        appSettings.value.transactionPictureQuality = value;
+        updateUserApplicationCloudSettingValue('transactionPictureQuality', value);
+    }
+
+    // AI Clipboard Text Recognition
+    function setAlwaysRequireConfirmationOfClipboardContentBeforeSubmission(value: boolean): void {
+        updateApplicationSettingsValue('alwaysRequireConfirmationOfClipboardContentBeforeSubmission', value);
+        appSettings.value.alwaysRequireConfirmationOfClipboardContentBeforeSubmission = value;
+        updateUserApplicationCloudSettingValue('alwaysRequireConfirmationOfClipboardContentBeforeSubmission', value);
+    }
+
+    // AI Image Recognition
+    function setAutoUploadTransactionPictureForAIRecognition(value: boolean): void {
+        updateApplicationSettingsValue('autoUploadTransactionPictureForAIRecognition', value);
+        appSettings.value.autoUploadTransactionPictureForAIRecognition = value;
+        updateUserApplicationCloudSettingValue('autoUploadTransactionPictureForAIRecognition', value);
     }
 
     // Import Transaction Dialog
@@ -291,16 +381,28 @@ export const useSettingsStore = defineStore('settings', () => {
         updateUserApplicationCloudSettingValue('totalAmountExcludeAccountIds', value);
     }
 
-    function setAccountCategoryOrders(value: string): void {
-        updateApplicationSettingsValue('accountCategoryOrders', value);
-        appSettings.value.accountCategoryOrders = value;
-        updateUserApplicationCloudSettingValue('accountCategoryOrders', value);
-    }
-
     function setHideCategoriesWithoutAccounts(value: boolean): void {
         updateApplicationSettingsValue('hideCategoriesWithoutAccounts', value);
         appSettings.value.hideCategoriesWithoutAccounts = value;
         updateUserApplicationCloudSettingValue('hideCategoriesWithoutAccounts', value);
+    }
+
+    function setDefaultCreditCardAmountDisplayTypeInMobile(value: number): void {
+        updateApplicationSettingsValue('defaultCreditCardAmountDisplayTypeInMobile', value);
+        appSettings.value.defaultCreditCardAmountDisplayTypeInMobile = value;
+        updateUserApplicationCloudSettingValue('defaultCreditCardAmountDisplayTypeInMobile', value);
+    }
+
+    function setReconciliationStatementButtonDefaultDateRangeTypeInDesktop(value: number): void {
+        updateApplicationSettingsValue('reconciliationStatementButtonDefaultDateRangeTypeInDesktop', value);
+        appSettings.value.reconciliationStatementButtonDefaultDateRangeTypeInDesktop = value;
+        updateUserApplicationCloudSettingValue('reconciliationStatementButtonDefaultDateRangeTypeInDesktop', value);
+    }
+
+    function setReconciliationStatementPageDefaultDateRangeTypeInMobile(value: number): void {
+        updateApplicationSettingsValue('reconciliationStatementPageDefaultDateRangeTypeInMobile', value);
+        appSettings.value.reconciliationStatementPageDefaultDateRangeTypeInMobile = value;
+        updateUserApplicationCloudSettingValue('reconciliationStatementPageDefaultDateRangeTypeInMobile', value);
     }
 
     // Exchange Rates Data Page
@@ -308,6 +410,19 @@ export const useSettingsStore = defineStore('settings', () => {
         updateApplicationSettingsValue('currencySortByInExchangeRatesPage', value);
         appSettings.value.currencySortByInExchangeRatesPage = value;
         updateUserApplicationCloudSettingValue('currencySortByInExchangeRatesPage', value);
+    }
+
+    // Browser Cache Management
+    function setMapCacheExpiration(value: number): void {
+        updateApplicationSettingsValue('mapCacheExpiration', value);
+        appSettings.value.mapCacheExpiration = value;
+        updateUserApplicationCloudSettingValue('mapCacheExpiration', value);
+    }
+
+    function setExchangeRatesDataCacheExpiration(value: number): void {
+        updateApplicationSettingsValue('exchangeRatesDataCacheExpiration', value);
+        appSettings.value.exchangeRatesDataCacheExpiration = value;
+        updateUserApplicationCloudSettingValue('exchangeRatesDataCacheExpiration', value);
     }
 
     // Statistics Settings
@@ -333,6 +448,12 @@ export const useSettingsStore = defineStore('settings', () => {
         updateApplicationSettingsSubValue('statistics', 'defaultTransactionCategoryFilter', value);
         appSettings.value.statistics.defaultTransactionCategoryFilter = value;
         updateUserApplicationCloudSettingValue('statistics.defaultTransactionCategoryFilter', value);
+    }
+
+    function setStatisticsDefaultKeywordMatchMode(value: number): void {
+        updateApplicationSettingsSubValue('statistics', 'defaultKeywordMatchMode', value);
+        appSettings.value.statistics.defaultKeywordMatchMode = value;
+        updateUserApplicationCloudSettingValue('statistics.defaultKeywordMatchMode', value);
     }
 
     function setStatisticsSortingType(value: number): void {
@@ -492,13 +613,16 @@ export const useSettingsStore = defineStore('settings', () => {
         // computed states
         enableApplicationCloudSync,
         accountCategoryDisplayOrders,
+        chartColorList,
         // functions
-        // -- Basic Settings
+        // -- General Settings
         setTheme,
         setFontSize,
         setTimeZone,
         setAutoUpdateExchangeRatesData,
         setShowAccountBalance,
+        setAccountCategoryOrders,
+        setChartColors,
         setEnableSwipeBack,
         setEnableAnimate,
         // -- Application Lock
@@ -507,18 +631,30 @@ export const useSettingsStore = defineStore('settings', () => {
         // -- Navigation Bar
         setShowAddTransactionButtonInDesktopNavbar,
         // -- Overview Page
+        setDesktopOverviewPageLayout,
+        setMobileOverviewPageLayout,
         setShowAmountInHomePage,
         setTimezoneUsedForStatisticsInHomePage,
         setOverviewAccountFilterInHomePage,
         setOverviewTransactionCategoryFilterInHomePage,
+        setOverviewTransactionTagFilterInHomePage,
         // -- Transaction List Page
         setItemsCountInTransactionListPage,
         setShowTotalAmountInTransactionListPage,
+        setTotalAmountTypeInTransactionListPage,
         setShowTagInTransactionListPage,
+        setDefaultKeywordMatchModeInTransactionListPage,
         // -- Transaction Edit Page
+        setQuickSaveButtonStyleInMobileTransactionListPage,
+        setQuickAddButtonActionInMobileTransactionEditPage,
         setAutoSaveTransactionDraft,
         setAutoGetCurrentGeoLocation,
         setAlwaysShowTransactionPicturesInMobileTransactionEditPage,
+        setTransactionPictureQuality,
+        // -- AI Clipboard Text Recognition
+        setAlwaysRequireConfirmationOfClipboardContentBeforeSubmission,
+        // -- AI Image Recognition
+        setAutoUploadTransactionPictureForAIRecognition,
         // -- Import Transaction Dialog
         setRememberLastSelectedFileTypeInImportTransactionDialog,
         setLastSelectedFileTypeInImportTransactionDialog,
@@ -527,15 +663,21 @@ export const useSettingsStore = defineStore('settings', () => {
         setShowTagInInsightsExplorerPage,
         // -- Account List Page
         setTotalAmountExcludeAccountIds,
-        setAccountCategoryOrders,
         setHideCategoriesWithoutAccounts,
+        setDefaultCreditCardAmountDisplayTypeInMobile,
+        setReconciliationStatementButtonDefaultDateRangeTypeInDesktop,
+        setReconciliationStatementPageDefaultDateRangeTypeInMobile,
         // -- Exchange Rates Data Page
         setCurrencySortByInExchangeRatesPage,
+        // -- Browser Cache Management
+        setMapCacheExpiration,
+        setExchangeRatesDataCacheExpiration,
         // -- Statistics Settings
         setStatisticsDefaultChartDataType,
         setStatisticsDefaultTimezoneType,
         setStatisticsDefaultAccountFilter,
         setStatisticsDefaultTransactionCategoryFilter,
+        setStatisticsDefaultKeywordMatchMode,
         setStatisticsSortingType,
         setStatisticsDefaultCategoricalChartType,
         setStatisticsDefaultCategoricalChartDateRange,

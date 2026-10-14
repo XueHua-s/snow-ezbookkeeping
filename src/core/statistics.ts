@@ -1,4 +1,4 @@
-import type { TypeAndName } from './base.ts';
+import type { TypeAndName, TypeAndNameWithAlternativeName } from './base.ts';
 import { DateRange } from '@/core/datetime.ts';
 
 export enum StatisticsAnalysisType {
@@ -87,8 +87,10 @@ export class AccountBalanceTrendChartType implements TypeAndName {
     private static readonly allInstances: AccountBalanceTrendChartType[] = [];
 
     public static readonly Area = new AccountBalanceTrendChartType(0, 'Area Chart');
+    public static readonly SmoothArea = new AccountBalanceTrendChartType(4, 'Smooth Area Chart');
     public static readonly Column = new AccountBalanceTrendChartType(1, 'Column Chart');
-    public static readonly Candlestick = new AccountBalanceTrendChartType(2, 'Candlestick Chart');
+    public static readonly Boxplot = new AccountBalanceTrendChartType(2, 'Boxplot Chart');
+    public static readonly Candlestick = new AccountBalanceTrendChartType(3, 'Candlestick Chart');
 
     public static readonly Default = TrendChartType.Column;
 
@@ -123,6 +125,8 @@ export class ChartDataType implements TypeAndName {
     public static readonly IncomeBySecondaryCategory = new ChartDataType(5, 'Income By Secondary Category', false, false, StatisticsAnalysisType.CategoricalAnalysis, StatisticsAnalysisType.TrendAnalysis);
     public static readonly AccountTotalAssets = new ChartDataType(6, 'Account Total Assets', false, false, StatisticsAnalysisType.CategoricalAnalysis, StatisticsAnalysisType.AssetTrends);
     public static readonly AccountTotalLiabilities = new ChartDataType(7, 'Account Total Liabilities', false, false, StatisticsAnalysisType.CategoricalAnalysis, StatisticsAnalysisType.AssetTrends);
+    public static readonly TotalAssetsByCurrency = new ChartDataType(18, 'Total Assets By Currency', false, false, StatisticsAnalysisType.CategoricalAnalysis);
+    public static readonly TotalLiabilitiesByCurrency = new ChartDataType(19, 'Total Liabilities By Currency', false, false, StatisticsAnalysisType.CategoricalAnalysis);
     public static readonly TotalOutflows = new ChartDataType(13, 'Total Outflows', false, false, StatisticsAnalysisType.TrendAnalysis);
     public static readonly TotalExpense = new ChartDataType(8, 'Total Expense', false, false, StatisticsAnalysisType.TrendAnalysis);
     public static readonly TotalInflows = new ChartDataType(14, 'Total Inflows', false, false, StatisticsAnalysisType.TrendAnalysis);
@@ -193,24 +197,24 @@ export class ChartDataType implements TypeAndName {
     }
 }
 
-export class ChartSortingType implements TypeAndName {
+export class ChartSortingType implements TypeAndNameWithAlternativeName {
     private static readonly allInstances: ChartSortingType[] = [];
     private static readonly allInstancesByType: Record<number, ChartSortingType> = {};
 
-    public static readonly Amount = new ChartSortingType(0, 'Amount', 'Sort by Amount');
-    public static readonly DisplayOrder = new ChartSortingType(1, 'Display Order', 'Sort by Display Order');
-    public static readonly Name = new ChartSortingType(2, 'Name', 'Sort by Name');
+    public static readonly Amount = new ChartSortingType(0, 'Amount', 'Value');
+    public static readonly DisplayOrder = new ChartSortingType(1, 'Display Order');
+    public static readonly Name = new ChartSortingType(2, 'Name');
 
     public static readonly Default = ChartSortingType.Amount;
 
     public readonly type: number;
     public readonly name: string;
-    public readonly fullName: string;
+    public readonly alternativeName?: string;
 
-    private constructor(type: number, name: string, fullName: string) {
+    private constructor(type: number, name: string, alternativeName?: string) {
         this.type = type;
         this.name = name;
-        this.fullName = fullName;
+        this.alternativeName = alternativeName;
 
         ChartSortingType.allInstances.push(this);
         ChartSortingType.allInstancesByType[type] = this;
@@ -234,6 +238,8 @@ export class ChartDateAggregationType {
     public static readonly Quarter = new ChartDateAggregationType(1, 'Quarterly', 'Aggregate by Quarter', StatisticsAnalysisType.TrendAnalysis, StatisticsAnalysisType.AssetTrends);
     public static readonly Year = new ChartDateAggregationType(2, 'Yearly', 'Aggregate by Year', StatisticsAnalysisType.TrendAnalysis, StatisticsAnalysisType.AssetTrends);
     public static readonly FiscalYear = new ChartDateAggregationType(3, 'FiscalYearly', 'Aggregate by Fiscal Year', StatisticsAnalysisType.TrendAnalysis, StatisticsAnalysisType.AssetTrends);
+
+    public static readonly BillingCycle = new ChartDateAggregationType(11, 'BillingCycle', 'Aggregate by Billing Cycle');
 
     public static readonly Default = ChartDateAggregationType.Month;
 
@@ -285,6 +291,15 @@ export class ChartDateAggregationType {
     }
 }
 
+export enum ExportMermaidChartType {
+    PieChart = 'pieChart',
+    XYChartBar = 'xyChartBar',
+    XYChartLine = 'xyChartLine'
+}
+
 export const DEFAULT_CATEGORICAL_CHART_DATA_RANGE: DateRange = DateRange.ThisMonth;
 export const DEFAULT_TREND_CHART_DATA_RANGE: DateRange = DateRange.ThisYear;
 export const DEFAULT_ASSET_TRENDS_CHART_DATA_RANGE: DateRange = DateRange.ThisYear;
+
+export const DEFAULT_RECONCILIATION_STATEMENT_DATE_RANGE_IN_DESKTOP: DateRange = DateRange.Custom;
+export const DEFAULT_RECONCILIATION_STATEMENT_DATE_RANGE_IN_MOBILE: DateRange = DateRange.ThisMonth;

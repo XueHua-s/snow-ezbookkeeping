@@ -1,6 +1,19 @@
-import type { TextualYearMonth, Year1BasedMonth, YearUnixTime, YearQuarterUnixTime, YearMonthUnixTime } from '@/core/datetime.ts';
-import type { FiscalYearUnixTime } from '@/core/fiscalyear.ts';
-import { ChartSortingType, ChartDateAggregationType } from '@/core/statistics.ts';
+import {
+    type TextualYearMonth,
+    type Year1BasedMonth,
+    type YearUnixTime,
+    type YearQuarterUnixTime,
+    type YearMonthUnixTime,
+    YearMonthDayUnixTime
+} from '@/core/datetime.ts';
+import {
+    type FiscalYearUnixTime
+} from '@/core/fiscalyear.ts';
+import {
+    ChartSortingType,
+    ChartDateAggregationType
+} from '@/core/statistics.ts';
+
 import type {
     YearMonthItems,
     SortableTransactionStatisticDataItem
@@ -36,8 +49,16 @@ export function sortStatisticsItems<T extends SortableTransactionStatisticDataIt
         });
     } else {
         items.sort(function (data1, data2) {
-            if (data1.totalAmount !== data2.totalAmount) {
-                return data2.totalAmount - data1.totalAmount; // desc
+            const compareValue = data2.value.compareTo(data1.value); // desc
+
+            if (compareValue !== 0) {
+                return compareValue;
+            }
+
+            for (let i = 0; i < Math.min(data1.displayOrders.length, data2.displayOrders.length); i++) {
+                if (data1.displayOrders[i] !== data2.displayOrders[i]) {
+                    return (data1.displayOrders[i] as number) - (data2.displayOrders[i] as number); // asc
+                }
             }
 
             return data1.name.localeCompare(data2.name, undefined, { // asc
@@ -86,5 +107,21 @@ export function getAllDateRangesByYearMonthRange(startYearMonth: Year1BasedMonth
         return getAllQuartersStartAndEndUnixTimes(startYearMonth, endYearMonth);
     } else { // if (dateAggregationType === ChartDateAggregationType.Month.type) {
         return getAllMonthsStartAndEndUnixTimes(startYearMonth, endYearMonth);
+    }
+}
+
+export function getDateRangeKeyWithYearOffset(dateRange: YearUnixTime | FiscalYearUnixTime | YearQuarterUnixTime | YearMonthUnixTime | YearMonthDayUnixTime, dateAggregationType: number, yearOffset?: number): string | undefined {
+    if (dateAggregationType === ChartDateAggregationType.Year.type) {
+        return (dateRange.year + (yearOffset ?? 0)).toString();
+    } else if (dateAggregationType === ChartDateAggregationType.FiscalYear.type && 'year' in dateRange) {
+        return (dateRange.year + (yearOffset ?? 0)).toString();
+    } else if (dateAggregationType === ChartDateAggregationType.Quarter.type && 'quarter' in dateRange) {
+        return `${dateRange.year + (yearOffset ?? 0)}-${dateRange.quarter}`;
+    } else if ((dateAggregationType === ChartDateAggregationType.Month.type || dateAggregationType === ChartDateAggregationType.BillingCycle.type) && 'month0base' in dateRange) {
+        return `${dateRange.year + (yearOffset ?? 0)}-${dateRange.month0base + 1}`;
+    } else if (dateAggregationType === ChartDateAggregationType.Day.type && 'day' in dateRange) {
+        return `${dateRange.year + (yearOffset ?? 0)}-${dateRange.month}-${dateRange.day}`;
+    } else {
+        return undefined;
     }
 }

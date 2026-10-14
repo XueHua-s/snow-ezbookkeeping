@@ -1,14 +1,23 @@
 <template>
     <axis-chart class="trends-chart-container" ref="axisChart" values-field="values"
-                :skeleton="skeleton" :type="chartDisplayType" :stacked="stacked" :sorting-type="sortingType"
+                :skeleton="skeleton" :no-animation="noAnimation" :type="chartDisplayType" :stacked="stacked" :sorting-type="sortingType"
                 :show-value="showValue"
                 :show-total-amount-in-tooltip="showTotalAmountInTooltip" :total-name-in-tooltip="tt('Total Amount')"
-                :category-type-name="tt('Date')" :all-category-names="allDisplayDateRanges" :items="allSeriesData"
-                :id-field="idField" :name-field="nameField" :color-field="colorField" :hidden-field="hiddenField"
-                :display-orders-field="displayOrdersField"
+                :category-type-name="tt('Date')" :all-category-names="allDisplayDateRanges"
+                :items="allSeriesData" :value-type="valueType"
+                :hide-legend="hideLegend" :legend-position="legendPosition"
+                :hide-x-axis-labels="hideXAxisLabels" :hide-x-axis-line="hideXAxisLine"
+                :hide-y-axis-labels="hideYAxisLabels"
+                :hide-horizontal-grid-lines="hideHorizontalGridLines"
+                :hide-line-symbols="hideLineSymbols"
+                :no-margin="noMargin"
+                :smooth-curve="smoothCurve"
                 :translate-name="translateName"
-                :amount-value="true" :default-currency="defaultCurrency"
+                :default-currency="defaultCurrency" :use-custom-color="useCustomColor"
                 :enable-click-item="enableClickItem"
+                :tooltip-extra-column-names="allTooltipExtraColumnNames"
+                :tooltip-extra-column-total-values="showYearOverYear || showPeriodOverPeriod ? getTooltipExtraColumnTotalValues : undefined"
+                :tooltip-extra-column-values="showYearOverYear || showPeriodOverPeriod ? getTooltipExtraColumnValues : undefined"
                 @click="clickItem"
                 v-if="chartDisplayType"
     />
@@ -30,17 +39,43 @@ import {
 import { useUserStore } from '@/stores/user.ts';
 
 import {
+    itemAndIndex
+} from '@/core/base.ts';
+import {
+    type BigDecimal
+} from '@/core/numeral.ts';
+import {
     type Year1BasedMonth,
     type YearMonthDay,
+    type YearUnixTime,
+    type YearQuarterUnixTime,
+    type YearMonthUnixTime,
+    type YearMonthDayUnixTime,
     DateRangeScene
 } from '@/core/datetime.ts';
+import {
+    type FiscalYearUnixTime
+} from '@/core/fiscalyear.ts';
+
+import type {
+    AxisChartSourceDataItem
+} from '@/core/chart.ts';
 import {
     ChartDataAggregationType,
     TrendChartType,
     ChartDateAggregationType
 } from '@/core/statistics.ts';
 
-import { isArray, isNumber } from '@/lib/common.ts';
+import {
+    isArray,
+    isString,
+    isNumber,
+    isBoolean
+} from '@/lib/common.ts';
+import {
+    BIG_DECIMAL_ZERO,
+    isBigDecimal
+} from '@/lib/numeral.ts';
 import {
     parseDateTimeFromUnixTime,
     getYearMonthFirstUnixTime,
@@ -48,14 +83,29 @@ import {
     getDateTypeByDateRange,
     getFiscalYearFromUnixTime
 } from '@/lib/datetime.ts';
+import {
+    getDateRangeKeyWithYearOffset
+} from '@/lib/statistics.ts';
 
 type AxisChartType = InstanceType<typeof AxisChart>;
 
 interface DesktopTrendsChartProps<T extends TrendsChartDateType> extends CommonTrendsChartProps<T> {
     skeleton?: boolean;
+    noAnimation?: boolean;
     type?: number;
     showValue?: boolean;
     showTotalAmountInTooltip?: boolean;
+    showYearOverYear?: boolean;
+    showPeriodOverPeriod?: boolean;
+    hideXAxisLabels?: boolean;
+    hideXAxisLine?: boolean;
+    hideYAxisLabels?: boolean;
+    hideHorizontalGridLines?: boolean;
+    hideLineSymbols?: boolean;
+    noMargin?: boolean;
+    smoothCurve?: boolean;
+    hideLegend?: boolean;
+    legendPosition?: 'top' | 'bottom';
 }
 
 const props = defineProps<DesktopTrendsChartProps<TrendsChartDateType>>();
@@ -70,7 +120,8 @@ const {
     formatDateTimeToGregorianLikeShortYear,
     formatDateTimeToGregorianLikeShortYearMonth,
     formatYearQuarterToGregorianLikeYearQuarter,
-    formatDateTimeToGregorianLikeFiscalYear
+    formatDateTimeToGregorianLikeFiscalYear,
+    formatPercentToLocalizedNumerals
 } = useI18n();
 
 const { allDateRanges } = useTrendsChartBase(props);
@@ -89,6 +140,28 @@ const chartDisplayType = computed<AxisChartDisplayType | undefined>(() => {
     } else {
         return undefined;
     }
+});
+
+const allTooltipExtraColumnNames = computed<string[]>(() => {
+    const extraColumnNames: string[] = [];
+
+    if (props.showYearOverYear) {
+        extraColumnNames.push(tt('Year-over-Year'));
+    }
+
+    if (props.showPeriodOverPeriod) {
+        if (props.dateAggregationType === ChartDateAggregationType.Quarter.type) {
+            extraColumnNames.push(tt('Quarter-over-Quarter'));
+        } else if (props.dateAggregationType === ChartDateAggregationType.Month.type) {
+            extraColumnNames.push(tt('Month-over-Month'));
+        } else if (props.dateAggregationType === ChartDateAggregationType.Day.type && props.chartMode === 'daily') {
+            extraColumnNames.push(tt('Day-over-Day'));
+        } else {
+            extraColumnNames.push(tt('Period-over-Period'));
+        }
+    }
+
+    return extraColumnNames;
 });
 
 const allDisplayDateRanges = computed<string[]>(() => {
@@ -113,38 +186,34 @@ const allDisplayDateRanges = computed<string[]>(() => {
     return allDisplayDateRanges;
 });
 
-const allSeriesData = computed<Record<string, unknown>[]>(() => {
-    const result: Record<string, unknown>[] = [];
+const allSeriesData = computed<AxisChartSourceDataItem[]>(() => {
+    const result: AxisChartSourceDataItem[] = [];
 
     for (const item of props.items) {
-        if (props.hiddenField && item[props.hiddenField]) {
+        if (item.hidden) {
             continue;
         }
 
-        const finalItem: Record<string, unknown> = {};
+        const finalItem: AxisChartSourceDataItem = {
+            name: item.name,
+            values: [],
+            displayOrders: []
+        };
 
-        if (props.idField) {
-            finalItem[props.idField] = item[props.idField];
+        if (isString(item.id)) {
+            finalItem.id = item.id;
         }
 
-        if (props.nameField) {
-            finalItem[props.nameField] = item[props.nameField];
+        if (isBoolean(item.hidden)) {
+            finalItem.hidden = item.hidden;
         }
 
-        if (props.colorField) {
-            finalItem[props.colorField] = item[props.colorField];
+        if (isArray(item.displayOrders)) {
+            finalItem.displayOrders = item.displayOrders;
         }
 
-        if (props.hiddenField) {
-            finalItem[props.hiddenField] = item[props.hiddenField];
-        }
-
-        if (props.displayOrdersField) {
-            finalItem[props.displayOrdersField] = item[props.displayOrdersField];
-        }
-
-        const allAmounts: number[] = [];
-        const dateRangeAmountMap: Record<string, (Year1BasedMonth | YearMonthDay)[]> = {};
+        const allAmounts: BigDecimal[] = [];
+        const dateRangeAmountMap: Record<string, ({ value: BigDecimal } & (Year1BasedMonth | YearMonthDay))[]> = {};
 
         for (const dataItem of item.items) {
             let dateRangeKey = '';
@@ -188,32 +257,17 @@ const allSeriesData = computed<Record<string, unknown>[]>(() => {
         }
 
         for (const dateRange of allDateRanges.value) {
-            let dateRangeKey = '';
-
-            if (props.dateAggregationType === ChartDateAggregationType.Year.type) {
-                dateRangeKey = dateRange.year.toString();
-            } else if (props.dateAggregationType === ChartDateAggregationType.FiscalYear.type && 'year' in dateRange) {
-                dateRangeKey = dateRange.year.toString();
-            } else if (props.dateAggregationType === ChartDateAggregationType.Quarter.type && 'quarter' in dateRange) {
-                dateRangeKey = `${dateRange.year}-${dateRange.quarter}`;
-            } else if (props.dateAggregationType === ChartDateAggregationType.Month.type && 'month0base' in dateRange) {
-                dateRangeKey = `${dateRange.year}-${dateRange.month0base + 1}`;
-            } else if (props.dateAggregationType === ChartDateAggregationType.Day.type && 'day' in dateRange && props.chartMode === 'daily') {
-                dateRangeKey = `${dateRange.year}-${dateRange.month}-${dateRange.day}`;
-            }
-
-            let amount = 0;
+            const dateRangeKey = getDateRangeKey(dateRange) ?? '';
             const dataItems = dateRangeAmountMap[dateRangeKey];
+            let amount: BigDecimal = BIG_DECIMAL_ZERO;
 
             if (isArray(dataItems)) {
                 for (const dataItem of dataItems) {
-                    const value = (dataItem as unknown as Record<string, unknown>)[props.valueField];
-
-                    if (isNumber(value)) {
+                    if (isBigDecimal(dataItem.value)) {
                         if (props.dataAggregationType === ChartDataAggregationType.Sum) {
-                            amount += value;
+                            amount = amount.add(dataItem.value);
                         } else if (props.dataAggregationType === ChartDataAggregationType.Last) {
-                            amount = value;
+                            amount = dataItem.value;
                         }
                     }
                 }
@@ -222,12 +276,161 @@ const allSeriesData = computed<Record<string, unknown>[]>(() => {
             allAmounts.push(amount);
         }
 
-        finalItem['values'] = allAmounts;
+        finalItem.values = allAmounts;
         result.push(finalItem);
     }
 
     return result;
 });
+
+const seriesIdValuesMap = computed<Record<string, BigDecimal[]>>(() => {
+    const result: Record<string, BigDecimal[]> = {};
+
+    for (const item of allSeriesData.value) {
+        const id = item.id ?? (props.translateName ? tt(item.name) : item.name);
+        const values = item.values;
+
+        if (id && values) {
+            result[id] = values;
+        }
+    }
+
+    return result;
+});
+
+const yoyIndexMap = computed<Record<number, number>>(() => {
+    const result: Record<number, number> = {};
+    const dateKeyToIndex: Record<string, number> = {};
+
+    for (const [dateRange, index] of itemAndIndex(allDateRanges.value)) {
+        const key = getDateRangeKey(dateRange);
+
+        if (key) {
+            dateKeyToIndex[key] = index;
+        }
+    }
+
+    for (const [dateRange, index] of itemAndIndex(allDateRanges.value)) {
+        const yoyKey = getDateRangeKey(dateRange, -1);
+
+        if (yoyKey && isNumber(dateKeyToIndex[yoyKey])) {
+            result[index] = dateKeyToIndex[yoyKey];
+        }
+    }
+
+    return result;
+});
+
+function getDateRangeKey(dateRange: YearUnixTime | FiscalYearUnixTime | YearQuarterUnixTime | YearMonthUnixTime | YearMonthDayUnixTime, yearOffset?: number): string | undefined {
+    if (props.dateAggregationType === ChartDateAggregationType.Day.type && props.chartMode !== 'daily') {
+        return undefined;
+    }
+
+    return getDateRangeKeyWithYearOffset(dateRange, props.dateAggregationType, yearOffset);
+}
+
+function formatDisplayChangeRate(current: BigDecimal, reference: BigDecimal): string {
+    if (reference.isZero() && current.isZero()) {
+        return formatPercentToLocalizedNumerals(0, 2, '<0.01');
+    }
+
+    if (reference.isZero()) {
+        return '-';
+    }
+
+    const rate = current.subtract(reference).divide(reference).multiply(100).toDoubleNumber();
+    return formatPercentToLocalizedNumerals(rate, 2, '<0.01');
+}
+
+function getTooltipExtraColumnTotalValues(categoryIndex: number, totalValue: BigDecimal, visibleSeriesIds: string[]): string[] {
+    const extraColumnValues: string[] = [];
+
+    if (!props.showYearOverYear && !props.showPeriodOverPeriod) {
+        return extraColumnValues;
+    }
+
+    if (props.showYearOverYear) {
+        const yoyReferenceIndex = yoyIndexMap.value[categoryIndex];
+        let displayChangeRate = '-';
+
+        if (isNumber(yoyReferenceIndex)) {
+            let referenceTotalValue: BigDecimal = BIG_DECIMAL_ZERO;
+
+            for (const seriesId of visibleSeriesIds) {
+                const values = seriesIdValuesMap.value[seriesId];
+
+                if (values) {
+                    referenceTotalValue = referenceTotalValue.add(values[yoyReferenceIndex] ?? BIG_DECIMAL_ZERO);
+                }
+            }
+
+            displayChangeRate = formatDisplayChangeRate(totalValue, referenceTotalValue);
+        }
+
+        extraColumnValues.push(displayChangeRate);
+    }
+
+    if (props.showPeriodOverPeriod) {
+        const popReferenceIndex = categoryIndex - 1;
+        let displayChangeRate = '-';
+
+        if (popReferenceIndex >= 0) {
+            let referenceTotalValue: BigDecimal = BIG_DECIMAL_ZERO;
+
+            for (const seriesId of visibleSeriesIds) {
+                const values = seriesIdValuesMap.value[seriesId];
+
+                if (values) {
+                    referenceTotalValue = referenceTotalValue.add(values[popReferenceIndex] ?? BIG_DECIMAL_ZERO);
+                }
+            }
+
+            displayChangeRate = formatDisplayChangeRate(totalValue, referenceTotalValue);
+        }
+
+        extraColumnValues.push(displayChangeRate);
+    }
+
+    return extraColumnValues;
+}
+
+function getTooltipExtraColumnValues(seriesId: string, categoryIndex: number, currentValue: BigDecimal): string[] {
+    const extraColumnValues: string[] = [];
+
+    if (!props.showYearOverYear && !props.showPeriodOverPeriod) {
+        return extraColumnValues;
+    }
+
+    const values = seriesIdValuesMap.value[seriesId];
+
+    if (!values) {
+        return extraColumnValues;
+    }
+
+    if (props.showYearOverYear) {
+        const yoyReferenceIndex = yoyIndexMap.value[categoryIndex];
+        let displayChangeRate = '-';
+
+        if (isNumber(yoyReferenceIndex) && yoyReferenceIndex >= 0 && yoyReferenceIndex < values.length) {
+            displayChangeRate = formatDisplayChangeRate(currentValue, values[yoyReferenceIndex] ?? BIG_DECIMAL_ZERO);
+        }
+
+        extraColumnValues.push(displayChangeRate);
+    }
+
+    if (props.showPeriodOverPeriod) {
+        const popReferenceIndex = categoryIndex - 1;
+        let displayChangeRate = '-';
+
+        if (popReferenceIndex >= 0 && popReferenceIndex < values.length) {
+            displayChangeRate = formatDisplayChangeRate(currentValue, values[popReferenceIndex] ?? BIG_DECIMAL_ZERO);
+        }
+
+        extraColumnValues.push(displayChangeRate);
+    }
+
+    return extraColumnValues;
+}
 
 function clickItem(itemId: string, categoryIndex: number): void {
     const dateRange = allDateRanges.value[categoryIndex];
@@ -293,13 +496,12 @@ defineExpose({
 <style scoped>
 .trends-chart-container {
     width: 100%;
-    height: 720px;
-    margin-top: 10px;
+    height: 650px;
 }
 
 @media (min-width: 600px) {
     .trends-chart-container {
-        height: 790px;
+        height: 700px;
     }
 }
 </style>

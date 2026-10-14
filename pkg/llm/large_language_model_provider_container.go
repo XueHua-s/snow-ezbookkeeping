@@ -15,8 +15,10 @@ import (
 
 // LargeLanguageModelProviderContainer contains the current large language model provider
 type LargeLanguageModelProviderContainer struct {
-	receiptImageRecognitionCurrentProvider provider.LargeLanguageModelProvider
 	aiAssistantCurrentProvider             provider.LargeLanguageModelProvider
+	textRecognitionCurrentProvider         provider.LargeLanguageModelProvider
+	receiptImageRecognitionCurrentProvider provider.LargeLanguageModelProvider
+	codingAssistantCurrentProvider         provider.LargeLanguageModelProvider
 }
 
 // Initialize a large language model provider container singleton instance
@@ -27,8 +29,15 @@ var (
 // InitializeLargeLanguageModelProvider initializes the current large language model provider according to the config
 func InitializeLargeLanguageModelProvider(config *settings.Config) error {
 	var err error = nil
-	Container.receiptImageRecognitionCurrentProvider = nil
-	Container.aiAssistantCurrentProvider = nil
+	*Container = LargeLanguageModelProviderContainer{}
+
+	if config.TextRecognitionLLMConfig != nil {
+		Container.textRecognitionCurrentProvider, err = initializeLargeLanguageModelProvider(config.TextRecognitionLLMConfig, config.EnableDebugLog)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	if config.ReceiptImageRecognitionLLMConfig != nil {
 		Container.receiptImageRecognitionCurrentProvider, err = initializeLargeLanguageModelProvider(config.ReceiptImageRecognitionLLMConfig, config.EnableDebugLog)
@@ -38,12 +47,19 @@ func InitializeLargeLanguageModelProvider(config *settings.Config) error {
 		}
 	}
 
-	if config.EnableAIAssistant && config.AIAssistantLLMConfig != nil {
-		Container.aiAssistantCurrentProvider, err = initializeLargeLanguageModelProvider(config.AIAssistantLLMConfig, config.EnableDebugLog)
+	if config.CodingAssistantLLMConfig != nil {
+		Container.codingAssistantCurrentProvider, err = initializeLargeLanguageModelProvider(config.CodingAssistantLLMConfig, config.EnableDebugLog)
 
 		if err != nil {
 			return err
 		}
+	}
+
+	if config.EnableAIAssistant && config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider != "" {
+		if config.AIAssistantLLMConfig.LLMProvider != settings.OpenAILLMProvider {
+			return errs.ErrAIAssistantOnlySupportsOpenAI
+		}
+		Container.aiAssistantCurrentProvider = openai.NewOpenAIChatCompletionsLargeLanguageModelProvider(config.AIAssistantLLMConfig, config.EnableDebugLog)
 	}
 
 	return nil
@@ -54,6 +70,8 @@ func initializeLargeLanguageModelProvider(llmConfig *settings.LLMConfig, enableR
 		return openai.NewOpenAILargeLanguageModelProvider(llmConfig, enableResponseLog), nil
 	} else if llmConfig.LLMProvider == settings.OpenAICompatibleLLMProvider {
 		return openai.NewOpenAICompatibleLargeLanguageModelProvider(llmConfig, enableResponseLog), nil
+	} else if llmConfig.LLMProvider == settings.OpenAIResponsesCompatibleLLMProvider {
+		return openai.NewOpenAIResponsesCompatibleLargeLanguageModelProvider(llmConfig, enableResponseLog), nil
 	} else if llmConfig.LLMProvider == settings.AnthropicLLMProvider {
 		return anthropic.NewAnthropicLargeLanguageModelProvider(llmConfig, enableResponseLog), nil
 	} else if llmConfig.LLMProvider == settings.AnthropicCompatibleLLMProvider {
@@ -73,6 +91,15 @@ func initializeLargeLanguageModelProvider(llmConfig *settings.LLMConfig, enableR
 	return nil, errs.ErrInvalidLLMProvider
 }
 
+// GetJsonResponseByTextRecognitionModel returns the json response from the current large language model provider by transaction text recognition model
+func (l *LargeLanguageModelProviderContainer) GetJsonResponseByTextRecognitionModel(c core.Context, uid int64, currentConfig *settings.Config, request *data.LargeLanguageModelRequest) (*data.LargeLanguageModelTextualResponse, error) {
+	if currentConfig.TextRecognitionLLMConfig == nil || Container.textRecognitionCurrentProvider == nil {
+		return nil, errs.ErrInvalidLLMProvider
+	}
+
+	return l.textRecognitionCurrentProvider.GetJsonResponse(c, uid, currentConfig.TextRecognitionLLMConfig, request)
+}
+
 // GetJsonResponseByReceiptImageRecognitionModel returns the json response from the current large language model provider by receipt image recognition model
 func (l *LargeLanguageModelProviderContainer) GetJsonResponseByReceiptImageRecognitionModel(c core.Context, uid int64, currentConfig *settings.Config, request *data.LargeLanguageModelRequest) (*data.LargeLanguageModelTextualResponse, error) {
 	if currentConfig.ReceiptImageRecognitionLLMConfig == nil || Container.receiptImageRecognitionCurrentProvider == nil {
@@ -80,6 +107,15 @@ func (l *LargeLanguageModelProviderContainer) GetJsonResponseByReceiptImageRecog
 	}
 
 	return l.receiptImageRecognitionCurrentProvider.GetJsonResponse(c, uid, currentConfig.ReceiptImageRecognitionLLMConfig, request)
+}
+
+// GetJsonResponseByCodingAssistantModel returns the json response from the coding assistant model
+func (l *LargeLanguageModelProviderContainer) GetJsonResponseByCodingAssistantModel(c core.Context, uid int64, currentConfig *settings.Config, request *data.LargeLanguageModelRequest) (*data.LargeLanguageModelTextualResponse, error) {
+	if currentConfig.CodingAssistantLLMConfig == nil || l.codingAssistantCurrentProvider == nil {
+		return nil, errs.ErrInvalidLLMProvider
+	}
+
+	return l.codingAssistantCurrentProvider.GetJsonResponse(c, uid, currentConfig.CodingAssistantLLMConfig, request)
 }
 
 // GetJsonResponseByAIAssistantModel returns the json response from the current large language model provider by ai assistant model

@@ -3,15 +3,15 @@
         <f7-navbar>
             <f7-nav-left :class="{ 'disabled': loading }" :back-link="tt('Back')" v-if="!displayOrderModified"></f7-nav-left>
             <f7-nav-left v-else-if="displayOrderModified">
-                <f7-link icon-f7="xmark" :class="{ 'disabled': displayOrderSaving }" @click="cancelSort"></f7-link>
+                <f7-link icon-f7="xmark" :class="{ 'disabled': displayOrderSaving }" :aria-label="tt('Cancel')" @click="cancelSort"></f7-link>
             </f7-nav-left>
             <f7-nav-title :title="tt('Change Group Display Order')"></f7-nav-title>
             <f7-nav-right :class="{ 'disabled': loading }">
-                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': displayOrderSaving || !displayOrderModified }" @click="saveSortResult"></f7-link>
+                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': displayOrderSaving || !displayOrderModified }" :aria-label="tt('Save')" @click="saveSortResult"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
-        <f7-list strong inset dividers class="tag-group-item-list margin-top skeleton-text" v-if="loading">
+        <f7-list strong inset dividers class="tag-group-item-list margin-top-half skeleton-text" v-if="loading">
             <f7-list-item :key="itemIdx" v-for="itemIdx in [ 1, 2, 3 ]">
                 <template #title>
                     <div class="display-flex">
@@ -21,12 +21,12 @@
             </f7-list-item>
         </f7-list>
 
-        <f7-list strong inset dividers class="tag-group-item-list margin-top" v-if="!loading && tagGroups.length < 1">
+        <f7-list strong inset dividers class="tag-group-item-list margin-top-half" v-if="!loading && tagGroups.length < 1">
             <f7-list-item :title="tt('No available tag group')"></f7-list-item>
         </f7-list>
 
         <f7-list strong inset dividers sortable sortable-enabled
-                 class="tag-group-item-list margin-top"
+                 class="tag-group-item-list margin-top-half"
                  @sortable:sort="onSort"
                  v-if="!loading">
             <f7-list-item :id="getTagGroupDomId(tagGroup)"

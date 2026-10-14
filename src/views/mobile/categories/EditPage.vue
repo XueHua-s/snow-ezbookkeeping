@@ -4,11 +4,11 @@
             <f7-nav-left :class="{ 'disabled': loading }" :back-link="tt('Back')"></f7-nav-left>
             <f7-nav-title :title="tt(title)"></f7-nav-title>
             <f7-nav-right :class="{ 'disabled': loading }">
-                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': inputIsEmpty || submitting }" @click="save"></f7-link>
+                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': inputIsEmpty || submitting }" :aria-label="tt('Save')" @click="save"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
-        <f7-list strong inset dividers class="margin-top skeleton-text" v-if="loading">
+        <f7-list strong inset dividers class="margin-top-half skeleton-text" v-if="loading">
             <f7-list-input label="Category Name" placeholder="Your category name"></f7-list-input>
             <f7-list-item class="list-item-with-header-and-title" header="Primary Category" title="Primary Category"></f7-list-item>
             <f7-list-item class="list-item-with-header-and-title list-item-with-multi-item">
@@ -53,9 +53,10 @@
             <f7-list-input label="Description" type="textarea" placeholder="Your category description (optional)"></f7-list-input>
         </f7-list>
 
-        <f7-list form strong inset dividers class="margin-top" v-else-if="!loading">
+        <f7-list form strong inset dividers class="margin-top-half" v-else-if="!loading">
             <f7-list-input
                 type="text"
+                autocomplete="off"
                 clear-button
                 :label="tt('Category Name')"
                 :placeholder="tt('Your category name')"
@@ -91,16 +92,17 @@
                                         </div>
                                         <div class="item-title">
                                             <div class="list-item-custom-title no-padding">
-                                                <ItemIcon icon-type="category" :icon-id="category.icon" :color="category.color"></ItemIcon>
+                                                <ItemIcon :icon-type="getCategoryIconType(category.iconType)" :icon-id="category.icon" :color="category.color"></ItemIcon>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </a>
 
-                            <icon-selection-sheet :all-icon-infos="ALL_CATEGORY_ICONS"
+                            <icon-selection-sheet :all-system-icon-infos="ALL_CATEGORY_ICONS"
                                                   :color="category.color"
                                                   v-model:show="showIconSelectionSheet"
+                                                  v-model:icon-type="category.iconType"
                                                   v-model="category.icon"
                             ></icon-selection-sheet>
                         </div>
@@ -120,7 +122,7 @@
                                 </div>
                             </a>
 
-                            <color-selection-sheet :all-color-infos="ALL_CATEGORY_COLORS"
+                            <color-selection-sheet :all-system-color-infos="ALL_CATEGORY_COLORS"
                                                    v-model:show="showColorSelectionSheet"
                                                    v-model="category.color"
                             ></color-selection-sheet>
@@ -130,12 +132,15 @@
             </f7-list-item>
 
             <f7-list-item :title="tt('Visible')" v-if="editCategoryId">
-                <f7-toggle :checked="category.visible" @toggle:change="category.visible = $event"></f7-toggle>
+                <template #after>
+                    <f7-toggle :checked="category.visible" @toggle:change="category.visible = $event"></f7-toggle>
+                </template>
             </f7-list-item>
 
             <f7-list-input
                 type="textarea"
                 style="height: auto"
+                autocomplete="off"
                 :label="tt('Description')"
                 :placeholder="tt('Your category description (optional)')"
                 v-textarea-auto-size
@@ -161,6 +166,7 @@ import { ALL_CATEGORY_ICONS } from '@/consts/icon.ts';
 import { ALL_CATEGORY_COLORS } from '@/consts/color.ts';
 import { TransactionCategory } from '@/models/transaction_category.ts';
 
+import { getCategoryIconType } from '@/lib/icon.ts';
 import { generateRandomUUID } from '@/lib/misc.ts';
 
 const props = defineProps<{

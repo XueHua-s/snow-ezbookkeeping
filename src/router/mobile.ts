@@ -21,9 +21,12 @@ import StatisticsSettingsPage from '@/views/mobile/statistics/SettingsPage.vue';
 import AssistantPage from '@/views/mobile/assistant/AssistantPage.vue';
 
 import TextSizeSettingsPage from '@/views/mobile/settings/TextSizeSettingsPage.vue';
-import PageSettingsPage from '@/views/mobile/settings/PageSettingsPage.vue';
+import PreferencesSettingsPage from '@/views/mobile/settings/PreferencesSettingsPage.vue';
+import OverviewLayoutEditorPage from '@/views/mobile/overview/LayoutEditorPage.vue';
+import ChartColorSchemeSettingsPage from '@/views/mobile/settings/ChartColorSchemeSettingsPage.vue';
 import AccountCategoryDisplayOrderSettingsPage from '@/views/mobile/settings/AccountCategoryDisplayOrderSettingsPage.vue';
 import ApplicationCloudSyncSettingsPage from '@/views/mobile/settings/ApplicationCloudSyncSettingsPage.vue';
+import BrowserCacheSettingPage from '@/views/mobile/settings/BrowserCacheSettingPage.vue';
 import AccountFilterSettingsPage from '@/views/mobile/settings/AccountFilterSettingsPage.vue';
 import CategoryFilterSettingsPage from '@/views/mobile/settings/CategoryFilterSettingsPage.vue';
 import TransactionTagFilterSettingsPage from '@/views/mobile/settings/TransactionTagFilterSettingsPage.vue';
@@ -242,8 +245,18 @@ const routes: Router.RouteParameters[] = [
         beforeEnter: [checkLogin]
     },
     {
-        path: '/settings/page',
-        async: asyncResolve(PageSettingsPage),
+        path: '/settings/preferences',
+        async: asyncResolve(PreferencesSettingsPage),
+        beforeEnter: [checkLogin]
+    },
+    {
+        path: '/settings/overview_layout',
+        async: asyncResolve(OverviewLayoutEditorPage),
+        beforeEnter: [checkLogin]
+    },
+    {
+        path: '/settings/chart_color_scheme',
+        async: asyncResolve(ChartColorSchemeSettingsPage),
         beforeEnter: [checkLogin]
     },
     {
@@ -254,6 +267,11 @@ const routes: Router.RouteParameters[] = [
     {
         path: '/settings/sync',
         async: asyncResolve(ApplicationCloudSyncSettingsPage),
+        beforeEnter: [checkLogin]
+    },
+    {
+        path: '/settings/browser_caches',
+        async: asyncResolve(BrowserCacheSettingPage),
         beforeEnter: [checkLogin]
     },
     {

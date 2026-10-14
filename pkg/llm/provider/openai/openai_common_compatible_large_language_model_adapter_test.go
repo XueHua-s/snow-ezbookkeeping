@@ -1,7 +1,7 @@
 package openai
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"reflect"
 	"testing"
 
@@ -10,12 +10,13 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/core"
 	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
+	"github.com/mayswind/ezbookkeeping/pkg/settings"
 )
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_TextualUserPrompt(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{
-			OpenAIModelID: "test",
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{
+			OpenAICompatibleModelID: "test",
 		},
 	}
 
@@ -27,7 +28,7 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonReques
 	bodyBytes, err := adapter.buildJsonRequestBody(core.NewNullContext(), 0, request, data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
 	assert.Nil(t, err)
 
-	var body map[string]interface{}
+	var body map[string]any
 	err = json.Unmarshal(bodyBytes, &body)
 	assert.Nil(t, err)
 
@@ -36,8 +37,8 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonReques
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_ImageUserPrompt(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{
-			OpenAIModelID: "test",
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{
+			OpenAICompatibleModelID: "test",
 		},
 	}
 
@@ -51,24 +52,42 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonReques
 	bodyBytes, err := adapter.buildJsonRequestBody(core.NewNullContext(), 0, request, data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
 	assert.Nil(t, err)
 
-	var body map[string]interface{}
+	var body map[string]any
 	err = json.Unmarshal(bodyBytes, &body)
 	assert.Nil(t, err)
 
 	assert.Equal(t, "{\"model\":\"test\",\"stream\":false,\"messages\":[{\"role\":\"system\",\"content\":\"What's in this image?\"},{\"role\":\"user\",\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,ZmFrZWRhdGE=\"}}]}],\"response_format\":{\"type\":\"json_object\"}}", string(bodyBytes))
 }
 
-func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_WithJsonSchema(t *testing.T) {
+func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_ThinkingHighReasoningEffort(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{
-			OpenAIModelID: "test",
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{
+			OpenAICompatibleModelID: "test",
 		},
+		ThinkingLevel: settings.LLMThinkingHigh,
 	}
 
 	request := &data.LargeLanguageModelRequest{
-		SystemPrompt:           "You are a helpful assistant.",
-		UserPrompt:             []byte("Please reply in json"),
-		ResponseJsonObjectType: reflect.TypeOf(models.AIAssistantResult{}),
+		UserPrompt: []byte("Hello, how are you?"),
+	}
+
+	bodyBytes, err := adapter.buildJsonRequestBody(core.NewNullContext(), 0, request, data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
+	assert.Nil(t, err)
+
+	assert.Equal(t, "{\"model\":\"test\",\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"Hello, how are you?\"}],\"reasoning\":{\"effort\":\"high\"},\"response_format\":{\"type\":\"json_object\"}}", string(bodyBytes))
+}
+
+func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_JsonSchema(t *testing.T) {
+	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{
+			OpenAICompatibleModelID: "test",
+		},
+		ThinkingLevel: settings.LLMThinkingHigh,
+	}
+
+	request := &data.LargeLanguageModelRequest{
+		UserPrompt:             []byte("Hello"),
+		ResponseJsonObjectType: reflect.TypeOf(openAIResponsesTestResponse{}),
 	}
 
 	bodyBytes, err := adapter.buildJsonRequestBody(core.NewNullContext(), 0, request, data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
@@ -79,19 +98,17 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonReques
 	assert.Nil(t, err)
 
 	responseFormat := body["response_format"].(map[string]any)
-	assert.Equal(t, "json_schema", responseFormat["type"])
-
-	jsonSchema := responseFormat["json_schema"].(map[string]any)
-	assert.Equal(t, "structured_output", jsonSchema["name"])
-
-	schema := jsonSchema["schema"].(map[string]any)
-	properties := schema["properties"].(map[string]any)
-	assert.NotNil(t, properties["reply"])
+	responseType := responseFormat["type"]
+	jsonScheme := responseFormat["json_schema"].(map[string]any)
+	assert.Equal(t, "json_schema", responseType)
+	assert.Equal(t, "response", jsonScheme["name"])
+	assert.Equal(t, true, jsonScheme["strict"])
+	assert.NotNil(t, jsonScheme["schema"])
 }
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualResponse_ValidJsonResponse(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{},
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{},
 	}
 
 	response := `{
@@ -123,7 +140,7 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualRes
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualResponse_EmptyResponse(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{},
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{},
 	}
 
 	response := `{
@@ -148,7 +165,7 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualRes
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualResponse_EmptyChoices(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{},
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{},
 	}
 
 	response := `{
@@ -163,7 +180,7 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualRes
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualResponse_NoChoiceContent(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{},
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{},
 	}
 
 	response := `{
@@ -186,11 +203,43 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualRes
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualResponse_InvalidJson(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{},
+		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{},
 	}
 
 	response := "error"
 
 	_, err := adapter.ParseTextualResponse(core.NewNullContext(), 0, []byte(response), data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
 	assert.EqualError(t, err, "failed to request third party api")
+}
+
+func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_WithJsonSchema(t *testing.T) {
+	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
+		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{
+			OpenAIModelID: "test",
+		},
+	}
+
+	request := &data.LargeLanguageModelRequest{
+		SystemPrompt:           "You are a helpful assistant.",
+		UserPrompt:             []byte("Please reply in json"),
+		ResponseJsonObjectType: reflect.TypeOf(models.AIAssistantResult{}),
+	}
+
+	bodyBytes, err := adapter.buildJsonRequestBody(core.NewNullContext(), 0, request, data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
+	assert.Nil(t, err)
+
+	var body map[string]any
+	err = json.Unmarshal(bodyBytes, &body)
+	assert.Nil(t, err)
+
+	responseFormat := body["response_format"].(map[string]any)
+	assert.Equal(t, "json_schema", responseFormat["type"])
+
+	jsonSchema := responseFormat["json_schema"].(map[string]any)
+	assert.Equal(t, "response", jsonSchema["name"])
+
+	schema := jsonSchema["schema"].(map[string]any)
+	properties := schema["properties"].(map[string]any)
+	assert.NotNil(t, properties["reply"])
+	assert.Equal(t, []any{"reply"}, schema["required"])
 }

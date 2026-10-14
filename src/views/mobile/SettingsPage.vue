@@ -68,25 +68,7 @@
 
             <f7-list-item :title="tt('Exchange Rates Data')" :after="exchangeRatesLastUpdateDate" link="/exchange_rates"></f7-list-item>
 
-            <f7-list-item>
-                <template #after-title>
-                    {{ tt('Auto-update Exchange Rates Data') }}
-                </template>
-                <template #after>
-                    <f7-toggle :checked="isAutoUpdateExchangeRatesData" @toggle:change="isAutoUpdateExchangeRatesData = $event"></f7-toggle>
-                </template>
-            </f7-list-item>
-
-            <f7-list-item>
-                <template #after-title>
-                    {{ tt('Show Account Balance') }}
-                </template>
-                <template #after>
-                    <f7-toggle :checked="showAccountBalance" @toggle:change="showAccountBalance = $event"></f7-toggle>
-                </template>
-            </f7-list-item>
-
-            <f7-list-item :title="tt('Page Settings')" link="/settings/page"></f7-list-item>
+            <f7-list-item :title="tt('Preferences')" link="/settings/preferences"></f7-list-item>
             <f7-list-item :title="tt('Statistics Settings')" link="/statistic/settings"></f7-list-item>
             <f7-list-item :title="tt('Settings Sync')" link="/settings/sync"></f7-list-item>
 
@@ -108,6 +90,7 @@
                 </template>
             </f7-list-item>
 
+            <f7-list-item :title="tt('Browser Cache Management')" link="/settings/browser_caches"></f7-list-item>
             <f7-list-item link="#" no-chevron :title="tt('Switch to Desktop Version')" @click="switchToDesktopVersion"></f7-list-item>
 
             <f7-list-item :title="tt('About')" link="/about" :after="version"></f7-list-item>
@@ -140,7 +123,7 @@ const props = defineProps<{
 
 const { tt, formatDateTimeToLongDate, initLocale } = useI18n();
 const { showToast, showConfirm } = useI18nUIComponents();
-const { allThemes, allTimezones, timeZone, isAutoUpdateExchangeRatesData, showAccountBalance } = useAppSettingPageBase();
+const { allThemes, allTimezones, timeZone } = useAppSettingPageBase();
 
 const rootStore = useRootStore();
 const settingsStore = useSettingsStore();

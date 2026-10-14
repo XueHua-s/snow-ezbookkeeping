@@ -2,12 +2,12 @@
     <f7-page @page:afterin="onPageAfterIn">
         <f7-navbar :class="{ 'disabled': loading }" :title="tt('Two-Factor Authentication')" :back-link="tt('Back')"></f7-navbar>
 
-        <f7-list strong inset dividers class="margin-top skeleton-text" v-if="loading">
+        <f7-list strong inset dividers class="margin-top-half skeleton-text" v-if="loading">
             <f7-list-item title="Status" after="Unknown"></f7-list-item>
             <f7-list-button class="disabled">Operate</f7-list-button>
         </f7-list>
 
-        <f7-list strong inset dividers class="margin-top" v-else-if="!loading">
+        <f7-list strong inset dividers class="margin-top-half" v-else-if="!loading">
             <f7-list-item :title="tt('Status')" :after="tt(status ? 'Enabled' : 'Disabled')"></f7-list-item>
             <f7-list-button :class="{ 'disabled': regenerating }" v-if="status === true" @click="regenerateBackupCode(null)">{{ tt('Regenerate Backup Codes') }}</f7-list-button>
             <f7-list-button :class="{ 'disabled': disabling }" v-if="status === true" @click="disable(null)">{{ tt('Disable') }}</f7-list-button>
@@ -44,7 +44,7 @@
                               @password:confirm="regenerateBackupCode">
         </password-input-sheet>
 
-        <information-sheet class="backup-code-sheet"
+        <information-sheet class="code-information-sheet"
                            :title="tt('Backup Code')"
                            :hint="tt('Please copy these backup codes to safe place, the following backup codes will be displayed only once. If these codes were lost, you can regenerate them at any time.')"
                            :information="currentBackupCode"
@@ -243,9 +243,5 @@ init();
 .img-qrcode {
     width: 240px;
     height: 240px
-}
-
-.backup-code-sheet .information-content {
-    font-family: monospace;
 }
 </style>

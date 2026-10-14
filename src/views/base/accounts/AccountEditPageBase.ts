@@ -8,9 +8,12 @@ import { useUserStore } from '@/stores/user.ts';
 import type { TypeAndDisplayName } from '@/core/base.ts';
 import { AccountCategory, AccountType } from '@/core/account.ts';
 import type { LocalizedAccountCategory } from '@/core/account.ts';
+import { ACCOUNT_CURRENCY_NOT_SET_VALUE } from '@/consts/currency.ts';
+
 import { Account } from '@/models/account.ts';
 
-import { isDefined } from '@/lib/common.ts';
+import { isDefined, isNumber } from '@/lib/common.ts';
+import { parseBigDecimal } from '@/lib/numeral.ts';
 import {
     getTimezoneOffsetMinutes,
     getSameDateTimeWithCurrentTimezone,
@@ -18,13 +21,14 @@ import {
     getCurrentUnixTime
 } from '@/lib/datetime.ts';
 
-export interface DayAndDisplayName {
-    readonly day: number;
-    readonly displayName: string;
-}
-
 export function useAccountEditPageBase() {
-    const { tt, getAllAccountCategories, getAllAccountTypes, getMonthdayShortName } = useI18n();
+    const {
+        tt,
+        getAvailableMonthDays,
+        getAllAccountCategories,
+        getAllAccountTypes,
+        formatAmountToLocalizedNumeralsWithCurrency
+    } = useI18n();
 
     const settingsStore = useSettingsStore();
     const userStore = useUserStore();
@@ -37,6 +41,8 @@ export function useAccountEditPageBase() {
     const submitting = ref<boolean>(false);
     const account = ref<Account>(Account.createNewAccount(defaultAccountCategory, userStore.currentUserDefaultCurrency, getCurrentUnixTimeForNewAccount()));
     const subAccounts = ref<Account[]>([]);
+
+    const useLastReconciledTime = computed(() => userStore.currentUserUseLastReconciledTime);
 
     const title = computed<string>(() => {
         if (!editAccountId.value) {
@@ -80,46 +86,49 @@ export function useAccountEditPageBase() {
     const allAccountCategories = computed<LocalizedAccountCategory[]>(() => getAllAccountCategories(customAccountCategoryOrder.value));
     const allAccountTypes = computed<TypeAndDisplayName[]>(() => getAllAccountTypes());
 
-    const allAvailableMonthDays = computed<DayAndDisplayName[]>(() => {
-        const allAvailableDays: DayAndDisplayName[] = [];
+    const allAvailableMonthDays = computed<TypeAndDisplayName[]>(() => {
+        const allAvailableDays: TypeAndDisplayName[] = getAvailableMonthDays(28);
 
-        allAvailableDays.push({
-            day: 0,
+        allAvailableDays.splice(0, 0, {
+            type: 0,
             displayName: tt('Not set'),
         });
 
-        for (let i = 1; i <= 28; i++) {
-            allAvailableDays.push({
-                day: i,
-                displayName: getMonthdayShortName(i),
-            });
-        }
-
         return allAvailableDays;
     });
-
-    const isAccountSupportCreditCardStatementDate = computed<boolean>(() => account.value && account.value.category === AccountCategory.CreditCard.type);
 
     function getCurrentUnixTimeForNewAccount(): number {
         return getSameDateTimeWithCurrentTimezone(parseDateTimeFromUnixTimeWithBrowserTimezone(getCurrentUnixTime())).getUnixTime();
     }
 
-    function getDefaultTimezoneOffsetMinutes(account: Account): number {
-        if (!account.balanceTime) {
-            return 0;
+    function getDefaultTimezoneOffsetMinutes(unixTime?: number): number {
+        if (!unixTime) {
+            return getTimezoneOffsetMinutes(getCurrentUnixTime());
         }
 
-        return getTimezoneOffsetMinutes(account.balanceTime);
+        return getTimezoneOffsetMinutes(unixTime);
     }
 
     function getAccountCreditCardStatementDate(statementDate?: number): string | null {
+        if (!isDefined(statementDate)) {
+            return tt('Not set');
+        }
+
         for (const item of allAvailableMonthDays.value) {
-            if (item.day === statementDate) {
+            if (item.type === statementDate) {
                 return item.displayName;
             }
         }
 
         return null;
+    }
+
+    function getAccountCreditCardCreditLimitDisplayValue(creditLimit: number | undefined, currency: string): string {
+        if (!isNumber(creditLimit) || creditLimit <= 0 || !currency || currency === ACCOUNT_CURRENCY_NOT_SET_VALUE) {
+            return tt('Not set');
+        }
+
+        return formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(creditLimit), currency);
     }
 
     function updateAccountBalanceTime(account: Account, balanceTime: number): void {
@@ -137,6 +146,23 @@ export function useAccountEditPageBase() {
         }
 
         account.balanceTime = balanceTime - (newUtcOffset - oldUtcOffset) * 60;
+    }
+
+    function updateAccountLastReconciledTime(account: Account, lastReconciledTime: number): void {
+        if (!isDefined(account.lastReconciledTime)) {
+            account.lastReconciledTime = lastReconciledTime;
+            return;
+        }
+
+        const oldUtcOffset = getTimezoneOffsetMinutes(account.lastReconciledTime);
+        const newUtcOffset = getTimezoneOffsetMinutes(lastReconciledTime);
+
+        if (oldUtcOffset === newUtcOffset) {
+            account.lastReconciledTime = lastReconciledTime;
+            return;
+        }
+
+        account.lastReconciledTime = lastReconciledTime - (newUtcOffset - oldUtcOffset) * 60;
     }
 
     function getInputEmptyProblemMessage(account: Account, isSubAccount: boolean): string | null {
@@ -185,6 +211,12 @@ export function useAccountEditPageBase() {
         account.value.setSuitableIcon(oldValue, newValue);
     });
 
+    watch(() => account.value.currency, (newValue) => {
+        if (account.value.category === AccountCategory.CreditCard.type && (!newValue || newValue === ACCOUNT_CURRENCY_NOT_SET_VALUE)) {
+            account.value.numericCreditCardLimit = 0;
+        }
+    });
+
     return {
         // constants
         defaultAccountCategory,
@@ -196,6 +228,7 @@ export function useAccountEditPageBase() {
         account,
         subAccounts,
         // computed states
+        useLastReconciledTime,
         title,
         saveButtonTitle,
         inputEmptyProblemMessage,
@@ -203,12 +236,13 @@ export function useAccountEditPageBase() {
         allAccountCategories,
         allAccountTypes,
         allAvailableMonthDays,
-        isAccountSupportCreditCardStatementDate,
         // functions
         getCurrentUnixTimeForNewAccount,
         getDefaultTimezoneOffsetMinutes,
         getAccountCreditCardStatementDate,
+        getAccountCreditCardCreditLimitDisplayValue,
         updateAccountBalanceTime,
+        updateAccountLastReconciledTime,
         isNewAccount,
         addSubAccount,
         setAccount
