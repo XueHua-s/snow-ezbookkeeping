@@ -1,11 +1,13 @@
 package openai
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/json/v2"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/invopop/jsonschema"
 	"github.com/mayswind/ezbookkeeping/pkg/core"
@@ -31,6 +33,7 @@ type CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter struct {
 	common.HttpLargeLanguageModelAdapter
 	apiProvider   OpenAIChatCompletionsAPIProvider
 	ThinkingLevel settings.LLMThinkingLevel
+	forceStream   bool
 }
 
 // OpenAIChatCompletionsRequestResponseFormatType defines the type of OpenAI chat completions request response format
@@ -40,6 +43,8 @@ type OpenAIChatCompletionsRequestResponseFormatType string
 const (
 	OpenAIChatCompletionsRequestResponseFormatTypeJsonObject OpenAIChatCompletionsRequestResponseFormatType = "json_object"
 	OpenAIChatCompletionsRequestResponseFormatTypeJsonSchema OpenAIChatCompletionsRequestResponseFormatType = "json_schema"
+	openAIChatCompletionsDefaultJsonSchemaName               string                                         = "response"
+	openAIChatCompletionsJsonObjectInstruction               string                                         = "Return the response as valid json."
 )
 
 // OpenAIChatCompletionsRequestReasoning defines the reasoning structure of OpenAI chat completions request
@@ -65,16 +70,18 @@ type OpenAIChatCompletionsRequestMessage[T string | []*OpenAIChatCompletionsRequ
 // OpenAIChatCompletionsRequestImageContent defines the structure of OpenAI chat completions request image content
 type OpenAIChatCompletionsRequestImageContent struct {
 	Type     string                                `json:"type"`
-	ImageURL *OpenAIChatCompletionsRequestImageUrl `json:"image_url"`
+	ImageURL *OpenAIChatCompletionsRequestImageUrl `json:"image_url,omitempty"`
+	Text     string                                `json:"text,omitempty"`
 }
 
 // OpenAIChatCompletionsRequestResponseFormat defines the structure of OpenAI chat completions request response format
 type OpenAIChatCompletionsRequestResponseFormat struct {
-	Type       OpenAIChatCompletionsRequestResponseFormatType  `json:"type"`
-	JsonSchema *OpenAIChatCompletionsRequestResponseJsonSchema `json:"json_schema,omitempty"`
+	Type       OpenAIChatCompletionsRequestResponseFormatType `json:"type"`
+	JsonSchema *OpenAIChatCompletionsRequestJsonSchema        `json:"json_schema,omitempty"`
 }
 
-type OpenAIChatCompletionsRequestResponseJsonSchema struct {
+// OpenAIChatCompletionsRequestJsonSchema defines the structure of OpenAI chat completions request json schema
+type OpenAIChatCompletionsRequestJsonSchema struct {
 	Name   string             `json:"name"`
 	Strict bool               `json:"strict"`
 	Schema *jsonschema.Schema `json:"schema"`
@@ -98,6 +105,16 @@ type OpenAIChatCompletionsResponseChoice struct {
 // OpenAIChatCompletionsResponseMessage defines the structure of OpenAI chat completions response message
 type OpenAIChatCompletionsResponseMessage struct {
 	Content *string `json:"content"`
+}
+
+// OpenAIChatCompletionsStreamResponse defines one streamed chat completions response chunk.
+type OpenAIChatCompletionsStreamResponse struct {
+	Choices []*OpenAIChatCompletionsStreamResponseChoice `json:"choices"`
+}
+
+// OpenAIChatCompletionsStreamResponseChoice defines one choice in a streamed response chunk.
+type OpenAIChatCompletionsStreamResponseChoice struct {
+	Delta *OpenAIChatCompletionsResponseMessage `json:"delta"`
 }
 
 // OpenAI Chat Completions Request Reasoning Efforts Mapping
@@ -132,6 +149,10 @@ func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) BuildTextualRe
 
 // ParseTextualResponse returns the textual response by OpenAI common compatible adapter
 func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) ParseTextualResponse(c core.Context, uid int64, body []byte, responseType data.LargeLanguageModelResponseFormat) (*data.LargeLanguageModelTextualResponse, error) {
+	if bytes.HasPrefix(bytes.TrimSpace(body), []byte("data:")) {
+		return p.parseStreamedTextualResponse(c, uid, body)
+	}
+
 	chatCompletionsResponse := &OpenAIChatCompletionsResponse{}
 	err := json.Unmarshal(body, &chatCompletionsResponse)
 
@@ -154,6 +175,59 @@ func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) ParseTextualRe
 	return textualResponse, nil
 }
 
+func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) parseStreamedTextualResponse(c core.Context, uid int64, body []byte) (*data.LargeLanguageModelTextualResponse, error) {
+	contentBuilder := &strings.Builder{}
+	hasContent := false
+	scanner := bufio.NewScanner(bytes.NewReader(body))
+	scanner.Buffer(make([]byte, 0, 4096), 4*1024*1024)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+
+		eventData := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+
+		if eventData == "" {
+			continue
+		}
+
+		if eventData == "[DONE]" {
+			break
+		}
+
+		chunk := &OpenAIChatCompletionsStreamResponse{}
+
+		if err := json.Unmarshal([]byte(eventData), chunk); err != nil {
+			log.Errorf(c, "[openai_common_compatible_large_language_model_adapter.parseStreamedTextualResponse] failed to parse chat completions stream for user \"uid:%d\", because %s", uid, err.Error())
+			return nil, errs.ErrFailedToRequestRemoteApi
+		}
+
+		for _, choice := range chunk.Choices {
+			if choice != nil && choice.Delta != nil && choice.Delta.Content != nil {
+				contentBuilder.WriteString(*choice.Delta.Content)
+				hasContent = true
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Errorf(c, "[openai_common_compatible_large_language_model_adapter.parseStreamedTextualResponse] failed to read chat completions stream for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.ErrFailedToRequestRemoteApi
+	}
+
+	if !hasContent {
+		log.Errorf(c, "[openai_common_compatible_large_language_model_adapter.parseStreamedTextualResponse] chat completions stream is invalid for user \"uid:%d\"", uid)
+		return nil, errs.ErrFailedToRequestRemoteApi
+	}
+
+	return &data.LargeLanguageModelTextualResponse{
+		Content: contentBuilder.String(),
+	}, nil
+}
+
 func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) buildJsonRequestBody(c core.Context, uid int64, request *data.LargeLanguageModelRequest, responseType data.LargeLanguageModelResponseFormat) ([]byte, error) {
 	if p.apiProvider.GetModelID() == "" {
 		return nil, errs.ErrInvalidLLMModelId
@@ -161,7 +235,7 @@ func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) buildJsonReque
 
 	chatCompletionsRequest := &OpenAIChatCompletionsRequest{
 		Model:    p.apiProvider.GetModelID(),
-		Stream:   request.Stream,
+		Stream:   request.Stream || p.forceStream,
 		Messages: make([]any, 0, 2),
 	}
 
@@ -181,16 +255,27 @@ func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) buildJsonReque
 	if len(request.UserPrompt) > 0 {
 		if request.UserPromptType == data.LARGE_LANGUAGE_MODEL_REQUEST_PROMPT_TYPE_IMAGE_URL {
 			imageBase64Data := "data:" + request.UserPromptContentType + ";base64," + base64.StdEncoding.EncodeToString(request.UserPrompt)
-			chatCompletionsRequest.Messages = append(chatCompletionsRequest.Messages, &OpenAIChatCompletionsRequestMessage[[]*OpenAIChatCompletionsRequestImageContent]{
-				Role: OpenAIMessageRoleUser,
-				Content: []*OpenAIChatCompletionsRequestImageContent{
-					{
-						Type: "image_url",
-						ImageURL: &OpenAIChatCompletionsRequestImageUrl{
-							Url: imageBase64Data,
-						},
+			imageContents := []*OpenAIChatCompletionsRequestImageContent{
+				{
+					Type: "image_url",
+					ImageURL: &OpenAIChatCompletionsRequestImageUrl{
+						Url: imageBase64Data,
 					},
 				},
+			}
+
+			// OpenAI's json_object mode rejects image-only user messages that do not
+			// explicitly mention JSON, even when response_format already requests it.
+			if responseType == data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON && request.ResponseJsonObjectType == nil {
+				imageContents = append(imageContents, &OpenAIChatCompletionsRequestImageContent{
+					Type: "text",
+					Text: openAIChatCompletionsJsonObjectInstruction,
+				})
+			}
+
+			chatCompletionsRequest.Messages = append(chatCompletionsRequest.Messages, &OpenAIChatCompletionsRequestMessage[[]*OpenAIChatCompletionsRequestImageContent]{
+				Role:    OpenAIMessageRoleUser,
+				Content: imageContents,
 			})
 		} else {
 			chatCompletionsRequest.Messages = append(chatCompletionsRequest.Messages, &OpenAIChatCompletionsRequestMessage[string]{
@@ -213,8 +298,8 @@ func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) buildJsonReque
 
 			chatCompletionsRequest.ResponseFormat = &OpenAIChatCompletionsRequestResponseFormat{
 				Type: OpenAIChatCompletionsRequestResponseFormatTypeJsonSchema,
-				JsonSchema: &OpenAIChatCompletionsRequestResponseJsonSchema{
-					Name:   "response",
+				JsonSchema: &OpenAIChatCompletionsRequestJsonSchema{
+					Name:   openAIChatCompletionsDefaultJsonSchemaName,
 					Strict: true,
 					Schema: schema,
 				},
@@ -240,6 +325,7 @@ func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) buildJsonReque
 func newCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter(llmConfig *settings.LLMConfig, enableResponseLog bool, apiProvider OpenAIChatCompletionsAPIProvider) provider.LargeLanguageModelProvider {
 	return common.NewCommonHttpLargeLanguageModelProvider(llmConfig, enableResponseLog, &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
 		apiProvider:   apiProvider,
+		forceStream:   llmConfig.ChatCompletionsStream,
 		ThinkingLevel: llmConfig.EnableThinking,
 	})
 }

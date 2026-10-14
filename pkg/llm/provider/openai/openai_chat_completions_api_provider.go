@@ -38,9 +38,10 @@ func (p *OpenAIOfficialChatCompletionsAPIProvider) GetModelID() string {
 
 // NewOpenAIChatCompletionsLargeLanguageModelProvider creates a new OpenAI large language model provider instance
 func NewOpenAIChatCompletionsLargeLanguageModelProvider(llmConfig *settings.LLMConfig, enableResponseLog bool) provider.LargeLanguageModelProvider {
-	return newCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter(llmConfig, enableResponseLog, &OpenAIOfficialChatCompletionsAPIProvider{
+	chatCompletionsProvider := newCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter(llmConfig, enableResponseLog, &OpenAIOfficialChatCompletionsAPIProvider{
 		OpenAIAPIKey:             llmConfig.OpenAIAPIKey,
 		OpenAIModelID:            llmConfig.OpenAIModelID,
 		OpenAIChatCompletionsURL: llmConfig.GetOpenAIEndpointURL(openAIChatCompletionsPath),
 	})
+	return newOpenAILargeLanguageModelProvider(llmConfig, enableResponseLog, chatCompletionsProvider)
 }

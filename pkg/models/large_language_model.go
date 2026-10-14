@@ -39,6 +39,25 @@ type RecognizedTransactionResult struct {
 	DestinationAccountName string   `json:"destination_account,omitempty" jsonschema_description:"Destination account name for transfer transactions"`
 }
 
+// RecognizedReceiptImageResponse is retained as a compatibility alias for the online fork.
+type RecognizedReceiptImageResponse = RecognizedTransactionResponse
+
+// RecognizedReceiptImageResult is retained as a compatibility alias for the online fork.
+type RecognizedReceiptImageResult = RecognizedTransactionResult
+
+// RecognizedReceiptImageResultItem represents one item in a batch recognition response
+type RecognizedReceiptImageResultItem struct {
+	Index   int                             `json:"index"`
+	Success bool                            `json:"success"`
+	Result  *RecognizedReceiptImageResponse `json:"result,omitempty"`
+	Error   string                          `json:"error,omitempty"`
+}
+
+// RecognizedReceiptImageBatchResponse represents a batch of recognized receipt image results
+type RecognizedReceiptImageBatchResponse struct {
+	Results []*RecognizedReceiptImageResultItem `json:"results"`
+}
+
 const (
 	AIAssistantModeChat    = "chat"
 	AIAssistantModeSummary = "summary"

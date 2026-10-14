@@ -16,8 +16,6 @@ type OpenAIOfficialResponsesAPIProvider struct {
 	OpenAIResponsesURL string
 }
 
-const openAIResponsesPath = "responses"
-
 // BuildResponsesHttpRequest returns the responses http request by OpenAI official responses API provider
 func (p *OpenAIOfficialResponsesAPIProvider) BuildResponsesHttpRequest(c core.Context, uid int64) (*http.Request, error) {
 	req, err := http.NewRequest("POST", p.OpenAIResponsesURL, nil)

@@ -190,7 +190,7 @@ const (
 	defaultAnthropicLargeLanguageModelThinkingBudget   uint32 = 1024
 	defaultLargeLanguageModelAPIRequestTimeout         uint32 = 60000 // 60 seconds
 	defaultOpenAIBaseURL                               string = "https://api.openai.com/v1/"
-	defaultAIAssistantOpenAIModelID                    string = "gpt-5.1-mini"
+	defaultAIAssistantOpenAIModelID                    string = "gpt-5.4-mini"
 	defaultAIAssistantOpenAIEmbeddingModelID           string = "text-embedding-3-small"
 
 	defaultInMemoryDuplicateCheckerCleanupInterval uint32 = 60  // 1 minutes
@@ -284,9 +284,12 @@ type WebDAVConfig struct {
 // LLMConfig represents the Large Language Model setting config
 type LLMConfig struct {
 	LLMProvider                             string
+	OpenAIBaseURL                           string
 	EnableThinking                          LLMThinkingLevel
 	OpenAIAPIKey                            string
 	OpenAIModelID                           string
+	OpenAIEmbeddingModelID                  string
+	ChatCompletionsStream                   bool
 	OpenAICompatibleBaseURL                 string
 	OpenAICompatibleAPIKey                  string
 	OpenAICompatibleModelID                 string
@@ -312,18 +315,14 @@ type LLMConfig struct {
 	LargeLanguageModelAPIRequestTimeout     uint32
 	LargeLanguageModelAPIProxy              string
 	LargeLanguageModelAPISkipTLSVerify      bool
-	OpenAIBaseURL                           string
-	OpenAIEmbeddingModelID                  string
 }
 
 // GetOpenAIBaseURL returns the final OpenAI API base url
 func (config *LLMConfig) GetOpenAIBaseURL() string {
 	baseURL := strings.TrimSpace(config.OpenAIBaseURL)
-
 	if baseURL == "" {
 		return defaultOpenAIBaseURL
 	}
-
 	return baseURL
 }
 
@@ -331,15 +330,12 @@ func (config *LLMConfig) GetOpenAIBaseURL() string {
 func (config *LLMConfig) GetOpenAIEndpointURL(path string) string {
 	baseURL := config.GetOpenAIBaseURL()
 	finalPath := strings.TrimPrefix(strings.TrimSpace(path), "/")
-
 	if finalPath == "" {
 		return baseURL
 	}
-
 	if !strings.HasSuffix(baseURL, "/") {
 		baseURL += "/"
 	}
-
 	return baseURL + finalPath
 }
 
@@ -420,10 +416,12 @@ type Config struct {
 	TextRecognitionLLMConfig *LLMConfig
 
 	// Large Language Model for Receipt Image Recognition
-	ReceiptImageRecognitionLLMConfig *LLMConfig
-	AIAssistantLLMConfig             *LLMConfig
+	ReceiptImageRecognitionLLMConfig         *LLMConfig
+	ReceiptImageRecognitionFallbackLLMConfig *LLMConfig
+	AIAssistantLLMConfig                     *LLMConfig
+	AIAssistantEmbeddingLLMConfig            *LLMConfig
+	AIAssistantFallbackLLMConfig             *LLMConfig
 
-	// Large Language Model for coding assistant
 	CodingAssistantLLMConfig *LLMConfig
 
 	// Uuid
@@ -624,20 +622,45 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 		return nil, err
 	}
 
+	config.ReceiptImageRecognitionFallbackLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_image_recognition_fallback")
+	if err != nil {
+		return nil, err
+	}
+
 	config.AIAssistantLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant")
 
 	if err != nil {
 		return nil, err
 	}
 
-	if config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider == OpenAILLMProvider {
-		if config.AIAssistantLLMConfig.OpenAIModelID == "" {
-			config.AIAssistantLLMConfig.OpenAIModelID = defaultAIAssistantOpenAIModelID
-		}
+	config.AIAssistantEmbeddingLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant_embedding")
+	if err != nil {
+		return nil, err
+	}
+	if config.AIAssistantEmbeddingLLMConfig.LLMProvider == "" {
+		config.AIAssistantEmbeddingLLMConfig = nil
+	} else if config.AIAssistantEmbeddingLLMConfig.LLMProvider != OpenAILLMProvider {
+		return nil, errs.ErrInvalidLLMProvider
+	} else if strings.TrimSpace(config.AIAssistantEmbeddingLLMConfig.OpenAIEmbeddingModelID) == "" {
+		return nil, errs.ErrAIAssistantEmbeddingModelInvalid
+	}
 
-		if config.AIAssistantLLMConfig.OpenAIEmbeddingModelID == "" {
-			config.AIAssistantLLMConfig.OpenAIEmbeddingModelID = defaultAIAssistantOpenAIEmbeddingModelID
+	config.AIAssistantFallbackLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_assistant_fallback")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, assistantLLMConfig := range []*LLMConfig{config.AIAssistantLLMConfig, config.AIAssistantFallbackLLMConfig} {
+		if assistantLLMConfig == nil || assistantLLMConfig.LLMProvider != OpenAILLMProvider {
+			continue
 		}
+		if assistantLLMConfig.OpenAIModelID == "" {
+			assistantLLMConfig.OpenAIModelID = defaultAIAssistantOpenAIModelID
+		}
+	}
+
+	if config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider == OpenAILLMProvider && config.AIAssistantLLMConfig.OpenAIEmbeddingModelID == "" {
+		config.AIAssistantLLMConfig.OpenAIEmbeddingModelID = defaultAIAssistantOpenAIEmbeddingModelID
 	}
 
 	err = loadUuidConfiguration(config, cfgFile, "uuid")
@@ -984,10 +1007,10 @@ func loadStorageConfiguration(config *Config, configFile *ini.File, sectionName 
 }
 
 func loadAIConfiguration(config *Config, configFile *ini.File, sectionName string) error {
-	config.TransactionFromAITextRecognition = getConfigItemBoolValue(configFile, sectionName, "transaction_from_ai_text_recognition", false)
-	config.TransactionFromAIImageRecognition = getConfigItemBoolValue(configFile, sectionName, "transaction_from_ai_image_recognition", false)
+	config.TransactionFromAITextRecognition = getConfigItemBoolValue(configFile, sectionName, "transaction_from_ai_text_recognition", getConfigItemBoolValue(configFile, "llm", "transaction_from_ai_text_recognition", false))
+	config.TransactionFromAIImageRecognition = getConfigItemBoolValue(configFile, sectionName, "transaction_from_ai_image_recognition", getConfigItemBoolValue(configFile, "llm", "transaction_from_ai_image_recognition", false))
 	config.InsightsExplorerCodingAssistant = getConfigItemBoolValue(configFile, sectionName, "insights_explorer_coding_assistant", false)
-	config.MaxAIRecognitionPictureFileSize = getConfigItemUint32Value(configFile, sectionName, "max_ai_recognition_picture_size", defaultAIRecognitionPictureMaxSize)
+	config.MaxAIRecognitionPictureFileSize = getConfigItemUint32Value(configFile, sectionName, "max_ai_recognition_picture_size", getConfigItemUint32Value(configFile, "llm", "max_ai_recognition_picture_size", defaultAIRecognitionPictureMaxSize))
 	config.EnableAIAssistant = getConfigItemBoolValue(configFile, sectionName, "enable_ai_assistant", getConfigItemBoolValue(configFile, "llm", "enable_ai_assistant", false))
 
 	return nil
@@ -1045,6 +1068,7 @@ func loadLLMConfiguration(configFile *ini.File, sectionName string) (*LLMConfig,
 	llmConfig.OpenAIBaseURL = getConfigItemStringValue(configFile, sectionName, "openai_base_url")
 	llmConfig.OpenAIModelID = getConfigItemStringValue(configFile, sectionName, "openai_model_id")
 	llmConfig.OpenAIEmbeddingModelID = getConfigItemStringValue(configFile, sectionName, "openai_embedding_model_id")
+	llmConfig.ChatCompletionsStream = getConfigItemBoolValue(configFile, sectionName, "chat_completions_stream", false)
 
 	llmConfig.OpenAICompatibleBaseURL = getConfigItemStringValue(configFile, sectionName, "openai_compatible_base_url")
 	llmConfig.OpenAICompatibleAPIKey = getConfigItemStringValue(configFile, sectionName, "openai_compatible_api_key")
@@ -1646,7 +1670,7 @@ func getConfigItemValueFromEnvironment(sectionName string, itemName string) stri
 		content, err := os.ReadFile(itemFilePath)
 
 		if err == nil {
-			return string(content)
+			return strings.TrimRight(string(content), "\r\n")
 		}
 	}
 
@@ -1676,4 +1700,12 @@ func getLogLevel(logLevelStr string) (Level, error) {
 	}
 
 	return "", errs.ErrInvalidLogLevel
+}
+
+// GetAIAssistantEmbeddingLLMConfig keeps legacy installations using the assistant provider.
+func (config *Config) GetAIAssistantEmbeddingLLMConfig() *LLMConfig {
+	if config.AIAssistantEmbeddingLLMConfig != nil {
+		return config.AIAssistantEmbeddingLLMConfig
+	}
+	return config.AIAssistantLLMConfig
 }

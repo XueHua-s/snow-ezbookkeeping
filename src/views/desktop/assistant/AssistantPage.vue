@@ -140,13 +140,13 @@
 </template>
 
 <script setup lang="ts">
-import { parseBigDecimal } from '@/lib/numeral.ts';
 import SnackBar from '@/components/desktop/SnackBar.vue';
 import AssistantMarkdownContent from '@/components/common/AssistantMarkdownContent.vue';
 
 import { nextTick, useTemplateRef, watch } from 'vue';
 
 import { useI18n } from '@/locales/helpers.ts';
+import { parseBigDecimal } from '@/lib/numeral.ts';
 import { getAIAssistantModelID } from '@/lib/server_settings.ts';
 import { useAssistantPageBase } from '@/views/base/assistant/AssistantPageBase.ts';
 
@@ -159,6 +159,7 @@ import {
 } from '@mdi/js';
 
 type SnackBarType = InstanceType<typeof SnackBar>;
+type ScrollablePanelRef = HTMLElement | { $el?: Element };
 
 const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
 const aiAssistantModelID = getAIAssistantModelID();
@@ -175,15 +176,31 @@ const {
 } = useAssistantPageBase();
 
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
-const messagesPanel = useTemplateRef<HTMLElement>('messagesPanel');
+const messagesPanel = useTemplateRef<ScrollablePanelRef>('messagesPanel');
+
+function getMessagesPanelElement(): HTMLElement | null {
+    const panel = messagesPanel.value;
+
+    if (panel instanceof HTMLElement) {
+        return panel;
+    }
+
+    if (panel && '$el' in panel && panel.$el instanceof HTMLElement) {
+        return panel.$el;
+    }
+
+    return null;
+}
 
 watch(() => messages.value.map(message => `${message.id}:${message.thinking?.length || 0}:${message.content.length}:${message.references?.length || 0}`).join('|'), () => {
     nextTick(() => {
-        if (!messagesPanel.value) {
+        const panel = getMessagesPanelElement();
+
+        if (!panel) {
             return;
         }
 
-        messagesPanel.value.scrollTop = messagesPanel.value.scrollHeight;
+        panel.scrollTop = panel.scrollHeight;
     });
 });
 

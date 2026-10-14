@@ -918,14 +918,31 @@ export default {
             cancelableUuid: cancelableUuid
         } as ApiRequestConfig);
     },
-    chatWithAIAssistant: ({ req, cancelableUuid }: { req: AIAssistantChatRequest, cancelableUuid?: string }): ApiResponsePromise<AIAssistantChatResponse> => {
-        return axios.post<ApiResponse<AIAssistantChatResponse>>('v1/llm/assistant/chat.json', req, {
+    generateCode: (req: CodingAssistantRequest, cancelableUuid?: string): ApiResponsePromise<CodingAssistantResponse> => {
+        return axios.post<ApiResponse<CodingAssistantResponse>>('v1/llm/code/generate.json', req, {
             timeout: DEFAULT_LLM_API_TIMEOUT,
             cancelableUuid: cancelableUuid
         } as ApiRequestConfig);
     },
-    generateCode: (req: CodingAssistantRequest, cancelableUuid?: string): ApiResponsePromise<CodingAssistantResponse> => {
-        return axios.post<ApiResponse<CodingAssistantResponse>>('v1/llm/code/generate.json', req, {
+    getAllUserCustomIcons: (): ApiResponsePromise<UserCustomIconInfoResponse[]> => {
+        return axios.get<ApiResponse<UserCustomIconInfoResponse[]>>('v1/custom_icons/list.json');
+    },
+    uploadUserCustomIcon: ({ iconFile, clientSessionId }: { iconFile: File, clientSessionId?: string }): ApiResponsePromise<UserCustomIconInfoResponse> => {
+        return axios.postForm<ApiResponse<UserCustomIconInfoResponse>>('v1/custom_icons/upload.json', {
+            icon: iconFile,
+            clientSessionId: clientSessionId
+        }, {
+            timeout: DEFAULT_UPLOAD_API_TIMEOUT
+        } as ApiRequestConfig);
+    },
+    moveUserCustomIcons: (req: UserCustomIconMoveRequest): ApiResponsePromise<boolean> => {
+        return axios.post<ApiResponse<boolean>>('v1/custom_icons/move.json', req);
+    },
+    deleteUserCustomIcon: (req: UserCustomIconDeleteRequest): ApiResponsePromise<boolean> => {
+        return axios.post<ApiResponse<boolean>>('v1/custom_icons/delete.json', req);
+    },
+    chatWithAIAssistant: ({ req, cancelableUuid }: { req: AIAssistantChatRequest, cancelableUuid?: string }): ApiResponsePromise<AIAssistantChatResponse> => {
+        return axios.post<ApiResponse<AIAssistantChatResponse>>('v1/llm/assistant/chat.json', req, {
             timeout: DEFAULT_LLM_API_TIMEOUT,
             cancelableUuid: cancelableUuid
         } as ApiRequestConfig);
@@ -1142,23 +1159,6 @@ export default {
                 delete cancelableStreamingRequests[cancelableUuid];
             }
         }
-    },
-    getAllUserCustomIcons: (): ApiResponsePromise<UserCustomIconInfoResponse[]> => {
-        return axios.get<ApiResponse<UserCustomIconInfoResponse[]>>('v1/custom_icons/list.json');
-    },
-    uploadUserCustomIcon: ({ iconFile, clientSessionId }: { iconFile: File, clientSessionId?: string }): ApiResponsePromise<UserCustomIconInfoResponse> => {
-        return axios.postForm<ApiResponse<UserCustomIconInfoResponse>>('v1/custom_icons/upload.json', {
-            icon: iconFile,
-            clientSessionId: clientSessionId
-        }, {
-            timeout: DEFAULT_UPLOAD_API_TIMEOUT
-        } as ApiRequestConfig);
-    },
-    moveUserCustomIcons: (req: UserCustomIconMoveRequest): ApiResponsePromise<boolean> => {
-        return axios.post<ApiResponse<boolean>>('v1/custom_icons/move.json', req);
-    },
-    deleteUserCustomIcon: (req: UserCustomIconDeleteRequest): ApiResponsePromise<boolean> => {
-        return axios.post<ApiResponse<boolean>>('v1/custom_icons/delete.json', req);
     },
     getLatestExchangeRates: (param: { ignoreError?: boolean }): ApiResponsePromise<LatestExchangeRateResponse> => {
         return axios.get<ApiResponse<LatestExchangeRateResponse>>('v1/exchange_rates/latest.json', {

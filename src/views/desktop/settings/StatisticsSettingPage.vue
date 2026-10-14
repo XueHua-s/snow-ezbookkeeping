@@ -317,4 +317,3 @@ function init(): void {
 
 init();
 </script>
-

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -28,15 +27,13 @@ import (
 
 const (
 	aiAssistantOpenAIEmbeddingsPath              = "embeddings"
-	aiAssistantOpenAIResponsesPath               = "responses"
 	aiAssistantKnowledgeBaseTransactionPageSize  = int32(180)
 	aiAssistantKnowledgeBaseMaxTransactionCount  = 1800
 	aiAssistantKnowledgeBaseHistoryCoverageYears = 2
 	aiAssistantKnowledgeBaseTopK                 = 18
-	aiAssistantEmbeddingRequestBatchSize         = 64
+	aiAssistantEmbeddingRequestBatchSize         = 20
 	aiAssistantMaxHistoryMessages                = 12
 	aiAssistantMaxReferencedTransactionsCount    = 8
-	aiAssistantOpenAIReasoningSummaryLevel       = "auto"
 )
 
 type openAIEmbeddingsRequest struct {
@@ -51,19 +48,6 @@ type openAIEmbeddingsResponse struct {
 type openAIEmbeddingsResponseItem struct {
 	Index     int       `json:"index"`
 	Embedding []float64 `json:"embedding"`
-}
-
-type openAIResponsesRequest struct {
-	Model        string                        `json:"model"`
-	Instructions string                        `json:"instructions,omitempty"`
-	Input        string                        `json:"input"`
-	Stream       bool                          `json:"stream"`
-	Store        bool                          `json:"store"`
-	Reasoning    *openAIResponsesReasoningItem `json:"reasoning,omitempty"`
-}
-
-type openAIResponsesReasoningItem struct {
-	Summary string `json:"summary,omitempty"`
 }
 
 type aiAssistantPreparedPromptContext struct {
@@ -125,7 +109,7 @@ func (a *LargeLanguageModelsApi) AssistantChatHandler(c *core.WebContext) (any, 
 	}
 
 	uid := c.GetCurrentUid()
-	llmResponse, llmErr := llm.Container.GetJsonResponseByAIAssistantModel(c, uid, currentConfig, llmRequest)
+	llmResponse, llmErr := llm.Container.GetJsonResponseByAIAssistantModel(c, uid, llmRequest)
 
 	if llmErr != nil {
 		log.Errorf(c, "[large_language_models.AssistantChatHandler] failed to get llm response for user \"uid:%d\", because %s", uid, llmErr.Error())
@@ -175,13 +159,45 @@ func (a *LargeLanguageModelsApi) AssistantChatStreamHandler(c *core.WebContext) 
 		return nil
 	}
 
-	llmConfig := currentConfig.AIAssistantLLMConfig
-	streamErr := a.streamAIAssistantResponseFromOpenAI(c, c.GetCurrentUid(), llmConfig, assistantContext)
-
+	uid := c.GetCurrentUid()
+	streamResponse, streamErr := llm.Container.StreamTextResponseByAIAssistantModel(c, uid, &data.LargeLanguageModelRequest{
+		SystemPrompt: assistantContext.SystemPrompt,
+		UserPrompt:   []byte(assistantContext.UserPrompt),
+	}, func(deltaType data.LargeLanguageModelStreamDeltaType, delta string) {
+		chunkType := ""
+		if deltaType == data.LARGE_LANGUAGE_MODEL_STREAM_DELTA_TYPE_REPLY {
+			chunkType = models.AIAssistantChatStreamChunkTypeReplyDelta
+		} else if deltaType == data.LARGE_LANGUAGE_MODEL_STREAM_DELTA_TYPE_THINKING {
+			chunkType = models.AIAssistantChatStreamChunkTypeThinkingDelta
+		}
+		if chunkType != "" {
+			utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+				Type:  chunkType,
+				Delta: delta,
+			})
+		}
+	})
 	if streamErr != nil {
-		return streamErr
+		log.Errorf(c, "[large_language_models.AssistantChatStreamHandler] failed to stream llm response for user \"uid:%d\", because %s", uid, streamErr.Error())
+		return errs.Or(streamErr, errs.ErrOperationFailed)
+	}
+	if streamResponse == nil {
+		return errs.ErrOperationFailed
 	}
 
+	if len(assistantContext.References) > 0 {
+		utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+			Type:       models.AIAssistantChatStreamChunkTypeReferences,
+			References: assistantContext.References,
+		})
+	}
+
+	utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
+		Type:     models.AIAssistantChatStreamChunkTypeDone,
+		Mode:     assistantContext.Mode,
+		Reply:    streamResponse.Content,
+		Thinking: streamResponse.Thinking,
+	})
 	return nil
 }
 
@@ -306,8 +322,8 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 		}, nil
 	}
 
-	embeddingQuery := a.buildAIAssistantEmbeddingQueryText(&request, mode)
-	queryEmbedding, embeddingErr := a.getAIAssistantKnowledgeAndQueryEmbeddings(c, uid, currentConfig.AIAssistantLLMConfig, embeddingQuery, knowledgeItems)
+	embeddingQuery := a.buildAIAssistantEmbeddingQueryText(&request, mode, c.GetClientLocale())
+	queryEmbedding, embeddingErr := a.getAIAssistantKnowledgeAndQueryEmbeddings(c, uid, currentConfig.GetAIAssistantEmbeddingLLMConfig(), embeddingQuery, knowledgeItems)
 
 	if embeddingErr != nil {
 		log.Errorf(c, "[large_language_models.prepareAIAssistantPromptContext] failed to prepare embeddings for user \"uid:%d\", because %s", uid, embeddingErr.Error())
@@ -325,10 +341,11 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 	}
 
 	systemPromptParams := map[string]any{
-		"CurrentDateTime":    utils.FormatUnixTimeToLongDateTime(time.Now().Unix(), clientTimezone),
-		"ConversationMode":   mode,
-		"FinancialSnapshot":  financialSnapshot,
-		"RetrievedKnowledge": retrievedKnowledgeText,
+		"CurrentDateTime":        utils.FormatUnixTimeToLongDateTime(time.Now().Unix(), clientTimezone),
+		"ConversationMode":       mode,
+		"PreferredReplyLanguage": getAIAssistantPreferredReplyLanguage(c.GetClientLocale()),
+		"FinancialSnapshot":      financialSnapshot,
+		"RetrievedKnowledge":     retrievedKnowledgeText,
 	}
 
 	var promptBuffer bytes.Buffer
@@ -342,7 +359,7 @@ func (a *LargeLanguageModelsApi) prepareAIAssistantPromptContext(c *core.WebCont
 	return &aiAssistantPreparedPromptContext{
 		Mode:         mode,
 		SystemPrompt: strings.ReplaceAll(promptBuffer.String(), "\r\n", "\n"),
-		UserPrompt:   a.buildAIAssistantUserPrompt(&request, mode),
+		UserPrompt:   a.buildAIAssistantUserPrompt(&request, mode, c.GetClientLocale()),
 		References:   buildAIAssistantResponseReferences(retrievedKnowledgeItems, aiAssistantMaxReferencedTransactionsCount),
 	}, nil
 }
@@ -399,273 +416,6 @@ func getAIAssistantKnowledgeCoverageStartUnixTime(clientTimezone *time.Location)
 	coverageStartTime := time.Date(coverageStartYear, time.January, 1, 0, 0, 0, 0, clientTimezone)
 
 	return coverageStartTime.Unix()
-}
-
-func (a *LargeLanguageModelsApi) streamAIAssistantResponseFromOpenAI(c *core.WebContext, uid int64, llmConfig *settings.LLMConfig, assistantContext *aiAssistantPreparedPromptContext) *errs.Error {
-	if llmConfig == nil {
-		return errs.ErrOperationFailed
-	}
-
-	openAIAPIKey := strings.TrimSpace(llmConfig.OpenAIAPIKey)
-	openAIModelID := strings.TrimSpace(llmConfig.OpenAIModelID)
-
-	if openAIAPIKey == "" || openAIModelID == "" {
-		return errs.ErrFailedToRequestRemoteApi
-	}
-
-	requestBody := &openAIResponsesRequest{
-		Model:        openAIModelID,
-		Instructions: assistantContext.SystemPrompt,
-		Input:        assistantContext.UserPrompt,
-		Stream:       true,
-		Store:        false,
-		Reasoning: &openAIResponsesReasoningItem{
-			Summary: aiAssistantOpenAIReasoningSummaryLevel,
-		},
-	}
-
-	requestBodyBytes, marshalErr := json.Marshal(requestBody)
-
-	if marshalErr != nil {
-		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to marshal request for user \"uid:%d\", because %s", uid, marshalErr.Error())
-		return errs.ErrOperationFailed
-	}
-
-	httpRequest, requestErr := http.NewRequest("POST", llmConfig.GetOpenAIEndpointURL(aiAssistantOpenAIResponsesPath), bytes.NewReader(requestBodyBytes))
-
-	if requestErr != nil {
-		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to build request for user \"uid:%d\", because %s", uid, requestErr.Error())
-		return errs.ErrFailedToRequestRemoteApi
-	}
-
-	httpRequest.Header.Set("Authorization", "Bearer "+openAIAPIKey)
-	httpRequest.Header.Set("Content-Type", "application/json")
-	httpRequest.Header.Set("Accept", "text/event-stream")
-	httpRequest = httpRequest.WithContext(httpclient.CustomHttpResponseLog(c, func(data []byte) {
-		log.Debugf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] response is %s", data)
-	}))
-
-	httpClient := httpclient.NewHttpClient(llmConfig.LargeLanguageModelAPIRequestTimeout, llmConfig.LargeLanguageModelAPIProxy, llmConfig.LargeLanguageModelAPISkipTLSVerify, core.GetOutgoingUserAgent(), false, []uint16{})
-	response, responseErr := httpClient.Do(httpRequest)
-
-	if responseErr != nil {
-		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to request response stream for user \"uid:%d\", because %s", uid, responseErr.Error())
-		return errs.ErrFailedToRequestRemoteApi
-	}
-
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		responseBody, _ := io.ReadAll(response.Body)
-		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to request response stream for user \"uid:%d\", because response code is %d, response is %s", uid, response.StatusCode, string(responseBody))
-		return errs.ErrFailedToRequestRemoteApi
-	}
-
-	replyBuilder := &strings.Builder{}
-	thinkingBuilder := &strings.Builder{}
-	scanner := bufio.NewScanner(response.Body)
-	scanner.Buffer(make([]byte, 0, 4096), 4*1024*1024)
-	eventDataLines := make([]string, 0, 4)
-	streamDone := false
-
-	processCurrentEvent := func() *errs.Error {
-		if len(eventDataLines) < 1 {
-			return nil
-		}
-
-		eventData := strings.TrimSpace(strings.Join(eventDataLines, "\n"))
-		eventDataLines = eventDataLines[:0]
-
-		done, processErr := a.processOpenAIResponseStreamEvent(c, uid, eventData, replyBuilder, thinkingBuilder)
-
-		if processErr != nil {
-			return processErr
-		}
-
-		if done {
-			streamDone = true
-		}
-
-		return nil
-	}
-
-	for scanner.Scan() {
-		line := strings.TrimRight(scanner.Text(), "\r")
-
-		if line == "" {
-			eventErr := processCurrentEvent()
-
-			if eventErr != nil {
-				return eventErr
-			}
-
-			if streamDone {
-				break
-			}
-
-			continue
-		}
-
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-
-		eventDataLines = append(eventDataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
-	}
-
-	if scanErr := scanner.Err(); scanErr != nil {
-		log.Errorf(c, "[large_language_models.streamAIAssistantResponseFromOpenAI] failed to read response stream for user \"uid:%d\", because %s", uid, scanErr.Error())
-		return errs.ErrFailedToRequestRemoteApi
-	}
-
-	if !streamDone {
-		eventErr := processCurrentEvent()
-
-		if eventErr != nil {
-			return eventErr
-		}
-	}
-
-	if len(assistantContext.References) > 0 {
-		utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
-			Type:       models.AIAssistantChatStreamChunkTypeReferences,
-			References: assistantContext.References,
-		})
-	}
-
-	utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
-		Type:     models.AIAssistantChatStreamChunkTypeDone,
-		Mode:     assistantContext.Mode,
-		Reply:    replyBuilder.String(),
-		Thinking: thinkingBuilder.String(),
-	})
-
-	return nil
-}
-
-func (a *LargeLanguageModelsApi) processOpenAIResponseStreamEvent(c *core.WebContext, uid int64, eventData string, replyBuilder *strings.Builder, thinkingBuilder *strings.Builder) (bool, *errs.Error) {
-	if eventData == "" {
-		return false, nil
-	}
-
-	if eventData == "[DONE]" {
-		return true, nil
-	}
-
-	var event map[string]any
-	if err := json.Unmarshal([]byte(eventData), &event); err != nil {
-		log.Warnf(c, "[large_language_models.processOpenAIResponseStreamEvent] failed to parse event data for user \"uid:%d\", because %s", uid, err.Error())
-		return false, nil
-	}
-
-	eventType, _ := event["type"].(string)
-
-	if eventType == "response.reasoning_summary_text.delta" {
-		delta, _ := event["delta"].(string)
-
-		if delta != "" {
-			thinkingBuilder.WriteString(delta)
-			utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
-				Type:  models.AIAssistantChatStreamChunkTypeThinkingDelta,
-				Delta: delta,
-			})
-		}
-
-		return false, nil
-	}
-
-	if eventType == "response.output_text.delta" {
-		delta, _ := event["delta"].(string)
-
-		if delta != "" {
-			replyBuilder.WriteString(delta)
-			utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
-				Type:  models.AIAssistantChatStreamChunkTypeReplyDelta,
-				Delta: delta,
-			})
-		}
-
-		return false, nil
-	}
-
-	if eventType == "response.completed" {
-		if replyBuilder.Len() < 1 {
-			if responseObj, ok := event["response"].(map[string]any); ok {
-				outputText := extractTextFromOpenAIResponseCompletedEvent(responseObj)
-
-				if outputText != "" {
-					replyBuilder.WriteString(outputText)
-					utils.WriteEventStreamJsonSuccessResult(c, &models.AIAssistantChatStreamChunk{
-						Type:  models.AIAssistantChatStreamChunkTypeReplyDelta,
-						Delta: outputText,
-					})
-				}
-			}
-		}
-
-		return true, nil
-	}
-
-	if eventType == "error" {
-		log.Errorf(c, "[large_language_models.processOpenAIResponseStreamEvent] openai stream returns error for user \"uid:%d\", payload is %s", uid, eventData)
-		return true, errs.ErrFailedToRequestRemoteApi
-	}
-
-	return false, nil
-}
-
-func extractTextFromOpenAIResponseCompletedEvent(responseObj map[string]any) string {
-	outputText, _ := responseObj["output_text"].(string)
-
-	if outputText != "" {
-		return outputText
-	}
-
-	outputItems, ok := responseObj["output"].([]any)
-
-	if !ok || len(outputItems) < 1 {
-		return ""
-	}
-
-	outputBuilder := &strings.Builder{}
-
-	for i := 0; i < len(outputItems); i++ {
-		outputItemMap, ok := outputItems[i].(map[string]any)
-
-		if !ok {
-			continue
-		}
-
-		contentItems, ok := outputItemMap["content"].([]any)
-
-		if !ok {
-			continue
-		}
-
-		for j := 0; j < len(contentItems); j++ {
-			contentItemMap, ok := contentItems[j].(map[string]any)
-
-			if !ok {
-				continue
-			}
-
-			contentType, _ := contentItemMap["type"].(string)
-
-			if contentType != "output_text" && contentType != "text" {
-				continue
-			}
-
-			text, _ := contentItemMap["text"].(string)
-
-			if text == "" {
-				continue
-			}
-
-			outputBuilder.WriteString(text)
-		}
-	}
-
-	return outputBuilder.String()
 }
 
 func normalizeAIAssistantMode(mode string) (string, error) {
@@ -803,10 +553,20 @@ func (a *LargeLanguageModelsApi) buildAIAssistantKnowledgeItems(transactions []*
 	return knowledgeItems
 }
 
-func (a *LargeLanguageModelsApi) buildAIAssistantEmbeddingQueryText(request *models.AIAssistantChatRequest, mode string) string {
+func (a *LargeLanguageModelsApi) buildAIAssistantEmbeddingQueryText(request *models.AIAssistantChatRequest, mode string, clientLocale string) string {
+	normalizedLocale := normalizeAIAssistantClientLocale(clientLocale)
+
 	if mode == models.AIAssistantModeSummary {
 		if request.Message != "" {
+			if strings.HasPrefix(normalizedLocale, "zh") {
+				return "个人财务总结与记账建议，重点关注：" + request.Message
+			}
+
 			return "personal finance summary and bookkeeping suggestions focus: " + request.Message
+		}
+
+		if strings.HasPrefix(normalizedLocale, "zh") {
+			return "总结近期个人财务趋势、支出结构、潜在风险和可执行的记账建议"
 		}
 
 		return "summarize recent personal finance trends, spending, risks, and bookkeeping suggestions"
@@ -838,15 +598,25 @@ func (a *LargeLanguageModelsApi) buildAIAssistantEmbeddingQueryText(request *mod
 	return strings.TrimSpace(queryTextBuilder.String())
 }
 
-func (a *LargeLanguageModelsApi) buildAIAssistantUserPrompt(request *models.AIAssistantChatRequest, mode string) string {
+func (a *LargeLanguageModelsApi) buildAIAssistantUserPrompt(request *models.AIAssistantChatRequest, mode string, clientLocale string) string {
 	promptBuilder := &strings.Builder{}
+	normalizedLocale := normalizeAIAssistantClientLocale(clientLocale)
 
 	if mode == models.AIAssistantModeSummary {
-		promptBuilder.WriteString("Please provide a personal finance summary and practical bookkeeping suggestions based on my bill data.")
+		if strings.HasPrefix(normalizedLocale, "zh") {
+			promptBuilder.WriteString("请基于我的账单数据，用中文给我一份个人财务总结，并提供可执行的记账建议。")
+		} else {
+			promptBuilder.WriteString("Please provide a personal finance summary and practical bookkeeping suggestions based on my bill data.")
+		}
 
 		if request.Message != "" {
-			promptBuilder.WriteString("\nAdditional focus: ")
-			promptBuilder.WriteString(request.Message)
+			if strings.HasPrefix(normalizedLocale, "zh") {
+				promptBuilder.WriteString("\n额外关注点：")
+				promptBuilder.WriteString(request.Message)
+			} else {
+				promptBuilder.WriteString("\nAdditional focus: ")
+				promptBuilder.WriteString(request.Message)
+			}
 		}
 	} else {
 		promptBuilder.WriteString("Latest user message:\n")
@@ -883,6 +653,59 @@ func (a *LargeLanguageModelsApi) buildAIAssistantUserPrompt(request *models.AIAs
 	return promptBuilder.String()
 }
 
+func normalizeAIAssistantClientLocale(clientLocale string) string {
+	normalized := strings.ToLower(strings.TrimSpace(clientLocale))
+	normalized = strings.ReplaceAll(normalized, "_", "-")
+	return normalized
+}
+
+func getAIAssistantPreferredReplyLanguage(clientLocale string) string {
+	normalized := normalizeAIAssistantClientLocale(clientLocale)
+
+	switch {
+	case strings.HasPrefix(normalized, "zh-hant"), strings.HasPrefix(normalized, "zh-tw"), strings.HasPrefix(normalized, "zh-hk"), strings.HasPrefix(normalized, "zh-mo"):
+		return "Traditional Chinese"
+	case strings.HasPrefix(normalized, "zh"):
+		return "Simplified Chinese"
+	case strings.HasPrefix(normalized, "ja"):
+		return "Japanese"
+	case strings.HasPrefix(normalized, "ko"):
+		return "Korean"
+	case strings.HasPrefix(normalized, "fr"):
+		return "French"
+	case strings.HasPrefix(normalized, "de"):
+		return "German"
+	case strings.HasPrefix(normalized, "es"):
+		return "Spanish"
+	case strings.HasPrefix(normalized, "it"):
+		return "Italian"
+	case strings.HasPrefix(normalized, "ru"):
+		return "Russian"
+	case strings.HasPrefix(normalized, "uk"):
+		return "Ukrainian"
+	case strings.HasPrefix(normalized, "vi"):
+		return "Vietnamese"
+	case strings.HasPrefix(normalized, "th"):
+		return "Thai"
+	case strings.HasPrefix(normalized, "pt-br"):
+		return "Brazilian Portuguese"
+	case strings.HasPrefix(normalized, "pt"):
+		return "Portuguese"
+	case strings.HasPrefix(normalized, "tr"):
+		return "Turkish"
+	case strings.HasPrefix(normalized, "nl"):
+		return "Dutch"
+	case strings.HasPrefix(normalized, "sl"):
+		return "Slovenian"
+	case strings.HasPrefix(normalized, "ta"):
+		return "Tamil"
+	case strings.HasPrefix(normalized, "kn"):
+		return "Kannada"
+	default:
+		return "English"
+	}
+}
+
 func (a *LargeLanguageModelsApi) getAIAssistantNoDataReply(c *core.WebContext, mode string) string {
 	clientLocale := strings.ToLower(c.GetClientLocale())
 
@@ -902,6 +725,10 @@ func (a *LargeLanguageModelsApi) getAIAssistantNoDataReply(c *core.WebContext, m
 }
 
 func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, llmConfig *settings.LLMConfig, inputs []string) ([][]float64, error) {
+	if llmConfig == nil {
+		return nil, errs.ErrOperationFailed
+	}
+
 	openAIAPIKey := strings.TrimSpace(llmConfig.OpenAIAPIKey)
 	openAIEmbeddingModelID := strings.TrimSpace(llmConfig.OpenAIEmbeddingModelID)
 
@@ -915,6 +742,7 @@ func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, 
 
 	httpClient := httpclient.NewHttpClient(llmConfig.LargeLanguageModelAPIRequestTimeout, llmConfig.LargeLanguageModelAPIProxy, llmConfig.LargeLanguageModelAPISkipTLSVerify, core.GetOutgoingUserAgent(), false, []uint16{})
 	embeddings := make([][]float64, 0, len(inputs))
+	embeddingDimension := 0
 
 	for start := 0; start < len(inputs); start += aiAssistantEmbeddingRequestBatchSize {
 		end := start + aiAssistantEmbeddingRequestBatchSize
@@ -977,6 +805,12 @@ func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, 
 			return nil, errs.ErrFailedToRequestRemoteApi
 		}
 
+		for _, item := range embeddingsResponse.Data {
+			if item == nil {
+				return nil, errs.ErrFailedToRequestRemoteApi
+			}
+		}
+
 		sort.Slice(embeddingsResponse.Data, func(i, j int) bool {
 			return embeddingsResponse.Data[i].Index < embeddingsResponse.Data[j].Index
 		})
@@ -984,8 +818,14 @@ func (a *LargeLanguageModelsApi) getOpenAIEmbeddings(c core.Context, uid int64, 
 		for i := 0; i < len(embeddingsResponse.Data); i++ {
 			item := embeddingsResponse.Data[i]
 
-			if item == nil || len(item.Embedding) < 1 {
+			if item.Index != i || len(item.Embedding) < 1 {
 				log.Errorf(c, "[large_language_models.getOpenAIEmbeddings] one embedding item is invalid for user \"uid:%d\"", uid)
+				return nil, errs.ErrFailedToRequestRemoteApi
+			}
+
+			if embeddingDimension == 0 {
+				embeddingDimension = len(item.Embedding)
+			} else if len(item.Embedding) != embeddingDimension {
 				return nil, errs.ErrFailedToRequestRemoteApi
 			}
 

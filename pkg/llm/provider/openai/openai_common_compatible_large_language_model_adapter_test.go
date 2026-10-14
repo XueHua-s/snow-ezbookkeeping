@@ -37,8 +37,8 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonReques
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_ImageUserPrompt(t *testing.T) {
 	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
-		apiProvider: &OpenAICompatibleChatCompletionsAPIProvider{
-			OpenAICompatibleModelID: "test",
+		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{
+			OpenAIModelID: "test",
 		},
 	}
 
@@ -52,11 +52,11 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonReques
 	bodyBytes, err := adapter.buildJsonRequestBody(core.NewNullContext(), 0, request, data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
 	assert.Nil(t, err)
 
-	var body map[string]any
+	var body map[string]interface{}
 	err = json.Unmarshal(bodyBytes, &body)
 	assert.Nil(t, err)
 
-	assert.Equal(t, "{\"model\":\"test\",\"stream\":false,\"messages\":[{\"role\":\"system\",\"content\":\"What's in this image?\"},{\"role\":\"user\",\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,ZmFrZWRhdGE=\"}}]}],\"response_format\":{\"type\":\"json_object\"}}", string(bodyBytes))
+	assert.Equal(t, "{\"model\":\"test\",\"stream\":false,\"messages\":[{\"role\":\"system\",\"content\":\"What's in this image?\"},{\"role\":\"user\",\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,ZmFrZWRhdGE=\"}},{\"type\":\"text\",\"text\":\"Return the response as valid json.\"}]}],\"response_format\":{\"type\":\"json_object\"}}", string(bodyBytes))
 }
 
 func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_ThinkingHighReasoningEffort(t *testing.T) {
@@ -242,4 +242,41 @@ func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonReques
 	properties := schema["properties"].(map[string]any)
 	assert.NotNil(t, properties["reply"])
 	assert.Equal(t, []any{"reply"}, schema["required"])
+}
+
+func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_buildJsonRequestBody_ForceStream(t *testing.T) {
+	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
+		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{
+			OpenAIModelID: "test",
+		},
+		forceStream: true,
+	}
+
+	bodyBytes, err := adapter.buildJsonRequestBody(core.NewNullContext(), 0, &data.LargeLanguageModelRequest{
+		UserPrompt: []byte("Please reply in json"),
+	}, data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
+	assert.NoError(t, err)
+
+	var body map[string]any
+	assert.NoError(t, json.Unmarshal(bodyBytes, &body))
+	assert.Equal(t, true, body["stream"])
+}
+
+func TestCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter_ParseTextualResponse_ValidStreamResponse(t *testing.T) {
+	adapter := &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
+		apiProvider: &OpenAIOfficialChatCompletionsAPIProvider{},
+	}
+
+	response := `data: {"choices":[{"delta":{"content":"{\"amount\":"}}]}
+
+data: {"choices":[{"delta":{"content":"12}"}}]}
+
+data: {"choices":[{"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+`
+
+	result, err := adapter.ParseTextualResponse(core.NewNullContext(), 0, []byte(response), data.LARGE_LANGUAGE_MODEL_RESPONSE_FORMAT_JSON)
+	assert.Nil(t, err)
+	assert.Equal(t, `{"amount":12}`, result.Content)
 }

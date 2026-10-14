@@ -194,50 +194,20 @@ func getConfigWithoutSensitiveData(config *settings.Config) *settings.Config {
 		clonedConfig.WebDAVConfig.Password = "****"
 	}
 
-	if clonedConfig.TextRecognitionLLMConfig != nil {
-		removeSensitiveDataFromLLMConfig(clonedConfig.TextRecognitionLLMConfig)
-	}
-
-	if clonedConfig.ReceiptImageRecognitionLLMConfig != nil {
-		removeSensitiveDataFromLLMConfig(clonedConfig.ReceiptImageRecognitionLLMConfig)
-	}
-
-	if clonedConfig.CodingAssistantLLMConfig != nil {
-		removeSensitiveDataFromLLMConfig(clonedConfig.CodingAssistantLLMConfig)
+	for _, llmConfig := range []*settings.LLMConfig{
+		clonedConfig.TextRecognitionLLMConfig,
+		clonedConfig.CodingAssistantLLMConfig,
+		clonedConfig.ReceiptImageRecognitionLLMConfig,
+		clonedConfig.ReceiptImageRecognitionFallbackLLMConfig,
+		clonedConfig.AIAssistantLLMConfig,
+		clonedConfig.AIAssistantEmbeddingLLMConfig,
+		clonedConfig.AIAssistantFallbackLLMConfig,
+	} {
+		redactLLMConfig(llmConfig)
 	}
 
 	if clonedConfig.SecretKey != "" {
 		clonedConfig.SecretKey = "****"
-	}
-
-	if clonedConfig.AIAssistantLLMConfig != nil {
-		if clonedConfig.AIAssistantLLMConfig.OpenAIAPIKey != "" {
-			clonedConfig.AIAssistantLLMConfig.OpenAIAPIKey = "****"
-		}
-
-		if clonedConfig.AIAssistantLLMConfig.OpenAICompatibleAPIKey != "" {
-			clonedConfig.AIAssistantLLMConfig.OpenAICompatibleAPIKey = "****"
-		}
-
-		if clonedConfig.AIAssistantLLMConfig.AnthropicCompatibleAPIKey != "" {
-			clonedConfig.AIAssistantLLMConfig.AnthropicCompatibleAPIKey = "****"
-		}
-
-		if clonedConfig.AIAssistantLLMConfig.AnthropicAPIKey != "" {
-			clonedConfig.AIAssistantLLMConfig.AnthropicAPIKey = "****"
-		}
-
-		if clonedConfig.AIAssistantLLMConfig.OpenRouterAPIKey != "" {
-			clonedConfig.AIAssistantLLMConfig.OpenRouterAPIKey = "****"
-		}
-
-		if clonedConfig.AIAssistantLLMConfig.LMStudioToken != "" {
-			clonedConfig.AIAssistantLLMConfig.LMStudioToken = "****"
-		}
-
-		if clonedConfig.AIAssistantLLMConfig.GoogleAIAPIKey != "" {
-			clonedConfig.AIAssistantLLMConfig.GoogleAIAPIKey = "****"
-		}
 	}
 
 	if clonedConfig.OAuth2ClientSecret != "" {
@@ -251,34 +221,30 @@ func getConfigWithoutSensitiveData(config *settings.Config) *settings.Config {
 	return clonedConfig
 }
 
-func removeSensitiveDataFromLLMConfig(llmConfig *settings.LLMConfig) {
-	if llmConfig != nil {
-		if llmConfig.OpenAIAPIKey != "" {
-			llmConfig.OpenAIAPIKey = "****"
-		}
+func redactLLMConfig(llmConfig *settings.LLMConfig) {
+	if llmConfig == nil {
+		return
+	}
 
-		if llmConfig.OpenAICompatibleAPIKey != "" {
-			llmConfig.OpenAICompatibleAPIKey = "****"
-		}
-
-		if llmConfig.AnthropicCompatibleAPIKey != "" {
-			llmConfig.AnthropicCompatibleAPIKey = "****"
-		}
-
-		if llmConfig.AnthropicAPIKey != "" {
-			llmConfig.AnthropicAPIKey = "****"
-		}
-
-		if llmConfig.OpenRouterAPIKey != "" {
-			llmConfig.OpenRouterAPIKey = "****"
-		}
-
-		if llmConfig.LMStudioToken != "" {
-			llmConfig.LMStudioToken = "****"
-		}
-
-		if llmConfig.GoogleAIAPIKey != "" {
-			llmConfig.GoogleAIAPIKey = "****"
-		}
+	if llmConfig.OpenAIAPIKey != "" {
+		llmConfig.OpenAIAPIKey = "****"
+	}
+	if llmConfig.OpenAICompatibleAPIKey != "" {
+		llmConfig.OpenAICompatibleAPIKey = "****"
+	}
+	if llmConfig.AnthropicCompatibleAPIKey != "" {
+		llmConfig.AnthropicCompatibleAPIKey = "****"
+	}
+	if llmConfig.AnthropicAPIKey != "" {
+		llmConfig.AnthropicAPIKey = "****"
+	}
+	if llmConfig.OpenRouterAPIKey != "" {
+		llmConfig.OpenRouterAPIKey = "****"
+	}
+	if llmConfig.LMStudioToken != "" {
+		llmConfig.LMStudioToken = "****"
+	}
+	if llmConfig.GoogleAIAPIKey != "" {
+		llmConfig.GoogleAIAPIKey = "****"
 	}
 }

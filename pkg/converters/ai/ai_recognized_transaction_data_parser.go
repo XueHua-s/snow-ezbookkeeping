@@ -54,7 +54,7 @@ func (p *aiTransactionDataParser) parseText(c core.Context, user *models.User, f
 		UserPromptType: data.LARGE_LANGUAGE_MODEL_REQUEST_PROMPT_TYPE_TEXT,
 	}
 
-	llmResponse, err := llm.Container.GetJsonResponseByTextRecognitionModel(c, user.Uid, p.currentConfig, llmRequest)
+	llmResponse, err := llm.Container.GetJsonResponseByTextRecognitionModel(c, user.Uid, llmRequest)
 
 	if err != nil {
 		log.Errorf(c, "[ai_recognized_transaction_data_parser.parseText] failed to get llm response for user \"uid:%d\", because %s", user.Uid, err.Error())
@@ -89,7 +89,7 @@ func (p *aiTransactionDataParser) parseImage(c core.Context, user *models.User, 
 		UserPromptContentType: additionalOptions.GetAIImageContentType(),
 	}
 
-	llmResponse, err := llm.Container.GetJsonResponseByReceiptImageRecognitionModel(c, user.Uid, p.currentConfig, llmRequest)
+	llmResponse, err := llm.Container.GetJsonResponseByReceiptImageRecognitionModel(c, user.Uid, llmRequest)
 
 	if err != nil {
 		log.Errorf(c, "[ai_recognized_transaction_data_parser.parseImage] failed to get llm response for user \"uid:%d\", because %s", user.Uid, err.Error())

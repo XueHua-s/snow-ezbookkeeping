@@ -63,7 +63,7 @@
 - `[security] secret_key`：签名密钥（不一致会导致会话/令牌行为变化）
 - `[uuid] server_id`：多实例场景必须保证唯一性
 - `[auth]`：OAuth2/OIDC 相关配置
-- `[ai]`、`[llm_image_recognition]`、`[llm_assistant]`：AI 功能相关配置
+- `[ai]`、`[llm_image_recognition]`、`[llm_image_recognition_fallback]`、`[llm_assistant]`、`[llm_assistant_fallback]`：AI 功能相关配置
 
 AI 配置建议重点核对（防止“能启动但行为偏差”）：
 
@@ -71,11 +71,25 @@ AI 配置建议重点核对（防止“能启动但行为偏差”）：
 - `llm_image_recognition.openai_api_key`
 - `llm_image_recognition.openai_base_url`
 - `llm_image_recognition.openai_model_id`
+- `llm_image_recognition.chat_completions_stream`
+- `llm_image_recognition_fallback.llm_provider`
+- `llm_image_recognition_fallback.openai_api_key`
+- `llm_image_recognition_fallback.openai_base_url`
+- `llm_image_recognition_fallback.openai_model_id`
+- `llm_image_recognition_fallback.chat_completions_stream`
 - `llm_assistant.llm_provider`
 - `llm_assistant.openai_api_key`
 - `llm_assistant.openai_base_url`
 - `llm_assistant.openai_model_id`
 - `llm_assistant.openai_embedding_model_id`
+- `llm_assistant.chat_completions_stream`
+- `llm_assistant_fallback.llm_provider`
+- `llm_assistant_fallback.openai_api_key`
+- `llm_assistant_fallback.openai_base_url`
+- `llm_assistant_fallback.openai_model_id`
+- `llm_assistant_fallback.chat_completions_stream`
+
+`llm_assistant_fallback` 只接管对话模型请求，不接管 embedding；向量检索优先使用独立的 `llm_assistant_embedding` 配置，未设置时回退到 `llm_assistant`。若 OpenAI 兼容上游只接受流式 Chat Completions，请显式设置对应 section 的 `chat_completions_stream = true`。
 
 同时检查环境变量覆盖：
 
@@ -296,4 +310,6 @@ rsync -aHAX --numeric-ids --info=progress2 /src/storage/ /backup/storage/
 8. 做统计与抽样校验。  
 9. 通过后切流量，失败就回滚。
 
-合并新版上游后，AI 全局开关位于 `[ai]`；个人财务助手仍兼容旧 `[llm]` 下的 `enable_ai_assistant`，但 `[ai]` 中的显式设置优先。助手配置继续使用 `[llm_assistant]`，其聊天与流式接口仍使用 Chat Completions。上游的官方 OpenAI 识别与编程助手使用 Responses API。
+合并新版上游后，AI 全局开关位于 `[ai]`；识别功能和个人财务助手仍兼容旧 `[llm]` 下的开关及图片大小限制，但 `[ai]` 中的显式设置优先。助手配置继续使用 `[llm_assistant]`；普通聊天使用 Chat Completions，流式聊天使用 Responses API。备用模型和独立 embedding 配置保持有效。
+
+官方 OpenAI 的文本识别和编程助手沿用上游 Responses API；票据识别及普通财务助手对话保留本仓库的 Chat Completions 兼容与备用模型机制。
