@@ -83,6 +83,12 @@ export function getAIAssistantModelID(): string {
     return getServerSetting('llmam') as string || '';
 }
 
+// Milliseconds; assistant JSON/SSE clients add 10 seconds for the response.
+export function getAIAssistantRunTimeout(): number | undefined {
+    const timeout = getServerSetting('llmart');
+    return typeof timeout === 'number' && Number.isInteger(timeout) && timeout > 0 ? timeout : undefined;
+}
+
 export function getLoginPageTips(): Record<string, string>{
     return getServerSetting('lpt') as Record<string, string>;
 }

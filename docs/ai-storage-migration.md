@@ -9,7 +9,7 @@
 - 必迁数据是三类：`数据库` + `对象存储文件` + `运行配置（含密钥）`。
 - 仅导出 CSV/TSV 不是完整备份，不能替代数据库备份。
 - 交易图片附件是独立对象存储数据，必须和数据库一起迁移。
-- AI 助手向量缓存在数据库表 `ai_assistant_embedding`，可迁移也可重建。
+- 旧 AI 助手向量表 `a_i_assistant_embedding` 保留 schema 和记录用于回滚，随整库备份迁移；新版助手不再访问或重建缓存。
 - `recognize_receipt_image.json` 识图上传默认是临时识别输入，不会自动保存为交易图片附件。
 
 ## 2. 数据资产地图（整项目）
@@ -30,7 +30,7 @@
 - `transaction_tag_index`
 - `transaction_template`
 - `transaction_picture_info`
-- `ai_assistant_embedding`
+- `a_i_assistant_embedding`
 - `user_custom_exchange_rate`
 - `user_application_cloud_setting`
 - `user_external_auth`
@@ -39,7 +39,9 @@
 说明：
 
 - 表结构由 `./ezbookkeeping database update` / 启动时 `auto_update_database=true` 自动维护。
-- `ai_assistant_embedding` 是 AI 向量缓存表，存储 JSON 向量和内容哈希。
+- `a_i_assistant_embedding` 是保留的旧向量缓存表，存储 JSON 向量和内容哈希。数据库更新继续注册该模型，不删除旧表或记录；助手运行不再读取、写入或清理它。
+
+物理表名以当前数据库引擎的 mapper、前缀和 schema 为准：`engine.TableName(&models.AIAssistantEmbedding{})`。默认 mapper 产生 `a_i_assistant_embedding`，不是模型文件名 `ai_assistant_embedding.go` 去掉扩展名；抽检或备份不要假设配置了前缀的部署仍使用默认名字。
 
 ## 2.2 对象存储（文件）
 
@@ -81,7 +83,9 @@ AI 配置建议重点核对（防止“能启动但行为偏差”）：
 - `llm_assistant.openai_api_key`
 - `llm_assistant.openai_base_url`
 - `llm_assistant.openai_model_id`
-- `llm_assistant.openai_embedding_model_id`
+- `llm_assistant.run_timeout`（默认 180000ms）
+- `llm_assistant.query_timeout`（默认 30000ms）
+- `llm_assistant.max_rounds`（默认 12）
 - `llm_assistant.chat_completions_stream`
 - `llm_assistant_fallback.llm_provider`
 - `llm_assistant_fallback.openai_api_key`
@@ -89,7 +93,7 @@ AI 配置建议重点核对（防止“能启动但行为偏差”）：
 - `llm_assistant_fallback.openai_model_id`
 - `llm_assistant_fallback.chat_completions_stream`
 
-`llm_assistant_fallback` 只接管对话模型请求，不接管 embedding；向量检索优先使用独立的 `llm_assistant_embedding` 配置，未设置时回退到 `llm_assistant`。若 OpenAI 兼容上游只接受流式 Chat Completions，请显式设置对应 section 的 `chat_completions_stream = true`。
+`llm_assistant_fallback` 为只读工具助手提供请求内最多一次备用切换。新版忽略整个 `[llm_assistant_embedding]`、`openai_embedding_model_id` 及对应的 `EBK_` / `EBKCFP_` 覆盖，不读取旧密钥文件；旧段无效或文件缺失不会阻止启动。若上游只接受流式 Chat Completions，请设置对应 section 的 `chat_completions_stream = true`；Responses 使用 `llm_provider = openai_responses_compatible` 及 `openai_compatible_*` 配置；浏览器 JSON/SSE 两条路由共享所配置的上游协议。主备模型均须支持对应工具协议。预算只配置在主助手段，不能限制历史范围。浏览器超时为整体预算加 10 秒，反向代理读取超时至少覆盖该值，关闭 SSE 缓冲。
 
 同时检查环境变量覆盖：
 
@@ -197,7 +201,7 @@ rsync -aHAX --numeric-ids --info=progress2 /src/storage/ /backup/storage/
 
 说明：
 
-- 该命令会同步表结构（含 `ai_assistant_embedding`）。
+- 该命令会同步表结构（含 `a_i_assistant_embedding`）。
 - 即使 `auto_update_database=true`，生产迁移仍建议先手动执行一次，再启动服务。
 
 ## 4.7 启动服务并验证
@@ -237,11 +241,11 @@ rsync -aHAX --numeric-ids --info=progress2 /src/storage/ /backup/storage/
 - `transaction`
 - `account`
 - `transaction_picture_info`
-- `ai_assistant_embedding`（若迁移）
+- `a_i_assistant_embedding`（保留的旧缓存）
 
 说明：
 
-- `ai_assistant_embedding` 可选迁移，不一致不一定是错误（可能选择了重建策略）。
+- `a_i_assistant_embedding` 随整库迁移，核对记录数及抽样内容哈希/向量/时间字段不变；新版不会按需重建，不能以重建策略解释数据缺失。
 
 ## 5.4 对象存储抽检（建议）
 
@@ -292,11 +296,19 @@ rsync -aHAX --numeric-ids --info=progress2 /src/storage/ /backup/storage/
 
 迁移时请确保这些目录（或等价挂载卷）一致迁移。
 
-## 9. AI 向量缓存迁移策略
+## 9. 只读工具助手升级与旧缓存回滚
 
-- 表：`ai_assistant_embedding`
-- 推荐：生产迁移时一并迁移（减少首次查询延迟）。
-- 可选：不迁移，目标端按需重建（业务数据不受影响，只影响 AI 首次响应速度）。
+升级前保存当前二进制或镜像版本、完整数据库（含 `a_i_assistant_embedding`）、对象存储、原 ini、环境变量和旧密钥的安全备份，并在隔离副本演练恢复。
+
+1. 在测试副本部署新版，保留旧表和记录。配置 `[ai]` 开关、主备工具模型及正整数运行预算，识图配置继续保留。
+2. 可移除实际运行环境中的旧 embedding 段/环境变量/密钥挂载；新版也允许原样留下无效旧段和不存在的旧密钥路径。回滚备份须保存原配置和旧密钥。
+3. 执行 `./ezbookkeeping database update`，确认旧表仍存在，记录数及抽样字段与备份一致。助手不会迁移、读取、写入或清空缓存；无 embedding 供应商也能工作。
+4. 用专用测试用户执行七工具查询、五年以上历史、分币种统计、当前余额、识图和双端取消/续查验证。查询预算耗尽必须显示未完成，不能缩短范围后报告全量。补测命令见 `docs/ai-providers.md` 和验收记录。
+5. 本次升级不执行任何 `DROP/TRUNCATE/DELETE a_i_assistant_embedding`，也不自动清理“过期缓存”。删除旧表需要后续独立数据迁移授权。
+
+若回滚，在维护窗口停止新版和业务写入，切换已备份的旧二进制/镜像、原 ini、环境变量及 embedding 密钥挂载，保留旧表。确认识图和旧助手能读取测试账本与缓存后再恢复流量。若需要恢复整个快照，先备份升级后新增的业务数据并按第 6 节恢复整套数据库/对象存储/配置，避免覆盖升级后记账。不要同时运行新旧版本写入业务库。
+
+新版无长期运行状态表；页面历史与 continuation 不可跨版本恢复。回滚后清空页面会话并重新查询。新版不会产生新 embedding 缓存，旧版可根据其原有行为补齐新增账单的缓存；这不影响业务账单记录。
 
 ## 10. 最小可执行清单（TL;DR）
 
@@ -310,6 +322,6 @@ rsync -aHAX --numeric-ids --info=progress2 /src/storage/ /backup/storage/
 8. 做统计与抽样校验。  
 9. 通过后切流量，失败就回滚。
 
-合并新版上游后，AI 全局开关位于 `[ai]`；识别功能和个人财务助手仍兼容旧 `[llm]` 下的开关及图片大小限制，但 `[ai]` 中的显式设置优先。助手配置继续使用 `[llm_assistant]`；普通聊天使用 Chat Completions，流式聊天使用 Responses API。备用模型和独立 embedding 配置保持有效。
+合并新版上游后，AI 全局开关位于 `[ai]`；识别功能和个人财务助手仍兼容旧 `[llm]` 下的开关及图片大小限制，但 `[ai]` 中的显式设置优先。助手配置继续使用 `[llm_assistant]`；浏览器 JSON/SSE 共用执行器，按 provider 配置使用 Chat Completions、强制流式 Chat Completions 或 Responses 工具协议。备用模型保持有效；独立 embedding 配置已忽略，旧表仍保留。
 
 官方 OpenAI 的文本识别和编程助手沿用上游 Responses API；票据识别及普通财务助手对话保留本仓库的 Chat Completions 兼容与备用模型机制。

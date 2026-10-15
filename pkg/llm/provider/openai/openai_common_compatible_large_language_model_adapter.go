@@ -323,9 +323,10 @@ func (p *CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter) buildJsonReque
 }
 
 func newCommonOpenAIChatCompletionsAPILargeLanguageModelAdapter(llmConfig *settings.LLMConfig, enableResponseLog bool, apiProvider OpenAIChatCompletionsAPIProvider) provider.LargeLanguageModelProvider {
-	return common.NewCommonHttpLargeLanguageModelProvider(llmConfig, enableResponseLog, &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
+	base := common.NewCommonHttpLargeLanguageModelProvider(llmConfig, enableResponseLog, &CommonOpenAIChatCompletionsAPILargeLanguageModelAdapter{
 		apiProvider:   apiProvider,
 		forceStream:   llmConfig.ChatCompletionsStream,
 		ThinkingLevel: llmConfig.EnableThinking,
 	})
+	return newAssistantToolProvider(base, llmConfig, apiProvider.BuildChatCompletionsHttpRequest, apiProvider.GetModelID(), false)
 }

@@ -217,3 +217,25 @@ func (l *LargeLanguageModelProviderContainer) GetJsonResponseByCodingAssistantMo
 	}
 	return l.codingAssistantProvider.GetJsonResponse(c, uid, request)
 }
+
+// GetAIAssistantToolProviders exposes capabilities without retrying any turn.
+// The runner owns the one permitted request-wide switch and clears private state.
+func (l *LargeLanguageModelProviderContainer) GetAIAssistantToolProviders() (provider.LargeLanguageModelToolProvider, provider.LargeLanguageModelToolProvider, error) {
+	primary := l.aiAssistantProvider
+	var fallback provider.LargeLanguageModelProvider
+	if configured, ok := primary.(*fallbackLargeLanguageModelProvider); ok {
+		primary, fallback = configured.primaryProvider, configured.fallbackProvider
+	}
+	primaryTools, ok := primary.(provider.LargeLanguageModelToolProvider)
+	if !ok {
+		return nil, nil, &data.ToolError{Code: data.ToolErrorProviderUnsupported, Message: "The primary model does not support assistant tools."}
+	}
+	var fallbackTools provider.LargeLanguageModelToolProvider
+	if fallback != nil {
+		fallbackTools, ok = fallback.(provider.LargeLanguageModelToolProvider)
+		if !ok {
+			return nil, nil, &data.ToolError{Code: data.ToolErrorProviderUnsupported, Message: "The fallback model does not support assistant tools."}
+		}
+	}
+	return primaryTools, fallbackTools, nil
+}

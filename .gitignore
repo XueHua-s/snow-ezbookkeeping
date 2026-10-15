@@ -165,3 +165,6 @@ ezbookkeeping
 /data/
 /storage/
 /log/
+
+# Vitest browser screenshots and traces
+.vitest/

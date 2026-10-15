@@ -1,3 +1,36 @@
+<script setup lang="ts">
+import SnackBar from '@/components/desktop/SnackBar.vue';
+import { CategoryType } from '@/core/category.ts';
+import { TransactionAmountType } from '@/core/transaction.ts';
+import AccountFilterSettingsDialog from '@/views/desktop/common/dialogs/AccountFilterSettingsDialog.vue';
+import CategoryFilterSettingsDialog from '@/views/desktop/common/dialogs/CategoryFilterSettingsDialog.vue';
+import TransactionTagFilterSettingsDialog from '@/views/desktop/common/dialogs/TransactionTagFilterSettingsDialog.vue';
+import AccountCategoryDisplayOrderDialog from './dialogs/AccountCategoryDisplayOrderDialog.vue';
+import ChartColorSchemeDialog from './dialogs/ChartColorSchemeDialog.vue';
+import { usePreferencesSettingsPage } from './PreferencesSettingsPage/usePreferencesSettingsPage.ts';
+
+const {
+    router, tt, loadingAccounts, loadingTransactionCategories, loadingTags, allThemes, allTimezones,
+    allTimezoneTypesUsedForStatistics, allCurrencySortingTypes, allKeywordMatchModes, allAutoSaveTransactionDraftTypes,
+    allImageUploadQualityTypes, allReconciliationStatementDateRanges, hasAnyAccount, hasAnyVisibleAccount,
+    hasAnyTransactionCategory, hasAnyTransactionTag, timeZone, isAutoUpdateExchangeRatesData, showAccountBalance,
+    showAmountInHomePage, itemsCountInTransactionListPage, timezoneUsedForStatisticsInHomePage,
+    showTotalAmountInTransactionListPage, totalAmountTypeInTransactionListPage, showTagInTransactionListPage,
+    defaultKeywordMatchModeInTransactionListPage, autoSaveTransactionDraft, isAutoGetCurrentGeoLocation,
+    transactionPictureQuality, isAlwaysRequireConfirmationOfClipboardContentBeforeSubmission,
+    isAutoUploadTransactionPictureForAIRecognition, currencySortByInExchangeRatesPage, chartColorSchemeContent,
+    accountsIncludedInHomePageOverviewDisplayContent, accountsIncludedInTotalDisplayContent,
+    accountCategorysDisplayOrderContent, transactionCategoriesIncludedInHomePageOverviewDisplayContent, settingsStore,
+    chartColorSchemeDialog: chartColorSchemeDialogRef, accountCategorysDisplayOrderDialog, showAccountsIncludedInHomePageOverviewDialog,
+    showTransactionCategoriesIncludedInHomePageOverviewDialog, showTransactionTagsIncludedInHomePageOverviewDialog,
+    showAccountsIncludedInTotalDialog, allPageCounts, allInsightsExplorerDefaultDateRanges, currentTheme,
+    desktopOverviewPageLayoutDisplayContent, showAddTransactionButtonInDesktopNavbar,
+    rememberLastSelectedFileTypeInImportTransactionDialog, insightsExplorerDefaultDateRangeType,
+    showTagInInsightsExplorerPage, hideCategoriesWithoutAccounts, reconciliationStatementButtonDefaultDateRangeTypeInDesktop,
+} = usePreferencesSettingsPage();
+
+</script>
+
 <template>
     <v-row>
         <v-col cols="12">
@@ -57,7 +90,7 @@
                             <span>{{ tt('Chart Color Scheme') }}</span>
                             <v-spacer/>
                             <v-btn class="ms-4" variant="outlined" color="default"
-                                   @click="chartColorSchemeDialog?.open().catch(()=>{})">
+                                   @click="chartColorSchemeDialogRef?.open().catch(()=>{})">
                                 {{ chartColorSchemeContent }}
                             </v-btn>
                         </div>
@@ -443,197 +476,3 @@
 
     <snack-bar ref="snackbar" />
 </template>
-
-<script setup lang="ts">
-import SnackBar from '@/components/desktop/SnackBar.vue';
-import AccountFilterSettingsDialog from '@/views/desktop/common/dialogs/AccountFilterSettingsDialog.vue';
-import CategoryFilterSettingsDialog from '@/views/desktop/common/dialogs/CategoryFilterSettingsDialog.vue';
-import TransactionTagFilterSettingsDialog from '@/views/desktop/common/dialogs/TransactionTagFilterSettingsDialog.vue';
-import ChartColorSchemeDialog from './dialogs/ChartColorSchemeDialog.vue';
-import AccountCategoryDisplayOrderDialog from './dialogs/AccountCategoryDisplayOrderDialog.vue';
-
-import { ref, computed, useTemplateRef } from 'vue';
-import { useRouter } from 'vue-router';
-import { useTheme } from 'vuetify';
-
-import { useI18n } from '@/locales/helpers.ts';
-import { useAppSettingPageBase } from '@/views/base/settings/AppSettingsPageBase.ts';
-
-import { useSettingsStore } from '@/stores/setting.ts';
-import { useAccountsStore } from '@/stores/account.ts';
-import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
-import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
-import type { NameNumeralValue } from '@/core/base.ts';
-import { ThemeType } from '@/core/theme.ts';
-import { type LocalizedDateRange, DateRangeScene } from '@/core/datetime.ts';
-import { CategoryType } from '@/core/category.ts';
-import { TransactionAmountType } from '@/core/transaction.ts';
-import { DEFAULT_RECONCILIATION_STATEMENT_DATE_RANGE_IN_DESKTOP } from '@/core/statistics.ts';
-
-import { DEFAULT_PAGE_COUNTS } from '@/consts/page.ts';
-
-import { isDefaultDesktopOverviewLayout, parseDesktopOverviewLayout } from '@/lib/overview_layout.ts';
-import { getSystemTheme } from '@/lib/ui/common.ts';
-
-type SnackBarType = InstanceType<typeof SnackBar>;
-type ChartColorSchemeDialogType = InstanceType<typeof ChartColorSchemeDialog>;
-type AccountCategoryDisplayOrderDialogType = InstanceType<typeof AccountCategoryDisplayOrderDialog>;
-
-const theme = useTheme();
-const router = useRouter();
-
-const { tt, getAllDateRanges, getTablePageOptions } = useI18n();
-const {
-    loadingAccounts,
-    loadingTransactionCategories,
-    loadingTags,
-    allThemes,
-    allTimezones,
-    allTimezoneTypesUsedForStatistics,
-    allCurrencySortingTypes,
-    allKeywordMatchModes,
-    allAutoSaveTransactionDraftTypes,
-    allImageUploadQualityTypes,
-    allReconciliationStatementDateRanges,
-    hasAnyAccount,
-    hasAnyVisibleAccount,
-    hasAnyTransactionCategory,
-    hasAnyTransactionTag,
-    timeZone,
-    isAutoUpdateExchangeRatesData,
-    showAccountBalance,
-    showAmountInHomePage,
-    itemsCountInTransactionListPage,
-    timezoneUsedForStatisticsInHomePage,
-    showTotalAmountInTransactionListPage,
-    totalAmountTypeInTransactionListPage,
-    showTagInTransactionListPage,
-    defaultKeywordMatchModeInTransactionListPage,
-    autoSaveTransactionDraft,
-    isAutoGetCurrentGeoLocation,
-    transactionPictureQuality,
-    isAlwaysRequireConfirmationOfClipboardContentBeforeSubmission,
-    isAutoUploadTransactionPictureForAIRecognition,
-    currencySortByInExchangeRatesPage,
-    chartColorSchemeContent,
-    accountsIncludedInHomePageOverviewDisplayContent,
-    accountsIncludedInTotalDisplayContent,
-    accountCategorysDisplayOrderContent,
-    transactionCategoriesIncludedInHomePageOverviewDisplayContent,
-    getValidReconciliationStatementPageDefaultDateRangeType
-} = useAppSettingPageBase();
-
-const settingsStore = useSettingsStore();
-const accountsStore = useAccountsStore();
-const transactionCategoriesStore = useTransactionCategoriesStore();
-const transactionTagsStore = useTransactionTagsStore();
-
-const snackbar = useTemplateRef<SnackBarType>('snackbar');
-const chartColorSchemeDialog = useTemplateRef<ChartColorSchemeDialogType>('chartColorSchemeDialog');
-const accountCategorysDisplayOrderDialog = useTemplateRef<AccountCategoryDisplayOrderDialogType>('accountCategorysDisplayOrderDialog');
-
-const showAccountsIncludedInHomePageOverviewDialog = ref<boolean>(false);
-const showTransactionCategoriesIncludedInHomePageOverviewDialog = ref<boolean>(false);
-const showTransactionTagsIncludedInHomePageOverviewDialog = ref<boolean>(false);
-const showAccountsIncludedInTotalDialog = ref<boolean>(false);
-
-const allPageCounts = computed<NameNumeralValue[]>(() => getTablePageOptions(DEFAULT_PAGE_COUNTS, undefined, false, true));
-const allInsightsExplorerDefaultDateRanges = computed<LocalizedDateRange[]>(() => getAllDateRanges(DateRangeScene.InsightsExplorer, {}));
-
-const currentTheme = computed<string>({
-    get: () => settingsStore.appSettings.theme,
-    set: (value: string) => {
-        if (value !== settingsStore.appSettings.theme) {
-            settingsStore.setTheme(value);
-
-            if (value === ThemeType.Light || value === ThemeType.Dark) {
-                theme.change(value);
-            } else {
-                theme.change(getSystemTheme());
-            }
-        }
-    }
-});
-
-const desktopOverviewPageLayoutDisplayContent = computed(() => {
-    try {
-        return tt(isDefaultDesktopOverviewLayout(parseDesktopOverviewLayout(settingsStore.appSettings.desktopOverviewPageLayout)) ? 'Default' : 'Custom');
-    } catch {
-        return tt('Custom');
-    }
-});
-
-const showAddTransactionButtonInDesktopNavbar = computed<boolean>({
-    get: () => settingsStore.appSettings.showAddTransactionButtonInDesktopNavbar,
-    set: (value) => settingsStore.setShowAddTransactionButtonInDesktopNavbar(value)
-});
-
-const rememberLastSelectedFileTypeInImportTransactionDialog = computed<boolean>({
-    get: () => settingsStore.appSettings.rememberLastSelectedFileTypeInImportTransactionDialog,
-    set: (value) => settingsStore.setRememberLastSelectedFileTypeInImportTransactionDialog(value)
-});
-
-const insightsExplorerDefaultDateRangeType = computed<number>({
-    get: () => settingsStore.appSettings.insightsExplorerDefaultDateRangeType,
-    set: (value) => settingsStore.setInsightsExplorerDefaultDateRangeType(value)
-});
-
-const showTagInInsightsExplorerPage = computed<boolean>({
-    get: () => settingsStore.appSettings.showTagInInsightsExplorerPage,
-    set: (value) => settingsStore.setShowTagInInsightsExplorerPage(value)
-});
-
-const hideCategoriesWithoutAccounts = computed<boolean>({
-    get: () => settingsStore.appSettings.hideCategoriesWithoutAccounts,
-    set: (value) => settingsStore.setHideCategoriesWithoutAccounts(value)
-});
-
-const reconciliationStatementButtonDefaultDateRangeTypeInDesktop = computed<number>({
-    get: () => getValidReconciliationStatementPageDefaultDateRangeType(settingsStore.appSettings.reconciliationStatementButtonDefaultDateRangeTypeInDesktop, DEFAULT_RECONCILIATION_STATEMENT_DATE_RANGE_IN_DESKTOP.type),
-    set: (value: number) => settingsStore.setReconciliationStatementButtonDefaultDateRangeTypeInDesktop(value)
-});
-
-function init(): void {
-    loadingAccounts.value = true;
-    loadingTransactionCategories.value = true;
-    loadingTags.value = true;
-
-    accountsStore.loadAllAccounts({
-        force: false
-    }).then(() => {
-        loadingAccounts.value = false;
-    }).catch(error => {
-        loadingAccounts.value = false;
-
-        if (!error.processed) {
-            snackbar.value?.showError(error);
-        }
-    });
-
-    transactionCategoriesStore.loadAllCategories({
-        force: false
-    }).then(() => {
-        loadingTransactionCategories.value = false;
-    }).catch(error => {
-        loadingTransactionCategories.value = false;
-
-        if (!error.processed) {
-            snackbar.value?.showError(error);
-        }
-    });
-
-    transactionTagsStore.loadAllTags({
-        force: false
-    }).then(() => {
-        loadingTags.value = false;
-    }).catch(error => {
-        loadingTags.value = false;
-
-        if (!error.processed) {
-            snackbar.value?.showError(error);
-        }
-    });
-}
-
-init();
-</script>

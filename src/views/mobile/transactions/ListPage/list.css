@@ -1,0 +1,212 @@
+.transaction-list-toolbar .toolbar-inner {
+    padding-inline-end: 8px;
+}
+
+.list.transaction-amount-list .transaction-amount-statistics {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list.transaction-amount-list .transaction-amount-statistics > span {
+    margin-inline-start: 8px;
+    font-weight: normal;
+}
+
+.list.transaction-info-list li.transaction-info .item-media + .item-inner {
+    margin-inline-start: 0;
+}
+
+.list.transaction-info-list li.transaction-info .actual-item-inner {
+    width: 100%;
+    margin-inline-start: 10px;
+    overflow: hidden;
+}
+
+.list.transaction-info-list li.transaction-info .actual-item-inner .item-after {
+    max-width: 100%;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-date {
+    width: var(--ebk-transaction-date-width);
+    margin-inline-end: 6px;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-day {
+    opacity: 0.6;
+    font-size: var(--ebk-transaction-day-font-size);
+    font-weight: bold;
+    text-align: left;
+}
+
+html[dir="rtl"] .list.transaction-info-list li.transaction-info .transaction-day {
+    text-align: right;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-day-of-week {
+    opacity: 0.6;
+    font-size: var(--ebk-transaction-day-of-week-font-size);
+}
+
+.list.transaction-info-list li.transaction-info .transaction-description {
+    font-size: var(--ebk-large-footer-font-size);
+    line-height: 20px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.list.transaction-info-list li.transaction-info .chip.transaction-tag {
+    --f7-chip-media-size: var(--ebk-transaction-tag-chip-media-size);
+    --f7-chip-media-font-size: var(--ebk-transaction-tag-chip-font-size);
+    --f7-chip-font-size: var(--ebk-transaction-tag-chip-font-size);
+    --f7-chip-height: var(--ebk-transaction-tag-chip-height);
+    --f7-chip-text-color: var(--f7-list-item-footer-text-color);
+    --f7-chip-bg-color: var(--ebk-transaction-tag-chip-bg-color);
+    margin-inline-end: 4px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list.transaction-info-list li.transaction-info .chip.transaction-tag .chip-media+.chip-label {
+    margin-inline-start: 0;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-footer {
+    padding-top: 4px;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-info .item-text + .item-footer .transaction-footer {
+    padding-top: 2px;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-footer > span {
+    unicode-bidi: isolate;
+    margin-inline-end: 4px;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-footer .transaction-account-arrow {
+    font-size: var(--ebk-transaction-account-arrow-font-size);
+    margin-inline-end: 4px;
+    margin-top: var(--ebk-transaction-account-arrow-margin-top);
+}
+
+html[dir="rtl"] .list.transaction-info-list li.transaction-info .transaction-footer .transaction-account-arrow {
+    margin-inline-end: 0;
+    margin-inline-start: 4px;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-amount {
+    color: var(--f7-list-item-after-text-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-info .item-after {
+    max-width: 70%;
+}
+
+.list.transaction-info-list li.transaction-info .transaction-category-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.more-popover-menu .transaction-tag-name {
+    padding-inline-end: 4px;
+    font-size: var(--f7-list-item-title-font-size);
+}
+
+.date-popover-menu .popover-inner,
+.category-popover-menu .popover-inner,
+.account-popover-menu .popover-inner,
+.more-popover-menu .popover-inner {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.more-popover-menu .transaction-tag-group {
+    background-color: inherit;
+
+    > small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+.transaction-gallery-list.list > ul {
+    overflow: hidden;
+}
+
+.transaction-gallery-list.list > ul::before,
+.transaction-gallery-list.list > ul::after {
+    display: none;
+}
+
+.transaction-gallery-container > .item-content {
+    padding: 0;
+}
+
+.transaction-gallery-container > .item-content > .item-inner {
+    padding: 0;
+    min-height: 0;
+}
+
+.transaction-gallery-container > .item-content > .item-inner::after {
+    display: none;
+}
+
+.transaction-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    width: 100%;
+}
+
+@media (min-width: 480px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (min-width: 640px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+@media (min-width: 800px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+@media (min-width: 960px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(7, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(8, 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .transaction-gallery-grid {
+        grid-template-columns: repeat(9, 1fr);
+    }
+}
+
+.transaction-picture-cell {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-color: var(--f7-list-bg-color);
+}
+
+.transaction-picture-img {
+    width: 100%;
+    height: 100%;
+    display: block;
+}

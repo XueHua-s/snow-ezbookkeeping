@@ -81,6 +81,7 @@ func (a *ServerSettingsApi) ServerSettingsJavascriptHandler(c *core.WebContext) 
 
 	if config.EnableAIAssistant && config.AIAssistantLLMConfig != nil && config.AIAssistantLLMConfig.LLMProvider != "" {
 		a.appendBooleanSetting(builder, "llma", config.EnableAIAssistant)
+		a.appendIntegerSetting(builder, "llmart", int64(config.GetAIAssistantRuntimeConfig().RunTimeout))
 
 		if modelID := strings.TrimSpace(config.AIAssistantLLMConfig.OpenAIModelID); modelID != "" {
 			a.appendStringSetting(builder, "llmam", modelID)
@@ -155,7 +156,7 @@ func (a *ServerSettingsApi) ServerSettingsJavascriptHandler(c *core.WebContext) 
 	}
 
 	if config.ExchangeRatesRequestTimeoutExceedDefaultValue {
-		a.appendIntegerSetting(builder, "errt", int(config.ExchangeRatesRequestTimeout))
+		a.appendIntegerSetting(builder, "errt", int64(config.ExchangeRatesRequestTimeout))
 	}
 
 	a.appendBooleanSetting(builder, "dlp", config.EnableLanguagePreview)
@@ -211,12 +212,12 @@ func (a *ServerSettingsApi) appendBooleanSetting(builder *strings.Builder, key s
 	builder.WriteString(";\n")
 }
 
-func (a *ServerSettingsApi) appendIntegerSetting(builder *strings.Builder, key string, value int) {
+func (a *ServerSettingsApi) appendIntegerSetting(builder *strings.Builder, key string, value int64) {
 	builder.WriteString(ezbookkeepingServerSettingsGlobalVariableAlias)
 	builder.WriteString("[")
 	a.appendEncodedString(builder, key)
 	builder.WriteString("]=")
-	builder.WriteString(utils.IntToString(value))
+	builder.WriteString(utils.Int64ToString(value))
 	builder.WriteString(";\n")
 }
 

@@ -71,9 +71,10 @@ type AIAssistantHistoryItem struct {
 
 // AIAssistantChatRequest represents all parameters for ai assistant chat request
 type AIAssistantChatRequest struct {
-	Mode    string                    `json:"mode" binding:"omitempty,oneof=chat summary"`
-	Message string                    `json:"message" binding:"max=2048"`
-	History []*AIAssistantHistoryItem `json:"history" binding:"max=20"`
+	Mode         string                    `json:"mode" binding:"omitempty,oneof=chat summary"`
+	Message      string                    `json:"message" binding:"max=2048"`
+	History      []*AIAssistantHistoryItem `json:"history" binding:"max=20"`
+	Continuation *AIAssistantContinuation  `json:"continuation,omitempty"`
 }
 
 // AIAssistantReferencedTransaction represents one referenced transaction in ai assistant response
@@ -90,17 +91,21 @@ type AIAssistantReferencedTransaction struct {
 	Currency               string          `json:"currency,omitempty"`
 	DestinationCurrency    string          `json:"destinationCurrency,omitempty"`
 	Comment                string          `json:"comment,omitempty"`
-	SimilarityScore        float64         `json:"similarityScore,omitempty"`
+	// Deprecated: retained only until the legacy assistant entry point is retired.
+	HideAmount bool `json:"hideAmount,omitempty"`
 }
 
 // AIAssistantChatResponse represents ai assistant chat response
 type AIAssistantChatResponse struct {
-	Mode       string                              `json:"mode"`
-	Reply      string                              `json:"reply"`
-	References []*AIAssistantReferencedTransaction `json:"references,omitempty"`
+	Mode         string                              `json:"mode"`
+	Reply        string                              `json:"reply"`
+	References   []*AIAssistantReferencedTransaction `json:"references,omitempty"`
+	Queries      []AIAssistantQuery                  `json:"queries,omitempty"`
+	Continuation *AIAssistantContinuation            `json:"continuation,omitempty"`
 }
 
 const (
+	AIAssistantChatStreamChunkTypeStatus        = "status"
 	AIAssistantChatStreamChunkTypeThinkingDelta = "thinking_delta"
 	AIAssistantChatStreamChunkTypeReplyDelta    = "reply_delta"
 	AIAssistantChatStreamChunkTypeReferences    = "references"
@@ -109,12 +114,15 @@ const (
 
 // AIAssistantChatStreamChunk represents one ai assistant stream response chunk
 type AIAssistantChatStreamChunk struct {
-	Type       string                              `json:"type"`
-	Mode       string                              `json:"mode,omitempty"`
-	Delta      string                              `json:"delta,omitempty"`
-	Reply      string                              `json:"reply,omitempty"`
-	Thinking   string                              `json:"thinking,omitempty"`
-	References []*AIAssistantReferencedTransaction `json:"references,omitempty"`
+	Type         string                              `json:"type"`
+	Status       AIAssistantStatus                   `json:"status,omitempty"`
+	Mode         string                              `json:"mode,omitempty"`
+	Delta        string                              `json:"delta,omitempty"`
+	Reply        string                              `json:"reply,omitempty"`
+	Thinking     string                              `json:"thinking,omitempty"`
+	References   []*AIAssistantReferencedTransaction `json:"references,omitempty"`
+	Queries      []AIAssistantQuery                  `json:"queries,omitempty"`
+	Continuation *AIAssistantContinuation            `json:"continuation,omitempty"`
 }
 
 // AIAssistantResult represents the result schema of ai assistant response from llm
@@ -139,4 +147,78 @@ type CodingAssistantResponse struct {
 type CodingAssistantResult struct {
 	Code          string `json:"code" jsonschema_description:"Complete executable source code, or empty when the task cannot be completed"`
 	FailureReason string `json:"failureReason" jsonschema_description:"Reason the task cannot be completed, or empty on success"`
+}
+
+// AIAssistantState is shared by both browser UIs. Only failed/incomplete may be
+// sent in error context; canceled is a local state when the connection closes.
+type AIAssistantState string
+
+const (
+	AIAssistantStateRequesting AIAssistantState = "requesting"
+	AIAssistantStateCompleted  AIAssistantState = "completed"
+	AIAssistantStateIncomplete AIAssistantState = "incomplete"
+	AIAssistantStateFailed     AIAssistantState = "failed"
+	AIAssistantStateCanceled   AIAssistantState = "canceled"
+)
+
+type AIAssistantStatus string
+
+const (
+	AIAssistantStatusQuerying    AIAssistantStatus = "querying"
+	AIAssistantStatusAggregating AIAssistantStatus = "aggregating"
+	AIAssistantStatusAnswering   AIAssistantStatus = "answering"
+)
+
+type AIAssistantQueryPeriod struct {
+	Name         string `json:"name"`
+	StartTime    string `json:"startTime"`
+	EndTime      string `json:"endTime"`
+	MatchedCount string `json:"matchedCount,omitempty"`
+}
+
+// AIAssistantQueryScope is the camelCase HTTP projection of the tool scope.
+// Unbounded time is null rather than an epoch sentinel. Financial facts and
+// provider-private state do not belong in this compact scope description.
+type AIAssistantQueryScope struct {
+	StartTime       *string                  `json:"startTime"`
+	EndTime         *string                  `json:"endTime"`
+	Timezone        string                   `json:"timezone"`
+	Currency        string                   `json:"currency,omitempty"`
+	Types           []string                 `json:"types,omitempty"`
+	AccountIDs      []string                 `json:"accountIds,omitempty"`
+	CategoryIDs     []string                 `json:"categoryIds,omitempty"`
+	TagIDs          []string                 `json:"tagIds,omitempty"`
+	TagMatch        string                   `json:"tagMatch,omitempty"`
+	NoTags          bool                     `json:"noTags,omitempty"`
+	TransferSide    string                   `json:"transferSide,omitempty"`
+	AmountMin       *string                  `json:"amountMin,omitempty"`
+	AmountMax       *string                  `json:"amountMax,omitempty"`
+	Keyword         string                   `json:"keyword,omitempty"`
+	Periods         []AIAssistantQueryPeriod `json:"periods,omitempty"`
+	IncludesHidden  bool                     `json:"includesHidden"`
+	ExcludesDeleted bool                     `json:"excludesDeleted"`
+}
+
+type AIAssistantQuery struct {
+	QueryID   string                `json:"queryId"`
+	Tool      string                `json:"tool"`
+	Scope     AIAssistantQueryScope `json:"scope"`
+	Coverage  string                `json:"coverage"`
+	QueriedAt string                `json:"queriedAt"`
+	Warnings  []string              `json:"warnings"`
+}
+
+// AIAssistantContinuation is sent only in authenticated request/response bodies,
+// never URLs or visible status text. The server revalidates it on every request.
+type AIAssistantContinuation struct {
+	Tool   string `json:"tool" binding:"required,oneof=list_accounts list_categories list_tags query_transactions aggregate_transactions get_account_balances"`
+	Cursor string `json:"cursor" binding:"required,max=65536"`
+}
+
+// AIAssistantErrorContext is nested at context.assistant in the existing error
+// envelope. It does not replace errorCode/errorMessage/path/context.
+type AIAssistantErrorContext struct {
+	State        AIAssistantState         `json:"state"`
+	Queries      []AIAssistantQuery       `json:"queries"`
+	Continuation *AIAssistantContinuation `json:"continuation,omitempty"`
 }

@@ -1,50 +1,42 @@
+<script setup lang="ts">
+import GeneralPreferences from './PreferencesSettingsPage/GeneralPreferences.vue';
+import { CategoryType } from '@/core/category.ts';
+import { TransactionAmountType, TransactionQuickSaveButtonStyle } from '@/core/transaction.ts';
+import { findDisplayNameByType, findNameByValue } from '@/lib/common.ts';
+import { usePreferencesSettingsPage } from './PreferencesSettingsPage/usePreferencesSettingsPage.ts';
+
+const {
+    tt, loadingAccounts, loadingTransactionCategories, loadingTags, hasAnyAccount, hasAnyVisibleAccount,
+    hasAnyTransactionCategory, hasAnyTransactionTag, allTimezoneTypesUsedForStatistics, allCurrencySortingTypes,
+    allKeywordMatchModes, allAutoSaveTransactionDraftTypes, allImageUploadQualityTypes, allReconciliationStatementDateRanges,
+    isAutoUpdateExchangeRatesData, showAccountBalance, showAmountInHomePage, timezoneUsedForStatisticsInHomePage,
+    showTotalAmountInTransactionListPage, totalAmountTypeInTransactionListPage, showTagInTransactionListPage,
+    defaultKeywordMatchModeInTransactionListPage, autoSaveTransactionDraft, isAutoGetCurrentGeoLocation,
+    transactionPictureQuality, isAlwaysRequireConfirmationOfClipboardContentBeforeSubmission,
+    isAutoUploadTransactionPictureForAIRecognition, currencySortByInExchangeRatesPage, chartColorSchemeContent,
+    accountsIncludedInHomePageOverviewDisplayContent, accountsIncludedInTotalDisplayContent,
+    accountCategorysDisplayOrderContent, transactionCategoriesIncludedInHomePageOverviewDisplayContent, settingsStore,
+    showTimezoneUsedForStatisticsInHomePagePopup, showTransactionPictureQualityPopup,
+    showReconciliationStatementDefaultDateRangePopup, allTransactionQuickSaveButtonStyles,
+    allTransactionQuickAddButtonActionTypes, allCreditCardAmountDisplayTypes, overviewPageLayoutDisplayContent,
+    quickSaveButtonStyleInMobileTransactionListPage, quickAddButtonActionInMobileTransactionEditPage,
+    alwaysShowTransactionPicturesInMobileTransactionEditPage, defaultCreditCardAmountDisplayTypeInMobile,
+    reconciliationStatementPageDefaultDateRangeTypeInMobile,
+} = usePreferencesSettingsPage();
+
+</script>
+
 <template>
     <f7-page>
         <f7-navbar :title="tt('Preferences')" :back-link="tt('Back')"></f7-navbar>
 
         <f7-block-title class="margin-top">{{ tt('General Settings') }}</f7-block-title>
-        <f7-list strong inset dividers class="settings-list">
-            <f7-list-item>
-                <template #after-title>
-                    {{ tt('Show Account Balance') }}
-                </template>
-                <template #after>
-                    <f7-toggle :checked="showAccountBalance" @toggle:change="showAccountBalance = $event"></f7-toggle>
-                </template>
-            </f7-list-item>
-            <f7-list-item
-                class="item-truncate-after-text"
-                link="/settings/account_category_display_order">
-                <template #after-title>
-                    <div class="item-actual-title">
-                        <span>{{ tt('Account Category Order') }}</span>
-                    </div>
-                </template>
-                <template #after>
-                    <div>{{ accountCategorysDisplayOrderContent }}</div>
-                </template>
-            </f7-list-item>
-            <f7-list-item
-                class="item-truncate-after-text"
-                link="/settings/chart_color_scheme">
-                <template #after-title>
-                    <div class="item-actual-title">
-                        <span>{{ tt('Chart Color Scheme') }}</span>
-                    </div>
-                </template>
-                <template #after>
-                    <div>{{ chartColorSchemeContent }}</div>
-                </template>
-            </f7-list-item>
-            <f7-list-item>
-                <template #after-title>
-                    {{ tt('Auto-update Exchange Rates Data') }}
-                </template>
-                <template #after>
-                    <f7-toggle :checked="isAutoUpdateExchangeRatesData" @toggle:change="isAutoUpdateExchangeRatesData = $event"></f7-toggle>
-                </template>
-            </f7-list-item>
-        </f7-list>
+        <GeneralPreferences
+    :accountCategorysDisplayOrderContent="accountCategorysDisplayOrderContent"
+    :chartColorSchemeContent="chartColorSchemeContent"
+    v-model:showAccountBalance="showAccountBalance"
+    v-model:isAutoUpdateExchangeRatesData="isAutoUpdateExchangeRatesData"
+/>
 
         <f7-block-title>{{ tt('Overview Page') }}</f7-block-title>
         <f7-list strong inset dividers class="settings-list">
@@ -482,157 +474,3 @@
         </f7-list>
     </f7-page>
 </template>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-
-import { useI18n } from '@/locales/helpers.ts';
-import { useI18nUIComponents } from '@/lib/ui/mobile.ts';
-import { useAppSettingPageBase } from '@/views/base/settings/AppSettingsPageBase.ts';
-
-import { useSettingsStore } from '@/stores/setting.ts';
-import { useAccountsStore } from '@/stores/account.ts';
-import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
-import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
-
-import type { TypeAndDisplayName } from '@/core/base.ts';
-import { CategoryType } from '@/core/category.ts';
-import { TransactionAmountType, TransactionQuickSaveButtonStyle } from '@/core/transaction.ts';
-import { DEFAULT_RECONCILIATION_STATEMENT_DATE_RANGE_IN_MOBILE } from '@/core/statistics.ts';
-
-import { findNameByValue, findDisplayNameByType } from '@/lib/common.ts';
-import { isDefaultMobileOverviewLayout, parseMobileOverviewLayout } from '@/lib/overview_layout.ts';
-
-const {
-    tt,
-    getAllCreditCardAmountDisplayTypes,
-    getAllTransactionQuickSaveButtonStyles,
-    getAllTransactionQuickAddButtonActionTypes
-} = useI18n();
-const { showToast } = useI18nUIComponents();
-const {
-    loadingAccounts,
-    loadingTransactionCategories,
-    loadingTags,
-    hasAnyAccount,
-    hasAnyVisibleAccount,
-    hasAnyTransactionCategory,
-    hasAnyTransactionTag,
-    allTimezoneTypesUsedForStatistics,
-    allCurrencySortingTypes,
-    allKeywordMatchModes,
-    allAutoSaveTransactionDraftTypes,
-    allImageUploadQualityTypes,
-    allReconciliationStatementDateRanges,
-    isAutoUpdateExchangeRatesData,
-    showAccountBalance,
-    showAmountInHomePage,
-    timezoneUsedForStatisticsInHomePage,
-    showTotalAmountInTransactionListPage,
-    totalAmountTypeInTransactionListPage,
-    showTagInTransactionListPage,
-    defaultKeywordMatchModeInTransactionListPage,
-    autoSaveTransactionDraft,
-    isAutoGetCurrentGeoLocation,
-    transactionPictureQuality,
-    isAlwaysRequireConfirmationOfClipboardContentBeforeSubmission,
-    isAutoUploadTransactionPictureForAIRecognition,
-    currencySortByInExchangeRatesPage,
-    chartColorSchemeContent,
-    accountsIncludedInHomePageOverviewDisplayContent,
-    accountsIncludedInTotalDisplayContent,
-    accountCategorysDisplayOrderContent,
-    transactionCategoriesIncludedInHomePageOverviewDisplayContent,
-    getValidReconciliationStatementPageDefaultDateRangeType
-} = useAppSettingPageBase();
-
-const settingsStore = useSettingsStore();
-const accountsStore = useAccountsStore();
-const transactionCategoriesStore = useTransactionCategoriesStore();
-const transactionTagsStore = useTransactionTagsStore();
-
-const showTimezoneUsedForStatisticsInHomePagePopup = ref<boolean>(false);
-const showTransactionPictureQualityPopup = ref<boolean>(false);
-const showReconciliationStatementDefaultDateRangePopup = ref<boolean>(false);
-
-const allTransactionQuickSaveButtonStyles = computed<TypeAndDisplayName[]>(() => getAllTransactionQuickSaveButtonStyles());
-const allTransactionQuickAddButtonActionTypes = computed<TypeAndDisplayName[]>(() => getAllTransactionQuickAddButtonActionTypes());
-const allCreditCardAmountDisplayTypes = computed<TypeAndDisplayName[]>(() => getAllCreditCardAmountDisplayTypes());
-
-const overviewPageLayoutDisplayContent = computed<string>(() => {
-    try {
-        return tt(isDefaultMobileOverviewLayout(parseMobileOverviewLayout(settingsStore.appSettings.mobileOverviewPageLayout)) ? 'Default' : 'Custom');
-    } catch {
-        return tt('Custom');
-    }
-});
-
-const quickSaveButtonStyleInMobileTransactionListPage = computed<number>({
-    get: () => settingsStore.appSettings.quickSaveButtonStyleInMobileTransactionListPage,
-    set: (value) => settingsStore.setQuickSaveButtonStyleInMobileTransactionListPage(value)
-});
-
-const quickAddButtonActionInMobileTransactionEditPage = computed<number>({
-    get: () => settingsStore.appSettings.quickAddButtonActionInMobileTransactionEditPage,
-    set: (value) => settingsStore.setQuickAddButtonActionInMobileTransactionEditPage(value)
-});
-
-const alwaysShowTransactionPicturesInMobileTransactionEditPage = computed<boolean>({
-    get: () => settingsStore.appSettings.alwaysShowTransactionPicturesInMobileTransactionEditPage,
-    set: (value) => settingsStore.setAlwaysShowTransactionPicturesInMobileTransactionEditPage(value)
-});
-
-const defaultCreditCardAmountDisplayTypeInMobile = computed<number>({
-    get: () => settingsStore.appSettings.defaultCreditCardAmountDisplayTypeInMobile,
-    set: (value: number) => settingsStore.setDefaultCreditCardAmountDisplayTypeInMobile(value)
-});
-
-const reconciliationStatementPageDefaultDateRangeTypeInMobile = computed<number>({
-    get: () => getValidReconciliationStatementPageDefaultDateRangeType(settingsStore.appSettings.reconciliationStatementPageDefaultDateRangeTypeInMobile, DEFAULT_RECONCILIATION_STATEMENT_DATE_RANGE_IN_MOBILE.type),
-    set: (value: number) => settingsStore.setReconciliationStatementPageDefaultDateRangeTypeInMobile(value)
-});
-
-function init(): void {
-    loadingAccounts.value = true;
-    loadingTransactionCategories.value = true;
-    loadingTags.value = true;
-
-    accountsStore.loadAllAccounts({
-        force: false
-    }).then(() => {
-        loadingAccounts.value = false;
-    }).catch(error => {
-        loadingAccounts.value = false;
-
-        if (!error.processed) {
-            showToast(error.message || error);
-        }
-    });
-
-    transactionCategoriesStore.loadAllCategories({
-        force: false
-    }).then(() => {
-        loadingTransactionCategories.value = false;
-    }).catch(error => {
-        loadingTransactionCategories.value = false;
-
-        if (!error.processed) {
-            showToast(error.message || error);
-        }
-    });
-
-    transactionTagsStore.loadAllTags({
-        force: false
-    }).then(() => {
-        loadingTags.value = false;
-    }).catch(error => {
-        loadingTags.value = false;
-
-        if (!error.processed) {
-            showToast(error.message || error);
-        }
-    });
-}
-
-init();
-</script>

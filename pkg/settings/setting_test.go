@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
-
-	"github.com/mayswind/ezbookkeeping/pkg/errs"
 )
 
 func TestLLMConfig_GetOpenAIBaseURL(t *testing.T) {
@@ -50,78 +48,6 @@ func TestLoadLLMConfiguration_ChatCompletionsStream(t *testing.T) {
 	assert.True(t, llmConfig.ChatCompletionsStream)
 }
 
-func TestAIAssistantIndependentEmbeddingConfiguration(t *testing.T) {
-	configFile, err := ini.Load([]byte(`[llm_assistant]
-llm_provider = openai
-openai_base_url = https://chat.example/v1/
-openai_api_key = chat-key
-openai_model_id = gpt-6-astra
-[llm_assistant_embedding]
-llm_provider = openai
-openai_base_url = https://embedding.example/compatible-mode/v1/
-openai_api_key = embedding-key
-openai_embedding_model_id = qwen3.7-text-embedding-flash
-`))
-	assert.NoError(t, err)
-	chat, err := loadLLMConfiguration(configFile, "llm_assistant")
-	assert.NoError(t, err)
-	embedding, err := loadLLMConfiguration(configFile, "llm_assistant_embedding")
-	assert.NoError(t, err)
-	config := &Config{AIAssistantLLMConfig: chat, AIAssistantEmbeddingLLMConfig: embedding}
-	assert.Equal(t, "embedding-key", config.GetAIAssistantEmbeddingLLMConfig().OpenAIAPIKey)
-	assert.Equal(t, "https://embedding.example/compatible-mode/v1/embeddings", config.GetAIAssistantEmbeddingLLMConfig().GetOpenAIEndpointURL("embeddings"))
-	assert.Equal(t, "chat-key", config.AIAssistantLLMConfig.OpenAIAPIKey)
-	config.AIAssistantEmbeddingLLMConfig = nil
-	assert.Same(t, chat, config.GetAIAssistantEmbeddingLLMConfig())
-}
-
-func TestLoadConfiguration_IndependentEmbeddingProvider(t *testing.T) {
-	for _, tc := range []struct {
-		name, provider, model string
-		wantError             error
-	}{
-		{name: "legacy"},
-		{name: "independent", provider: "openai", model: "qwen3.7-text-embedding-flash"},
-		{name: "unsupported provider", provider: "anthropic", model: "test", wantError: errs.ErrInvalidLLMProvider},
-		{name: "missing model", provider: "openai", wantError: errs.ErrAIAssistantEmbeddingModelInvalid},
-		{name: "blank model", provider: "openai", model: "   ", wantError: errs.ErrAIAssistantEmbeddingModelInvalid},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			file, err := ini.Load("../../conf/ezbookkeeping.ini")
-			require.NoError(t, err)
-			file.Section("llm_assistant").Key("llm_provider").SetValue("openai")
-			section := file.Section("llm_assistant_embedding")
-			section.Key("llm_provider").SetValue(tc.provider)
-			section.Key("openai_base_url").SetValue("https://embedding.example/compatible-mode/v1/")
-			section.Key("openai_embedding_model_id").SetValue(tc.model)
-			dir := t.TempDir()
-			t.Setenv(ebkWorkDirEnvName, dir)
-			file.Section("server").Key("static_root_path").SetValue(dir)
-			file.Section("storage").Key("local_filesystem_path").SetValue(dir)
-			keyPath := filepath.Join(dir, "embedding-key")
-			require.NoError(t, os.WriteFile(keyPath, []byte("test-embedding-key\n"), 0600))
-			t.Setenv(getConfigItemFilePathEnvironmentKey("llm_assistant_embedding", "openai_api_key"), keyPath)
-			configPath := filepath.Join(dir, "config.ini")
-			require.NoError(t, file.SaveTo(configPath))
-			config, err := LoadConfiguration(configPath)
-			if tc.wantError != nil {
-				require.ErrorIs(t, err, tc.wantError)
-				return
-			}
-			require.NoError(t, err)
-			if tc.provider == "" {
-				require.Nil(t, config.AIAssistantEmbeddingLLMConfig)
-				require.Same(t, config.AIAssistantLLMConfig, config.GetAIAssistantEmbeddingLLMConfig())
-			} else {
-				embedding := config.GetAIAssistantEmbeddingLLMConfig()
-				require.NotSame(t, config.AIAssistantLLMConfig, embedding)
-				require.Equal(t, "test-embedding-key", embedding.OpenAIAPIKey)
-				require.Equal(t, tc.model, embedding.OpenAIEmbeddingModelID)
-			}
-		})
-	}
-}
-
 func TestLoadAIConfiguration_AssistantEnablementCompatibility(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -158,5 +84,52 @@ func TestLoadAIConfiguration_LegacyRecognitionSettings(t *testing.T) {
 		} else {
 			assert.Equal(t, uint32(512), config.MaxAIRecognitionPictureFileSize)
 		}
+	}
+}
+
+// Retired configuration must not validate or resolve file overrides. Old
+// installations can upgrade even when their embedding secrets no longer exist.
+func TestLoadConfiguration_IgnoresRetiredEmbeddingConfiguration(t *testing.T) {
+	for _, legacy := range []string{"absent", "invalid section", "missing secret files", "invalid file overrides"} {
+		t.Run(legacy, func(t *testing.T) {
+			file, err := ini.Load("../../conf/ezbookkeeping.ini")
+			require.NoError(t, err)
+			dir := t.TempDir()
+			t.Setenv(ebkWorkDirEnvName, dir)
+			file.Section("server").Key("static_root_path").SetValue(dir)
+			file.Section("storage").Key("local_filesystem_path").SetValue(dir)
+			file.Section("ai").Key("enable_ai_assistant").SetValue("true")
+			file.Section("llm_assistant").Key("llm_provider").SetValue("openai")
+			file.Section("llm_assistant").Key("openai_api_key").SetValue("active-chat-key")
+			file.Section("llm_image_recognition").Key("llm_provider").SetValue("openai")
+			file.Section("llm_image_recognition").Key("openai_api_key").SetValue("active-receipt-key")
+			if legacy != "absent" {
+				section := file.Section("llm_assistant_embedding")
+				for _, key := range []string{"llm_provider", "enable_thinking", "request_timeout", "proxy", "skip_tls_verify", "openai_embedding_model_id"} {
+					section.Key(key).SetValue("invalid-retired-value")
+				}
+				file.Section("llm_assistant").Key("openai_embedding_model_id").SetValue("invalid-retired-value")
+			}
+			if legacy == "missing secret files" || legacy == "invalid file overrides" {
+				path := filepath.Join(dir, "missing-embedding-secret")
+				if legacy == "invalid file overrides" {
+					// Reading this provider/thinking override would reject startup.
+					require.NoError(t, os.WriteFile(path, []byte("invalid-retired-file-canary"), 0600))
+				}
+				for _, key := range []string{"llm_provider", "openai_api_key", "enable_thinking", "openai_embedding_model_id"} {
+					t.Setenv(getConfigItemFilePathEnvironmentKey("llm_assistant_embedding", key), path)
+					t.Setenv(getConfigItemValueEnvironmentKey("llm_assistant_embedding", key), "invalid-retired-env-canary")
+				}
+				t.Setenv(getConfigItemFilePathEnvironmentKey("llm_assistant", "openai_embedding_model_id"), path)
+			}
+			path := filepath.Join(dir, "config.ini")
+			require.NoError(t, file.SaveTo(path))
+			config, err := LoadConfiguration(path)
+			require.NoError(t, err)
+			require.True(t, config.EnableAIAssistant)
+			require.Equal(t, "active-chat-key", config.AIAssistantLLMConfig.OpenAIAPIKey)
+			require.Equal(t, "active-receipt-key", config.ReceiptImageRecognitionLLMConfig.OpenAIAPIKey)
+			require.Equal(t, AIAssistantRuntimeConfig{RunTimeout: 180000, QueryTimeout: 30000, MaxRounds: 12}, config.AIAssistantRuntimeConfig)
+		})
 	}
 }

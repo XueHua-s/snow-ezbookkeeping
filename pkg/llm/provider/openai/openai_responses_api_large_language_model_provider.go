@@ -269,3 +269,13 @@ func extractTextFromOpenAIResponseCompletedEvent(responseObject map[string]any) 
 
 var _ provider.LargeLanguageModelProvider = (*openAILargeLanguageModelProvider)(nil)
 var _ provider.LargeLanguageModelStreamingProvider = (*openAILargeLanguageModelProvider)(nil)
+
+// RunToolTurn uses the configured Chat Completions protocol; legacy receipt and
+// text streaming interfaces retain their existing independent behavior.
+func (p *openAILargeLanguageModelProvider) RunToolTurn(c core.Context, uid int64, input data.ToolTurnInput, emit data.DisplayEventSink) (data.TurnResponse, error) {
+	toolProvider, ok := p.chatCompletionsProvider.(provider.LargeLanguageModelToolProvider)
+	if !ok {
+		return data.TurnResponse{}, assistantError(data.ToolErrorProviderUnsupported)
+	}
+	return toolProvider.RunToolTurn(c, uid, input, emit)
+}

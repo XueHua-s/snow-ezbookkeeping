@@ -21,6 +21,12 @@
       "sourceType": "github",
       "computedHash": "897b6b0982956f41f5cc85128ca638b625e1b3c8bc619e303cd1e7661c95b7de"
     },
+    "plan-task": {
+      "source": "neolabhq/context-engineering-kit",
+      "sourceType": "github",
+      "skillPath": "skills/plan-task/SKILL.md",
+      "computedHash": "c514605b9e3f7077a81912cc07ba2375c3118c7fcc881c53ca18e1e463661831"
+    },
     "pnpm": {
       "source": "antfu/skills",
       "sourceType": "github",
