@@ -1,28 +1,25 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ASSISTANT_STATE_LABELS, ASSISTANT_PROGRESS_LABELS, ASSISTANT_TOOL_LABELS, ASSISTANT_MAX_REFERENCES, ASSISTANT_TRANSACTION_TYPE_LABELS, ASSISTANT_TRANSFER_SIDE_LABELS } from '@/consts/assistant.ts';
+import { computed, type DeepReadonly } from 'vue';
 import { useI18n } from '@/locales/helpers.ts';
 import { parseBigDecimal } from '@/lib/numeral.ts';
 import { TransactionType } from '@/core/transaction.ts';
 import { DISPLAY_HIDDEN_AMOUNT } from '@/consts/numeral.ts';
-import type { AIAssistantConversationMessage } from '@/views/base/assistant/AssistantPageBase.ts';
-import type { AIAssistantQueryScope, AIAssistantTool } from '@/models/large_language_model.ts';
+import type { AIAssistantConversationMessage } from '@/views/base/assistant/types.ts';
+import type { AIAssistantQueryScope } from '@/models/large_language_model.ts';
 
 const props = defineProps<{ message: AIAssistantConversationMessage }>();
 const emit = defineEmits<{ openReference: [id: string] }>();
 const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
-const stateLabels = {
-    requesting: 'Working on your question', completed: 'Answer completed', incomplete: 'Answer incomplete',
-    failed: 'Assistant request failed', canceled: 'Assistant request canceled'
-} as const;
-const progressLabels = { querying: 'Reading your ledger', aggregating: 'Calculating matching transactions', answering: 'Preparing your answer' } as const;
-const toolLabels: Record<AIAssistantTool, string> = {
-    list_accounts: 'Accounts', list_categories: 'Category', list_tags: 'Tags', query_transactions: 'Transactions',
-    get_transaction: 'Transaction Details', aggregate_transactions: 'Statistics', get_account_balances: 'Account Balances'
-};
-const references = computed(() => props.message.references?.filter(reference => /^[1-9]\d*$/.test(reference.id)).slice(0, 8) ?? []);
+const references = computed(() => props.message.references?.filter(reference => /^[1-9]\d*$/.test(reference.id)).slice(0, ASSISTANT_MAX_REFERENCES).map(reference => ({
+    ...reference,
+    sourceAmountText: reference.hideAmount ? DISPLAY_HIDDEN_AMOUNT : formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.sourceAmount), reference.currency || false),
+    destinationAmountText: reference.hideAmount ? DISPLAY_HIDDEN_AMOUNT : formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.destinationAmount ?? 0), reference.destinationCurrency || false)
+})) ?? []);
+const queries = computed(() => props.message.queries?.map(query => ({ ...query, scopeText: scopeDetails(query.scope).join(' · ') })) ?? []);
 
 // Render the validated business projection, never the original arguments or continuation token.
-function scopeDetails(scope: AIAssistantQueryScope): string[] {
+function scopeDetails(scope: DeepReadonly<AIAssistantQueryScope>): string[] {
     const details = [scope.includesHidden ? tt('Hidden records included') : tt('Hidden records excluded')];
     if (scope.excludesDeleted) details.push(tt('Deleted records excluded'));
     if (scope.accountIds?.length) details.push(tt('Selected accounts: {count}', { count: scope.accountIds.length }));
@@ -31,8 +28,8 @@ function scopeDetails(scope: AIAssistantQueryScope): string[] {
     if (scope.tagIds?.length) details.push(tt(scope.tagMatch === 'all' ? 'All selected tags: {count}' : 'Any selected tags: {count}', { count: scope.tagIds.length }));
     if (scope.noTags) details.push(tt('Without Tags'));
     if (scope.currency) details.push(tt('Currency') + ': ' + scope.currency);
-    if (scope.types?.length) details.push(scope.types.map(type => tt(({ income: 'Income', expense: 'Expense', transfer: 'Transfer', balance_modification: 'Modify Balance' } as Record<string, string>)[type] ?? 'Unknown')).join(', '));
-    if (scope.transferSide) details.push(tt(({ source: 'Transfer source side', destination: 'Transfer destination side', either: 'Either transfer side' })[scope.transferSide]));
+    if (scope.types?.length) details.push(scope.types.map(type => tt(ASSISTANT_TRANSACTION_TYPE_LABELS[type] ?? 'Unknown')).join(', '));
+    if (scope.transferSide) details.push(tt(ASSISTANT_TRANSFER_SIDE_LABELS[scope.transferSide]));
     if (scope.amountMin !== undefined) details.push(tt('Minimum amount') + ': ' + scope.amountMin);
     if (scope.amountMax !== undefined) details.push(tt('Maximum amount') + ': ' + scope.amountMax);
     if (scope.keyword) details.push(tt('Keyword') + ': ' + scope.keyword);
@@ -44,16 +41,16 @@ function scopeDetails(scope: AIAssistantQueryScope): string[] {
     <div class="assistant-evidence" v-if="message.role === 'assistant'">
         <div class="assistant-run-status" :class="`assistant-run-${message.state}`" role="status" aria-live="polite">
             <span class="assistant-status-dot" aria-hidden="true"></span>
-            {{ tt(message.state === 'requesting' && message.progress ? progressLabels[message.progress] : stateLabels[message.state]) }}
+            {{ tt(message.state === 'requesting' && message.progress ? ASSISTANT_PROGRESS_LABELS[message.progress] : ASSISTANT_STATE_LABELS[message.state]) }}
         </div>
         <p class="assistant-partial-notice" v-if="message.state === 'incomplete' || message.state === 'failed' || message.state === 'canceled'">
             {{ tt('This answer was not completed. Partial text may be unreliable.') }}
         </p>
-        <div class="assistant-query-list" v-if="message.queries?.length">
+        <div class="assistant-query-list" v-if="queries.length">
             <div class="assistant-evidence-title">{{ tt('Query Evidence') }}</div>
-            <section class="assistant-query" :key="query.queryId" v-for="query in message.queries">
+            <section class="assistant-query" :key="query.queryId" v-for="query in queries">
                 <div class="assistant-query-heading">
-                    <strong>{{ tt(toolLabels[query.tool]) }}</strong>
+                    <strong>{{ tt(ASSISTANT_TOOL_LABELS[query.tool]) }}</strong>
                     <span class="assistant-coverage">{{ tt(query.coverage === 'all_matching' ? 'All matching records' : 'Current page only') }}</span>
                 </div>
                 <div class="assistant-query-periods" v-if="query.scope.periods?.length">
@@ -68,7 +65,7 @@ function scopeDetails(scope: AIAssistantQueryScope): string[] {
                     <span v-if="query.scope.endTime"> ({{ tt('End time excluded') }})</span>
                 </div>
                 <div>{{ tt('Timezone') }}: {{ query.scope.timezone }}</div>
-                <div class="assistant-scope-details">{{ scopeDetails(query.scope).join(' · ') }}</div>
+                <div class="assistant-scope-details">{{ query.scopeText }}</div>
                 <div class="assistant-query-time">{{ tt('Read at') }}: {{ query.queriedAt }}</div>
                 <p class="assistant-query-warning" :key="warning" v-for="warning in query.warnings">{{ tt(warning) }}</p>
             </section>
@@ -80,7 +77,7 @@ function scopeDetails(scope: AIAssistantQueryScope): string[] {
                     @click="emit('openReference', reference.id)">
                 <span>{{ reference.timeText || '-' }} · {{ reference.categoryName || tt('Uncategorized') }}</span>
                 <span>{{ reference.sourceAccountName || tt('Account') }}<template v-if="reference.destinationAccountName"> → {{ reference.destinationAccountName }}</template></span>
-                <span>{{ reference.hideAmount ? DISPLAY_HIDDEN_AMOUNT : formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.sourceAmount), reference.currency || false) }}<template v-if="reference.type === TransactionType.Transfer"> → {{ reference.hideAmount ? DISPLAY_HIDDEN_AMOUNT : formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.destinationAmount ?? 0), reference.destinationCurrency || false) }}</template></span>
+                <span>{{ reference.sourceAmountText }}<template v-if="reference.type === TransactionType.Transfer"> → {{ reference.destinationAmountText }}</template></span>
                 <span class="assistant-reference-open">{{ tt('View Details') }}</span>
             </button>
         </div>

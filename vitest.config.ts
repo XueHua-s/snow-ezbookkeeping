@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 import path from 'node:path';
 
@@ -11,6 +11,7 @@ export default defineConfig({
     },
     test: {
         environment: 'node',
+        exclude: [...configDefaults.exclude, '**/*.browser.test.ts'],
         clearMocks: true,
         restoreMocks: true,
         mockReset: true,

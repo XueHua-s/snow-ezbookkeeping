@@ -221,7 +221,8 @@ import {
 import { generateRandomUUID } from './misc.ts';
 import { getBasePath } from './web.ts';
 import logger from './logger.ts';
-import { type AIAssistantChatStreamCallbacks, type AIAssistantErrorEnvelope, readAssistantStream, startAssistantDeadline } from './assistant_stream.ts';
+import { readAssistantStream, startAssistantDeadline } from './assistant_stream.ts';
+import type { AIAssistantChatStreamCallbacks, AIAssistantErrorEnvelope } from './types/assistant.ts';
 
 interface ApiRequestConfig extends AxiosRequestConfig {
     readonly headers: AxiosRequestHeaders;
@@ -234,7 +235,7 @@ interface ApiRequestConfig extends AxiosRequestConfig {
 
 export type ApiResponsePromise<T> = Promise<AxiosResponse<ApiResponse<T>>>;
 
-export type { AIAssistantChatStreamCallbacks } from './assistant_stream.ts';
+export type { AIAssistantChatStreamCallbacks } from './types/assistant.ts';
 
 let needBlockRequest = false;
 const blockedRequests: ((token: string | undefined) => void)[] = [];

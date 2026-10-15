@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PendingAssistantRequest } from './types/testing.ts';
 import { effectScope, reactive, type EffectScope } from 'vue';
-import type { AIAssistantChatRequest, AIAssistantChatStreamChunk } from '@/models/large_language_model.ts';
-import type { AIAssistantChatStreamCallbacks } from '@/lib/assistant_stream.ts';
+import type { AIAssistantChatStreamChunk } from '@/models/large_language_model.ts';
 
 vi.mock('@/lib/services.ts', () => ({ default: { chatWithAIAssistantStream: vi.fn(), cancelRequest: vi.fn() } }));
 vi.mock('@/lib/server_settings.ts', () => ({ isAIAssistantEnabled: () => true }));
@@ -9,10 +9,10 @@ vi.mock('@/lib/misc.ts', () => ({ generateRandomUUID: () => crypto.randomUUID() 
 vi.mock('@/stores/user.ts', () => ({ useUserStore: vi.fn() }));
 import services from '@/lib/services.ts';
 import { useUserStore } from '@/stores/user.ts';
-import { buildAssistantHistory, useAssistantPageBase, type AIAssistantConversationMessage } from './AssistantPageBase.ts';
+import { buildAssistantHistory, useAssistantPageBase } from './AssistantPageBase.ts';
+import type { AIAssistantConversationMessage } from './types.ts';
 
-type PendingRequest = { req: AIAssistantChatRequest; cancelableUuid?: string; callbacks?: AIAssistantChatStreamCallbacks; resolve: () => void; reject: (error: unknown) => void };
-let requests: PendingRequest[];
+let requests: PendingAssistantRequest[];
 let scope: EffectScope;
 let page: ReturnType<typeof useAssistantPageBase>;
 let user: { currentUserBasicInfo: { username: string } | null };
@@ -96,6 +96,48 @@ describe('assistant page session', () => {
         expect(requests[1]!.req.history).toEqual([]);
         finish(1);
         await followup;
+    });
+
+    it('prevents consumers from changing the session or nested evidence outside its actions', async () => {
+        const first = send('first');
+        finish(0, { continuation: candidate, references: [{ id: '17', time: 1, type: 3, sourceAmount: 100 }] });
+        await first;
+        const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        try {
+            Reflect.set(page.messages.value[1]!.references![0]!, 'sourceAmount', 999);
+            Reflect.set(page.messages.value, '0', { role: 'assistant', content: 'forged' });
+            Reflect.set(page.continuation.value!, 'cursor', 'forged');
+            Reflect.set(page.messages, 'value', []);
+            expect(page.messages.value[0]!.content).toBe('first');
+            expect(page.messages.value[1]!.references![0]!.sourceAmount).toBe(100);
+            expect(page.continuation.value).toEqual(candidate);
+        } finally {
+            warning.mockRestore();
+        }
+        page.clearConversation();
+        expect(page.messages.value).toEqual([]);
+    });
+
+    it.each(['completed', 'canceled', 'failed'] as const)('preserves an unsent draft when pagination is %s', async outcome => {
+        const first = send('first');
+        finish(0, { continuation: candidate });
+        await first;
+        page.messageInput.value = '尚未发送的草稿';
+        const next = page.requestNextPage('下一页');
+        expect(requests[1]!.req).toMatchObject({ message: '下一页', continuation: candidate });
+        expect(page.messageInput.value).toBe('尚未发送的草稿');
+        if (outcome === 'completed') {
+            finish(1);
+            await next;
+        } else if (outcome === 'canceled') {
+            page.cancelCurrentRequest();
+            requests[1]!.reject({ canceled: true });
+            await next;
+        } else {
+            requests[1]!.reject({ message: 'failed' });
+            await expect(next).rejects.toMatchObject({ message: 'failed' });
+        }
+        expect(page.messageInput.value).toBe('尚未发送的草稿');
     });
 
     it('canceled callbacks and finally cannot overwrite a new request', async () => {

@@ -30,7 +30,9 @@
 - Server settings accessors: `src/lib/server_settings.ts`.
 - Shared page-local session/cancellation/state/continuation: `src/views/base/assistant/AssistantPageBase.ts`.
 - Evidence presentation: `src/components/common/AssistantMessageEvidence.vue`.
-- Platform pages: `src/views/desktop/assistant/AssistantPage.vue`, `src/views/mobile/assistant/AssistantPage.vue`.
+- Shared rendering/scrolling: `src/components/common/assistant/AssistantMessageList.vue`, `src/views/base/assistant/useAssistantAutoScroll.ts`; typed session contract: `src/views/base/assistant/types.ts`.
+- Platform feature containers, input and actions: `src/components/desktop/assistant/*`, `src/components/mobile/assistant/*`.
+- Thin platform route pages: `src/views/desktop/assistant/AssistantPage.vue`, `src/views/mobile/assistant/AssistantPage.vue`.
 
 ## Migration-Sensitive Data and Verification
 

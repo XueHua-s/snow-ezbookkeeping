@@ -1,39 +1,21 @@
-import { shallowRef, computed, watch, onScopeDispose, getCurrentInstance, onDeactivated } from 'vue';
+import type { AIAssistantConversationMessage, AssistantSession, AssistantActiveRequest } from './types.ts';
+import { ASSISTANT_MAX_HISTORY_CHARACTERS, ASSISTANT_MAX_HISTORY_MESSAGES } from '@/consts/assistant.ts';
+import { shallowRef, readonly, computed, watch, onScopeDispose, getCurrentInstance, onDeactivated } from 'vue';
 
 import type {
     AIAssistantChatRequest,
     AIAssistantHistoryItem,
-    AIAssistantReferencedTransaction,
-    AIAssistantState,
-    AIAssistantStatus,
-    AIAssistantQuery,
     AIAssistantContinuation
 } from '@/models/large_language_model.ts';
-import type { AIAssistantRequestError } from '@/lib/assistant_stream.ts';
+import type { AIAssistantRequestError } from '@/lib/types/assistant.ts';
 import { useUserStore } from '@/stores/user.ts';
 import { isAIAssistantEnabled } from '@/lib/server_settings.ts';
 import services from '@/lib/services.ts';
 import { generateRandomUUID } from '@/lib/misc.ts';
 
-export type AIAssistantConversationRole = 'user' | 'assistant';
-
-export interface AIAssistantConversationMessage {
-    readonly id: string;
-    readonly role: AIAssistantConversationRole;
-    readonly content: string;
-    readonly thinking?: string;
-    readonly createdAt: number;
-    readonly references?: AIAssistantReferencedTransaction[];
-    readonly state: AIAssistantState;
-    readonly progress?: AIAssistantStatus;
-    readonly queries?: AIAssistantQuery[];
-    readonly continuation?: AIAssistantContinuation;
-    readonly error?: AIAssistantRequestError;
-}
-
 function historyContent(content: string): string {
     const characters = Array.from(content);
-    return characters.length > 2048 ? characters.slice(0, 2047).join('') + '…' : content;
+    return characters.length > ASSISTANT_MAX_HISTORY_CHARACTERS ? characters.slice(0, ASSISTANT_MAX_HISTORY_CHARACTERS - 1).join('') + '…' : content;
 }
 
 /** Keep complete exchanges only, so canceled/partial answers never become history facts. */
@@ -46,18 +28,17 @@ export function buildAssistantHistory(messages: readonly AIAssistantConversation
             history.push({ role: 'user', content: historyContent(user.content) }, { role: 'assistant', content: historyContent(assistant.content) });
         }
     }
-    return history.slice(-12);
+    return history.slice(-ASSISTANT_MAX_HISTORY_MESSAGES);
 }
 
-export function useAssistantPageBase() {
+export function useAssistantPageBase(): AssistantSession {
     const userStore = useUserStore();
     const enabled = computed<boolean>(() => isAIAssistantEnabled());
     const messages = shallowRef<AIAssistantConversationMessage[]>([]);
     const messageInput = shallowRef('');
-    const activeRequest = shallowRef<{ uuid: string; messageId: string }>();
+    const activeRequest = shallowRef<AssistantActiveRequest>();
     const continuation = shallowRef<AIAssistantContinuation>();
     const requesting = computed(() => !!activeRequest.value);
-    const rendering = computed(() => requesting.value);
     const latestAssistant = computed(() => messages.value.findLast(message => message.role === 'assistant'));
     const state = computed(() => latestAssistant.value?.state);
     const progress = computed(() => latestAssistant.value?.progress);
@@ -159,7 +140,7 @@ export function useAssistantPageBase() {
             const nextState = original.canceled ? 'canceled' : assistant?.state ?? (original.response ? 'failed' : 'incomplete');
             continuation.value = assistant?.continuation;
             patchMessage(messageId, {
-                state: nextState, progress: undefined, error: normalized,
+                state: nextState, progress: undefined, error: readonly(normalized),
                 queries: assistant?.queries ?? [], continuation: assistant?.continuation
             });
             if (!original.canceled) {
@@ -172,18 +153,23 @@ export function useAssistantPageBase() {
         }
     }
 
-    async function sendMessage(): Promise<void> {
-        if (!canSendMessage.value) {
-            return;
-        }
-        const message = messageInput.value; // Only historical content is shortened, never the current question.
+    // Chat and pagination share transcript/continuation semantics, not ownership of the draft.
+    async function sendChat(message: string): Promise<void> {
         const history = buildAssistantHistory(messages.value);
         const candidate = continuation.value;
         messages.value = [...messages.value, {
             id: generateRandomUUID(), role: 'user', content: message, createdAt: Date.now(), state: 'completed'
         }];
-        messageInput.value = '';
         await request({ mode: 'chat', message, history, continuation: candidate });
+    }
+
+    async function sendMessage(): Promise<void> {
+        if (!canSendMessage.value) {
+            return;
+        }
+        const message = messageInput.value; // Only historical content is shortened, never the current question.
+        messageInput.value = '';
+        await sendChat(message);
     }
 
     async function generateSummary(message: string): Promise<void> {
@@ -201,13 +187,12 @@ export function useAssistantPageBase() {
 
     async function requestNextPage(message: string): Promise<void> {
         if (canRequestNextPage.value && message.trim()) {
-            messageInput.value = message; // Caller supplies the localized, explicit next-page question.
-            await sendMessage();
+            await sendChat(message);
         }
     }
 
     return {
-        enabled, messages, messageInput, requesting, rendering, state, progress, continuation,
+        enabled, messages: readonly(messages), messageInput, requesting, state, progress, continuation: readonly(continuation),
         canSendMessage, canRequestNextPage, clearConversation, disposeConversation, cancelCurrentRequest,
         sendMessage, generateSummary, requestNextPage
     };

@@ -1,40 +1,10 @@
-import type {
-    AIAssistantChatResponse,
-    AIAssistantChatStreamChunk,
-    AIAssistantErrorContext,
-    AIAssistantStatus
-} from '@/models/large_language_model.ts';
-
-export interface AIAssistantErrorEnvelope {
-    readonly success: false;
-    readonly errorCode?: number;
-    readonly errorMessage?: string;
-    readonly path?: string;
-    readonly context?: { readonly assistant?: AIAssistantErrorContext; readonly [key: string]: unknown };
-}
-
-export interface AIAssistantRequestError {
-    readonly message?: string;
-    readonly canceled?: boolean;
-    readonly timedOut?: boolean;
-    readonly incomplete?: boolean;
-    readonly processed?: boolean;
-    readonly response?: { readonly data?: AIAssistantErrorEnvelope };
-}
-
-export interface AIAssistantChatStreamCallbacks {
-    readonly onStatus?: (status: AIAssistantStatus) => void;
-    readonly onThinkingDelta?: (delta: string) => void;
-    readonly onReplyDelta?: (delta: string) => void;
-    readonly onReferences?: (references: AIAssistantChatResponse['references']) => void;
-    readonly onDone?: (chunk: AIAssistantChatStreamChunk) => void;
-}
+import type { AIAssistantChatStreamChunk } from '@/models/large_language_model.ts';
+import type { AIAssistantErrorEnvelope, AIAssistantRequestError, AIAssistantChatStreamCallbacks } from './types/assistant.ts';
+import { ASSISTANT_PAGEABLE_TOOLS, ASSISTANT_MAX_FRAME_LENGTH } from '@/consts/assistant.ts';
 
 function protocolError(): AIAssistantRequestError {
     return { message: 'Unable to get AI assistant response', incomplete: true };
 }
-
-const pageableTools = ['list_accounts', 'list_categories', 'list_tags', 'query_transactions', 'aggregate_transactions', 'get_account_balances'];
 
 function record(value: unknown): value is Record<string, unknown> {
     return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -49,7 +19,7 @@ function optionalStrings(value: Record<string, unknown>, keys: string[]): boolea
 }
 
 function validContinuation(value: unknown): boolean {
-    return record(value) && pageableTools.includes(value['tool'] as string) && typeof value['cursor'] === 'string' && value['cursor'].length > 0;
+    return record(value) && ASSISTANT_PAGEABLE_TOOLS.includes(value['tool'] as string) && typeof value['cursor'] === 'string' && value['cursor'].length > 0;
 }
 
 function validScope(value: unknown): boolean {
@@ -72,7 +42,7 @@ function validScope(value: unknown): boolean {
 
 function validQueries(value: unknown): boolean {
     return Array.isArray(value) && value['every'](query => record(query) && typeof query['queryId'] === 'string' &&
-        [...pageableTools, 'get_transaction'].includes(query['tool'] as string) && validScope(query['scope']) &&
+        [...ASSISTANT_PAGEABLE_TOOLS, 'get_transaction'].includes(query['tool'] as string) && validScope(query['scope']) &&
         ['page', 'all_matching'].includes(query['coverage'] as string) && typeof query['queriedAt'] === 'string' && strings(query['warnings']));
 }
 
@@ -96,7 +66,6 @@ function validProjection(value: Record<string, unknown>): boolean {
 export async function readAssistantStream(body: ReadableStream<Uint8Array>, callbacks?: AIAssistantChatStreamCallbacks, signal?: AbortSignal): Promise<void> {
     const reader = body.getReader();
     const decoder = new TextDecoder('utf-8', { fatal: true });
-    const maxFrameLength = 1024 * 1024;
     let buffer = '';
     let frameLines: string[] = [];
     let frameLength = 0;
@@ -191,7 +160,7 @@ export async function readAssistantStream(body: ReadableStream<Uint8Array>, call
         } else {
             frameLines.push(value);
             frameLength += value['length'] + 1;
-            if (frameLength > maxFrameLength) {
+            if (frameLength > ASSISTANT_MAX_FRAME_LENGTH) {
                 throw protocolError();
             }
         }
@@ -209,7 +178,7 @@ export async function readAssistantStream(body: ReadableStream<Uint8Array>, call
             line(buffer.slice(0, index));
             buffer = buffer.slice(index + endingLength);
         }
-        if (frameLength + buffer.length > maxFrameLength) {
+        if (frameLength + buffer.length > ASSISTANT_MAX_FRAME_LENGTH) {
             throw protocolError();
         }
         if (final) {
