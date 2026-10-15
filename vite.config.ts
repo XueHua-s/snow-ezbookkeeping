@@ -318,13 +318,13 @@ export default defineConfig(() => {
                                 test: id => {
                                     if (/[\\/]src[\\/](core|consts|models|stores)[\\/]/i.test(id)) {
                                         return true;
-                                    } else if (/[\\/]src[\\/]lib[\\/](map[\\/]|ui[\\/]common|calendar[\\/]|[a-zA-Z0-9-_]+\.(js|ts))/i.test(id)) {
+                                    } else if (/[\\/]src[\\/]lib[\\/]((map|calendar|category|common|datetime|numeral|overview_layout|services)[\\/]|ui[\\/]common|[a-zA-Z0-9-_]+\.(js|ts))/i.test(id)) {
                                         return true;
                                     } else if (/[\\/]src[\\/]components[\\/](base|common)[\\/]/i.test(id)) {
                                         return true;
                                     } else if (/[\\/]src[\\/]views[\\/]base[\\/]/i.test(id)) {
                                         return true;
-                                    } else if (/[\\/]src[\\/]locales[\\/]helpers\.(js|ts)/i.test(id)) {
+                                    } else if (/[\\/]src[\\/]locales[\\/]helpers([\\/]|\.(js|ts))/i.test(id)) {
                                         return true;
                                     } else {
                                         return false;

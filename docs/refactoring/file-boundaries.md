@@ -44,3 +44,9 @@ Vue 页面保留路由与生命周期编排；筛选菜单、表单区域、列�
 - `go test ./...`：仅白俄罗斯国家银行在线汇率请求超时，与重构前基线一致。
 - `go test ./... -skip '^TestExchangeRatesApiLatestExchangeRateHandler_NationalBankOfBelarusDataSource$'`：全部通过；所有发生拆分的 Go 包也单独通过测试。
 - 多行脚本/图表示例字符串已恢复原始文本，避免提取函数时缩进改变字符串内容。
+
+## 生产分包回归补充
+
+真实 Docker 生产产物启动验证发现：原分包规则只匹配 `locales/helpers.ts`，拆分后的 `locales/helpers/` 被分入语言资源包，与应用公共包产生初始化循环。该问题无法由开发服务器模式的组件测试或“构建成功”发现。已将国际化辅助模块和拆出的公共库模块保留在原公共分包中。
+
+新增 `EBK_SMOKE_BASE_URL=http://127.0.0.1:<port> npm run test:production`：直接访问运行中的生产产物，确认桌面/移动登录表单实际可见，且没有浏览器运行时错误或失败请求。TLS 测试环境可显式设置 `EBK_SMOKE_IGNORE_TLS_ERRORS=true`。应先对隔离候选容器执行此检查，再切换公开入口；只检查 HTTP 200 不足以判定 SPA 可用。修复后隔离 Docker 的两个入口均通过。代码行数检查现覆盖 1,528 个文件，仍无超限。

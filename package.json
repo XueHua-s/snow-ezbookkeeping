@@ -18,7 +18,8 @@
     "lint": "npm run check:source-lines && vue-tsc --noEmit && eslint . --fix",
     "test": "vitest run",
     "test:browser": "vitest run --config vitest.browser.config.ts",
-    "check:source-lines": "node scripts/check-source-lines.mjs"
+    "check:source-lines": "node scripts/check-source-lines.mjs",
+    "test:production": "node scripts/check-built-pages.mjs"
   },
   "dependencies": {
     "@markdown-next/parser": "1.1.1",
