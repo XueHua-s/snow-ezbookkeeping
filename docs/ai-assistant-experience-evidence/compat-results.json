@@ -1,0 +1,41 @@
+{
+  "executedAt": "2026-10-15T15:50:30.645Z",
+  "frontend": "final production dist",
+  "backend": "old main baseline 1a21bc9bfd2b155a3ed9b8ac57caff7c76bbb293; explicit compatibility-only override",
+  "results": [
+    {
+      "variant": "desktop",
+      "status": "PASS",
+      "responses": [
+        {
+          "path": "/api/v1/llm/assistant/capabilities.json",
+          "status": 404
+        },
+        {
+          "path": "/api/v1/llm/assistant/capabilities.json",
+          "status": 404
+        }
+      ],
+      "navigations": 3,
+      "providerCalls": 0,
+      "explanation": "Explicit server upgrade message; no refresh loop or model request"
+    },
+    {
+      "variant": "mobile",
+      "status": "PASS",
+      "responses": [
+        {
+          "path": "/api/v1/llm/assistant/capabilities.json",
+          "status": 404
+        },
+        {
+          "path": "/api/v1/llm/assistant/capabilities.json",
+          "status": 404
+        }
+      ],
+      "navigations": 2,
+      "providerCalls": 0,
+      "explanation": "Explicit server upgrade message; no refresh loop or model request"
+    }
+  ]
+}

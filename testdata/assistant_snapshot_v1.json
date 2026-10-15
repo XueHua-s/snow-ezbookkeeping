@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "runId": "9223372036854775807",
+  "conversationId": "123",
+  "userMessageId": "455",
+  "assistantMessageId": "9223372036854775807",
+  "attemptNumber": 1,
+  "revision": 12,
+  "state": "completed",
+  "content": "# 财务回复\n\n精确金额保存在结构化引用中。\n",
+  "queries": [],
+  "references": [{
+    "id": "9223372036854775806",
+    "time": 1792051200,
+    "type": 3,
+    "sourceAmountMinor": "-9223372036854775808",
+    "destinationAmountMinor": "9223372036854775807",
+    "currency": "USD",
+    "destinationCurrency": "CNY",
+    "hideAmount": true
+  }],
+  "reasonCode": null,
+  "savedAt": "2026-10-15T08:00:00Z"
+}

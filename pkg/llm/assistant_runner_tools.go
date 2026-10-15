@@ -9,7 +9,7 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
 )
 
-func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool) (data.ToolResult, error) {
+func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool, fits func(data.ToolResult) bool) (data.ToolResult, error) {
 	start := run.runner.now()
 	var result data.ToolResult
 	cached := false
@@ -33,7 +33,13 @@ func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool)
 	} else {
 		ctx, cancel := context.WithTimeout(run.c, run.input.QueryTimeout)
 		queryContext := core.NewAssistantContext(ctx, run.c.GetContextId(), run.c.GetClientLocale(), run.c.ClientIP())
-		result = run.runner.executor.Execute(queryContext, call)
+		if executor, ok := run.runner.executor.(interface {
+			ExecuteForContext(core.Context, data.ToolCall, func(data.ToolResult) bool) data.ToolResult
+		}); ok && fits != nil {
+			result = executor.ExecuteForContext(queryContext, call, fits)
+		} else {
+			result = run.runner.executor.Execute(queryContext, call)
+		}
 		queryErr := ctx.Err()
 		cancel()
 		if queryErr != nil {

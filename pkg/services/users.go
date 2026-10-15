@@ -18,6 +18,7 @@ const verifyEmailUrlFormat = "%sdesktop#/verify_email?token=%s"
 // UserService represents user service
 type UserService struct {
 	ServiceUsingDB
+	assistantStorage *AssistantStorageService
 	ServiceUsingConfig
 	ServiceUsingMailer
 	ServiceUsingUuid

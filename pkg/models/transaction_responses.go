@@ -12,6 +12,7 @@ type TransactionGeoLocationResponse struct {
 
 // TransactionInfoResponse represents a view-object of transaction
 type TransactionInfoResponse struct {
+	LastModifiedUnixTime int64                                    `json:"lastModifiedUnixTime,omitempty"`
 	Id                   int64                                    `json:"id,string"`
 	TimeSequenceId       int64                                    `json:"timeSequenceId,string"`
 	Type                 TransactionType                          `json:"type"`

@@ -1,0 +1,10 @@
+import type { AssistantConversationDTO, AssistantMessageDTO, AssistantMemoryDTO } from '@/models/ai_assistant_conversation.ts';
+export const fixtureConversation: AssistantConversationDTO = {
+    schemaVersion: 1, id: '1', title: 'October spending · 十月支出复盘', archived: false, createdAt: '2026-10-15T08:00:00Z', activityAt: '2026-10-15T08:00:00Z', metadataVersion: 1, contextVersion: 1, nextTurnSequence: 2, usedBytes: 1024, reservedBytes: 0, turnCount: 1, memoryMode: 'inherit', pendingContinuation: false, sourceInvalidated: false
+};
+export const fixtureMessage: AssistantMessageDTO = {
+    schemaVersion: 1, id: '2', conversationId: '1', turnSequence: 1, role: 'user', content: '帮我看看十月的餐饮开支，按币种分别列出。', createdAt: '2026-10-15T08:00:00Z', selectedAssistantMessageId: '3', hasMoreVersions: false,
+    versions: [{ id: '3', attemptNumber: 1, state: 'completed', createdAt: '2026-10-15T08:00:00Z' }, { id: '5', attemptNumber: 2, state: 'failed', createdAt: '2026-10-15T08:02:00Z' }],
+    selectedAnswer: { schemaVersion: 1, runId: '3', conversationId: '1', userMessageId: '2', assistantMessageId: '3', attemptNumber: 1, revision: 1, state: 'completed', content: '## October dining\n\nYour spending is grouped by currency. **Different currencies are not added together.**\n\n| Currency | Spending | Transactions |\n| --- | ---: | ---: |\n| CNY | 1,280.00 | 18 |\n| USD | 24.50 | 2 |\n\n- The largest category is lunch.\n- Compare the same period next month.\n\n```text\n  Keep currencies separate.\n```', queries: [], references: [{ id: '12', time: 1792022400, timeText: '2026-10-15', type: 2, sourceAmountMinor: '128000', currency: 'CNY', categoryName: 'Dining · 餐饮', sourceAccountName: 'Daily account' }], reasonCode: null, savedAt: '2026-10-15T08:00:00Z' }
+};
+export const fixtureMemory: AssistantMemoryDTO = { schemaVersion: 1, id: '4', key: 'answer_language', text: 'Please explain comparisons briefly, and keep currencies separate.', type: 'preference', status: 'active', sourceMessageIds: ['2'], sources: [{ conversationId: '1', messageId: '2', version: 1 }], createdAt: '2026-10-15T08:00:00Z', updatedAt: '2026-10-15T08:00:00Z', version: 1, explicit: true };

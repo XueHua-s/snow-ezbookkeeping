@@ -1,0 +1,1068 @@
+{
+  "date": "2026-10-15–16",
+  "status": "FROZEN: implementation and isolated automated/production validation PASS; no unresolved implementation FAIL; explicit external gates remain NOT RUN",
+  "logEvidence": [
+    {
+      "source": "worker-combination-repair-three-databases.log",
+      "sha256": "29990122fb37a410814ac4f258691ce3e5d0c04a68149592e3306b4a94bebb66",
+      "excerpt": [
+        "--- PASS: TestAssistantStorageRevocationAndRetention (0.37s)",
+        "    --- PASS: TestAssistantStorageRevocationAndRetention/sqlite3 (0.02s)",
+        "    --- PASS: TestAssistantStorageRevocationAndRetention/mysql (0.19s)",
+        "    --- PASS: TestAssistantStorageRevocationAndRetention/postgres (0.16s)",
+        "--- PASS: TestAssistantStorageExternalOperationAcceptance (0.89s)",
+        "    --- PASS: TestAssistantStorageExternalOperationAcceptance/sqlite3 (0.31s)",
+        "    --- PASS: TestAssistantStorageExternalOperationAcceptance/mysql (0.28s)",
+        "    --- PASS: TestAssistantStorageExternalOperationAcceptance/postgres (0.29s)",
+        "--- PASS: TestAssistantStorageDatabaseContracts (3.81s)",
+        "    --- PASS: TestAssistantStorageDatabaseContracts/sqlite3 (0.88s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/sqlite3/receipt_epoch_rollback_and_retention (0.03s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/sqlite3/concurrent_quota_and_once_settlement (0.10s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/sqlite3/bounded_fields_logging_and_legacy (0.74s)",
+        "    --- PASS: TestAssistantStorageDatabaseContracts/mysql (1.42s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/mysql/receipt_epoch_rollback_and_retention (0.22s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/mysql/concurrent_quota_and_once_settlement (0.18s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/mysql/bounded_fields_logging_and_legacy (1.02s)",
+        "    --- PASS: TestAssistantStorageDatabaseContracts/postgres (1.52s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/postgres/receipt_epoch_rollback_and_retention (0.19s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/postgres/concurrent_quota_and_once_settlement (0.25s)",
+        "        --- PASS: TestAssistantStorageDatabaseContracts/postgres/bounded_fields_logging_and_legacy (1.07s)",
+        "PASS",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/services\t18.747s",
+        "--- PASS: TestClearAllDataAssistantLegacyReplayFence (0.03s)",
+        "--- PASS: TestClearAllDataReplayNeverReentersLedgerServices (0.12s)",
+        "--- PASS: TestAssistantExperienceHTTPExportCancellationAndDeadline (1.11s)",
+        "    --- PASS: TestAssistantExperienceHTTPExportCancellationAndDeadline/client_cancel (0.06s)",
+        "    --- PASS: TestAssistantExperienceHTTPExportCancellationAndDeadline/deadline (1.05s)",
+        "--- PASS: TestAssistantSnapshotFrameExactBytes (0.01s)",
+        "--- PASS: TestAssistantSnapshotHTTPReconnectAndDisconnect (0.00s)",
+        "--- PASS: TestAssistantSnapshotHTTPSlowReaderBounded (0.04s)",
+        "--- PASS: TestAssistantSnapshotHTTPLeaseQuotaAndAuthorization (0.04s)",
+        "--- PASS: TestAssistantExperienceHTTPContracts (0.04s)",
+        "PASS",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/api\t2.957s"
+      ],
+      "note": ""
+    },
+    {
+      "source": "worker-final-combination-repeat.log",
+      "sha256": "36ed5dedd0dfe98eae01f8361a58968d0578191590bd72b490619ab62945659f",
+      "excerpt": [
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/services\t30.018s",
+        "--- FAIL: TestAssistantExperienceHTTPExportCancellationAndDeadline (1.07s)",
+        "    --- FAIL: TestAssistantExperienceHTTPExportCancellationAndDeadline/deadline (1.03s)",
+        "            \tError:      \tTarget error should be in err chain:",
+        "            \t            \texpected: \"context deadline exceeded\"",
+        "FAIL",
+        "FAIL\tgithub.com/mayswind/ezbookkeeping/pkg/api\t2.958s",
+        "FAIL"
+      ],
+      "note": "",
+      "evidenceStatus": "HISTORICAL FAILURE, superseded by final-go-test/final-go-race after repair; not a current unresolved failure"
+    },
+    {
+      "source": "history-performance-97mib.log",
+      "sha256": "37d3b76f1093418241f1507de7545feb29de9ddbec043f0da8f5aa05fb5c70e5",
+      "excerpt": [
+        "    ai_assistant_experience_performance_test.go:107: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441",
+        "    ai_assistant_experience_performance_test.go:231: history_first_page p95=43.206375ms samples=20",
+        "    ai_assistant_experience_performance_test.go:231: rare_search p95=602.146375ms samples=20",
+        "    ai_assistant_experience_performance_test.go:289: all_export bytes=96841192 max_write=4557 peak_heap_growth=3699344 elapsed=8.901799708s",
+        "    ai_assistant_experience_performance_test.go:107: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441",
+        "    ai_assistant_experience_performance_test.go:231: history_first_page p95=64.730958ms samples=20",
+        "    ai_assistant_experience_performance_test.go:231: rare_search p95=261.887875ms samples=20",
+        "    ai_assistant_experience_performance_test.go:289: all_export bytes=96841192 max_write=4557 peak_heap_growth=2063744 elapsed=25.099080333s",
+        "    ai_assistant_experience_performance_test.go:107: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441",
+        "    ai_assistant_experience_performance_test.go:231: history_first_page p95=65.107458ms samples=20",
+        "    ai_assistant_experience_performance_test.go:231: rare_search p95=79.368333ms samples=20",
+        "    ai_assistant_experience_performance_test.go:289: all_export bytes=96841192 max_write=4557 peak_heap_growth=2069096 elapsed=25.399664583s",
+        "--- PASS: TestAssistantExperienceHistoryPerformance (372.21s)",
+        "    --- PASS: TestAssistantExperienceHistoryPerformance/sqlite3 (41.77s)",
+        "    --- PASS: TestAssistantExperienceHistoryPerformance/mysql (254.55s)",
+        "    --- PASS: TestAssistantExperienceHistoryPerformance/postgres (75.88s)",
+        "PASS",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/services\t372.699s"
+      ],
+      "note": ""
+    },
+    {
+      "source": "history-performance-export-deadline.log",
+      "sha256": "8c5e7dfc04f6bc34da0cb10f94a8b9f2a871e2dba76a62d4551559e582374292",
+      "excerpt": [
+        "    ai_assistant_experience_performance_test.go:108: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441",
+        "    ai_assistant_experience_performance_test.go:232: history_first_page p95=4.639084ms samples=20",
+        "    ai_assistant_experience_performance_test.go:232: rare_search p95=64.805792ms samples=20",
+        "    ai_assistant_experience_performance_test.go:296: all_export bytes=96841192 max_write=4557 peak_heap_growth=2439296 elapsed=592.670667ms",
+        "    ai_assistant_experience_performance_test.go:108: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441",
+        "    ai_assistant_experience_performance_test.go:232: history_first_page p95=179.697584ms samples=20",
+        "    ai_assistant_experience_performance_test.go:232: rare_search p95=500.251667ms samples=20",
+        "    ai_assistant_experience_performance_test.go:296: all_export bytes=96841192 max_write=4557 peak_heap_growth=2129872 elapsed=4.111864166s",
+        "    ai_assistant_experience_performance_test.go:108: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441",
+        "    ai_assistant_experience_performance_test.go:232: history_first_page p95=251.007583ms samples=20",
+        "    ai_assistant_experience_performance_test.go:232: rare_search p95=112.564542ms samples=20",
+        "    ai_assistant_experience_performance_test.go:296: all_export bytes=96841192 max_write=4557 peak_heap_growth=2700296 elapsed=7.523360166s",
+        "--- PASS: TestAssistantExperienceHistoryPerformance (112.98s)",
+        "    --- PASS: TestAssistantExperienceHistoryPerformance/sqlite3 (6.14s)",
+        "    --- PASS: TestAssistantExperienceHistoryPerformance/mysql (54.82s)",
+        "    --- PASS: TestAssistantExperienceHistoryPerformance/postgres (52.02s)",
+        "PASS",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/services\t113.525s"
+      ],
+      "note": ""
+    },
+    {
+      "source": "http-epoch-barrier-race.log",
+      "sha256": "321fd7b4af34b99196df12e264c38e69f4177a21aa9a92bf09a3566fc866f2f6",
+      "exitCode": 0,
+      "excerpt": [
+        "--- PASS: TestAssistantExperienceHTTPDelayedSendCannotCrossClearEpoch (0.03s)",
+        "--- PASS: TestAssistantExperienceHTTPDelayedSendCannotCrossClearEpoch (0.03s)",
+        "--- PASS: TestAssistantExperienceHTTPDelayedSendCannotCrossClearEpoch (0.03s)",
+        "--- PASS: TestAssistantExperienceHTTPDelayedSendCannotCrossClearEpoch (0.03s)",
+        "--- PASS: TestAssistantExperienceHTTPDelayedSendCannotCrossClearEpoch (0.03s)",
+        "PASS",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/api\t1.539s"
+      ]
+    },
+    {
+      "source": "final-go-test.log",
+      "sha256": "7fc3f0436ed556a4805650264cfe85e136b196ae9aa3094b8c86cd80bef6c75c",
+      "exitCode": 0,
+      "scope": "2026-10-16 R13 final implementation snapshot; subsequent full production rerun also passed",
+      "excerpt": [
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/auth/oauth2/provider/gitea\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/auth/oauth2/provider/github\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/auth/oauth2/provider/nextcloud\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/avatars\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/alipay\t3.290s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/beancount\t3.289s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/camt\t3.296s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/converter\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/csv\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/custom\t3.313s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/datatable\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/default\t3.287s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/excel\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/feidee\t3.308s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/fireflyIII\t3.283s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/gnucash\t3.296s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/iif\t0.127s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/jdcom\t0.132s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/mt\t0.127s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/ofx\t0.128s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/qif\t0.127s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/sgml\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/converters/wechat\t0.133s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/core\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/cron\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/datastore\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/duplicatechecker\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/errs\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/exchangerates\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/data\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/anthropic\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/googleai\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/lmstudio\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/ollama\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/openai\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/middlewares\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/models\t0.123s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/requestid\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/services\t6.826s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/settings\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/templates\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/utils\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/uuid\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/validators\t(cached)"
+      ]
+    },
+    {
+      "source": "final-go-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0,
+      "scope": "2026-10-16 R13 final implementation snapshot; subsequent full production rerun also passed",
+      "excerpt": []
+    },
+    {
+      "source": "final-go-race.log",
+      "sha256": "6d96006c45ae8ef9b49dba941bd980362d7a6cccf68889a7074caebd3ee5e3f1",
+      "exitCode": 0,
+      "scope": "2026-10-16 R13 final implementation snapshot; subsequent full production rerun also passed",
+      "excerpt": [
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/api\t3.449s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/services\t31.980s",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/data\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/anthropic\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/googleai\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/lmstudio\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/ollama\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/llm/provider/openai\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/datastore\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/core\t(cached)",
+        "ok  \tgithub.com/mayswind/ezbookkeeping/pkg/settings\t(cached)"
+      ]
+    },
+    {
+      "source": "final-npm-test.log",
+      "sha256": "0f971a513058cf5ea6df5fec39ef1be95b14ca1902c5877a5537df1d69026007",
+      "exitCode": 0,
+      "scope": "2026-10-16 R13 final implementation snapshot; subsequent full production rerun also passed",
+      "excerpt": [
+        " Test Files  27 passed (27)",
+        "      Tests  38785 passed (38785)",
+        "   Duration  5.21s (transform 59%, import 19%, tests 14%, environment 6%, worker 1%)"
+      ]
+    },
+    {
+      "source": "final-npm-lint.log",
+      "sha256": "b5a351d778621e2b1ae4b50da0cb33fe3fe7c6aaab40f4086ad49e4de6c2fc36",
+      "exitCode": 0,
+      "scope": "2026-10-16 R13 final implementation snapshot; subsequent full production rerun also passed",
+      "excerpt": [
+        "Checked 1662 source, test and style files; 0 exceed 500 lines."
+      ]
+    },
+    {
+      "source": "final-npm-browser.log",
+      "sha256": "07de174e60b7276ef2831ae18db7217c4809a27dacf095432503451ed5e3c5c6",
+      "exitCode": 0,
+      "scope": "2026-10-16 R13 final implementation snapshot; subsequent full production rerun also passed",
+      "excerpt": [
+        " Test Files  3 passed (3)",
+        "      Tests  33 passed (33)",
+        "   Duration  10.34s (import 57%, tests 40%, worker 3%)"
+      ]
+    },
+    {
+      "source": "final-npm-build.log",
+      "sha256": "6aa6458f5c05377fc6c67670cf821a5bb9d51be7f1ceae2e98fe9e7da6ca7aa1",
+      "exitCode": 0,
+      "scope": "2026-10-16 R13 final implementation snapshot; subsequent full production rerun also passed",
+      "excerpt": [
+        "✓ built in 58.39s",
+        "✓ built in 171ms",
+        "precache  60 entries (1244.25 KiB)"
+      ]
+    },
+    {
+      "source": "final-npm-production.log",
+      "sha256": "16e3e44debf2f23d86027dea3246fd33eb08bfbb4c08c4eb3c23851694df55fe",
+      "exitCode": 0,
+      "scope": "final full production rerun after R13 repair",
+      "excerpt": [
+        "",
+        "> ezbookkeeping@2.1.0 test:production",
+        "> node scripts/check-built-pages.mjs",
+        "",
+        "desktop: production bundle rendered login page without runtime or network errors",
+        "mobile: production bundle rendered login page without runtime or network errors"
+      ]
+    }
+  ],
+  "nginx": {
+    "status": "PASS",
+    "nginx": "nginx version: nginx/1.28.3",
+    "imageDigests": [
+      "nginx@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236"
+    ],
+    "productionAPI": true,
+    "database": "isolated SQLite",
+    "provider": "controlled HTTP protocol fixture",
+    "providerCalls": 2,
+    "commandCount": 1,
+    "runId": "3848425593146179585",
+    "results": [
+      {
+        "route": "off",
+        "firstByteMs": 3,
+        "elapsedMs": 10504,
+        "disconnected": false,
+        "snapshots": [
+          {
+            "state": "queued",
+            "revision": 1,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 3,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 4,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 5,
+            "terminal": false
+          },
+          {
+            "state": "completed",
+            "revision": 6,
+            "terminal": true
+          }
+        ]
+      },
+      {
+        "route": "on",
+        "firstByteMs": 20,
+        "elapsedMs": 10522,
+        "disconnected": false,
+        "snapshots": [
+          {
+            "state": "queued",
+            "revision": 1,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 3,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 4,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 5,
+            "terminal": false
+          },
+          {
+            "state": "completed",
+            "revision": 6,
+            "terminal": true
+          }
+        ]
+      },
+      {
+        "route": "forced",
+        "firstByteMs": 10,
+        "elapsedMs": 10511,
+        "disconnected": false,
+        "snapshots": [
+          {
+            "state": "queued",
+            "revision": 1,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 3,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 4,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 5,
+            "terminal": false
+          },
+          {
+            "state": "completed",
+            "revision": 6,
+            "terminal": true
+          }
+        ]
+      },
+      {
+        "route": "timeout",
+        "firstByteMs": 4,
+        "elapsedMs": 2000,
+        "disconnected": true,
+        "snapshots": [
+          {
+            "state": "queued",
+            "revision": 1,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 3,
+            "terminal": false
+          },
+          {
+            "state": "running",
+            "revision": 4,
+            "terminal": false
+          }
+        ]
+      }
+    ],
+    "reconnected": {
+      "route": "on",
+      "firstByteMs": 10525,
+      "elapsedMs": 10525,
+      "disconnected": false,
+      "snapshots": [
+        {
+          "state": "completed",
+          "revision": 6,
+          "terminal": true
+        }
+      ]
+    },
+    "completedState": "completed",
+    "checks": [
+      "real nginx buffering off",
+      "real nginx buffering on honoring X-Accel-Buffering",
+      "buffering-on with X-Accel-Buffering ignored (measured timing)",
+      "actual proxy idle disconnect",
+      "same-run status polling recovery",
+      "terminal reconnect afterRevision equal",
+      "no duplicate model calls"
+    ]
+  },
+  "ui": [
+    {
+      "variant": "desktop",
+      "scenario": "textarea has no native inner border or outline",
+      "status": "PASS",
+      "inputStyle": {
+        "border": "0px",
+        "outline": "none"
+      }
+    },
+    {
+      "variant": "desktop",
+      "scenario": "toolbar and horizontal fit",
+      "metrics": {
+        "height": 61,
+        "width": 1250,
+        "docWidth": 1280,
+        "viewport": 1280
+      }
+    },
+    {
+      "variant": "desktop",
+      "scenario": "real Clipboard Markdown and code preserves raw syntax and indentation",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "actual route drawer keyboard/Esc/More and memory",
+      "status": "PASS",
+      "pageErrors": []
+    },
+    {
+      "variant": "mobile",
+      "scenario": "textarea has no native inner border or outline",
+      "status": "PASS",
+      "inputStyle": {
+        "border": "0px",
+        "outline": "none"
+      }
+    },
+    {
+      "variant": "mobile",
+      "scenario": "toolbar and horizontal fit",
+      "metrics": {
+        "height": 94.59375,
+        "width": 390,
+        "docWidth": 390,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "mobile",
+      "scenario": "real Clipboard Markdown and code preserves raw syntax and indentation",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "actual route drawer keyboard/Esc/More and memory",
+      "status": "PASS",
+      "pageErrors": []
+    }
+  ],
+  "remaining": [
+    "real primary/fallback financial and memory oracle including latency/token-cost NOT RUN",
+    "physical phone soft keyboard and manual screen-reader NOT RUN",
+    "real bfcache not reached: pageshow.persisted=false on both platforms"
+  ],
+  "storeHistory": {
+    "history": {
+      "fixture": {
+        "turns": 120,
+        "seed": "completed API-created synthetic question/answer copied only inside isolated SQLite fixture",
+        "messageBytes": 555816
+      },
+      "anchors": [
+        {
+          "before": {
+            "id": "3848431142243926199",
+            "offset": 69.1875,
+            "count": 30
+          },
+          "after": {
+            "id": "3848431142243926199",
+            "offset": 69.59375,
+            "count": 60
+          }
+        },
+        {
+          "before": {
+            "id": "3848431142243926139",
+            "offset": 69.1875,
+            "count": 60
+          },
+          "after": {
+            "id": "3848431142243926139",
+            "offset": 69.59375,
+            "count": 90
+          }
+        },
+        {
+          "before": {
+            "id": "3848431142243926079",
+            "offset": 69.1875,
+            "count": 90
+          },
+          "after": {
+            "id": "3848431142243926079",
+            "offset": 69.125,
+            "count": 90
+          }
+        }
+      ],
+      "bounded": {
+        "count": 90,
+        "first": 1,
+        "last": 90
+      },
+      "latest": 120,
+      "viewportReflow": {
+        "before": {
+          "id": "3848431142243926201",
+          "offset": -355.265625,
+          "count": 30
+        },
+        "after": {
+          "id": "3848431142243926201",
+          "offset": -355.265625
+        }
+      },
+      "viewport": {
+        "width": 1100,
+        "height": 760
+      }
+    },
+    "remoteDelete": {
+      "id": "",
+      "count": 0,
+      "draft": "",
+      "localDrafts": 0
+    },
+    "passed": [
+      "persist-before-HTTP",
+      "unknown-response-refresh-original-ID",
+      "confirm-without-resend",
+      "same-server-run-completed",
+      "two-stage-branch-failed-first-send-retains-target",
+      "delete-clears-current",
+      "independent-browser-context-remote-delete-clears-DOM-and-draft"
+    ],
+    "sends": 1,
+    "providerCalls": 3,
+    "artifacts": "/tmp/ebk-store-history-smoke",
+    "status": "passed",
+    "limitations": [
+      "120-turn fixture uses synthetic SQLite insertion then real API and DOM; not 120 model calls",
+      "Provider is deterministic test server, not real model certification",
+      "Reflow evidence covers viewport resize; does not certify every asynchronous resource loading case"
+    ],
+    "unitTests": {
+      "store": 28,
+      "relatedTotal": 35,
+      "result": "passed"
+    }
+  },
+  "routeDevelopment": {
+    "results": [
+      {
+        "variant": "desktop",
+        "scenario": "actual route send/detail/back/refresh with draft",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "real shared IndexedDB retains conflicting drafts from two tabs",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "real browser IndexedDB refusal keeps editable draft and visibly warns about refresh loss",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "second device reads same history; idle foreground synchronizes rename without replacing local draft",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "real browser clipboard receives exact selected original Markdown",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "offline edits and online recovery do not send a model request",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "current conversation Markdown export contains stored selected answer",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "server generation disabled across restart retains history/draft/export and does not call provider",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "memory creation and confirmed forgetting through actual management UI",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "search result and archive/unarchive through both platform history controls",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "lost accepted send response and refresh reconcile the original command without duplicate messages",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "provider failure stays visible and explicit retry creates another answer attempt without duplicating question",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "lost branch acceptance and refresh recover one target and edited draft; only explicit send calls provider",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "cross-tab authentication switch clears prior owner answer before next rendered frame; original owner can reopen own formal history",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "confirmed clear removes cloud assistant data while retaining the ledger",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "actual route send/detail/back/refresh with draft",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "real shared IndexedDB retains conflicting drafts from two tabs",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "real browser IndexedDB refusal keeps editable draft and visibly warns about refresh loss",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "second device reads same history; idle foreground synchronizes rename without replacing local draft",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "real browser clipboard receives exact selected original Markdown",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "offline edits and online recovery do not send a model request",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "current conversation Markdown export contains stored selected answer",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "server generation disabled across restart retains history/draft/export and does not call provider",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "memory creation and confirmed forgetting through actual management UI",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "search result and archive/unarchive through both platform history controls",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "lost accepted send response and refresh reconcile the original command without duplicate messages",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "provider failure stays visible and explicit retry creates another answer attempt without duplicating question",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "lost branch acceptance and refresh recover one target and edited draft; only explicit send calls provider",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "cross-tab authentication switch clears prior owner answer before next rendered frame; original owner can reopen own formal history",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "confirmed clear removes cloud assistant data while retaining the ledger",
+        "status": "PASS"
+      }
+    ],
+    "backend": "built from current worktree",
+    "providerCalls": 18,
+    "provider": "deterministic protocol fixture; not model certification"
+  },
+  "landscape": {
+    "viewport": "568x320",
+    "messageViewportPx": 130,
+    "textareaPx": 44,
+    "status": "PASS",
+    "source": "docs/ai-assistant-ui-review.md"
+  },
+  "routeProduction": {
+    "executedAt": "2026-10-15T16:25:41.135Z",
+    "frontend": "production dist with service worker",
+    "browser": "156.0.8078.4",
+    "status": "PARTIAL",
+    "results": [
+      {
+        "scenario": "npm run test:production against isolated current Go application serving production dist",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "production service worker controls page; HTTP no-store; no assistant CacheStorage response; IndexedDB stores drafts not answer/token; offline API cannot replay cached history",
+        "status": "PASS",
+        "policy": {
+          "cacheControl": "no-store",
+          "pragma": null,
+          "cachedAssistantResponses": 0,
+          "controlled": true
+        }
+      },
+      {
+        "variant": "desktop",
+        "scenario": "actual route send/detail/back restores reading offset and draft; refresh restores cloud answer",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "real shared IndexedDB retains conflicting drafts from two tabs",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "real browser IndexedDB refusal keeps editable draft and visibly warns about refresh loss",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "second device reads same history; idle foreground synchronizes rename without replacing local draft",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "real browser clipboard receives exact selected original Markdown",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "offline edits and online recovery do not send a model request",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "current conversation Markdown export contains stored selected answer",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "server generation disabled across restart retains history/draft/export and does not call provider",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "memory creation and confirmed forgetting through actual management UI",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "search and archive/unarchive; Include archived retains active conversation after unarchive",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "lost accepted send response and refresh reconcile the original command without duplicate messages",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "provider failure stays visible and explicit retry creates another answer attempt without duplicating question",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "lost branch acceptance and refresh recover one target and edited draft; only explicit send calls provider",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "actual back/forward cache restoration after another tab changes identity",
+        "status": "NOT RUN",
+        "reason": "Chromium did not retain this navigation in bfcache; normal history restore tested instead"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "cross-tab authentication switch clears prior owner answer before next rendered frame; original owner can reopen own formal history",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "confirmed clear removes cloud assistant data while retaining the ledger",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "production service worker controls page; HTTP no-store; no assistant CacheStorage response; IndexedDB stores drafts not answer/token; offline API cannot replay cached history",
+        "status": "PASS",
+        "policy": {
+          "cacheControl": "no-store",
+          "pragma": null,
+          "cachedAssistantResponses": 0,
+          "controlled": true
+        }
+      },
+      {
+        "variant": "mobile",
+        "scenario": "actual route send/detail/back restores reading offset and draft; refresh restores cloud answer",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "real shared IndexedDB retains conflicting drafts from two tabs",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "real browser IndexedDB refusal keeps editable draft and visibly warns about refresh loss",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "second device reads same history; idle foreground synchronizes rename without replacing local draft",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "real browser clipboard receives exact selected original Markdown",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "offline edits and online recovery do not send a model request",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "current conversation Markdown export contains stored selected answer",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "server generation disabled across restart retains history/draft/export and does not call provider",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "memory creation and confirmed forgetting through actual management UI",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "search and archive/unarchive; Include archived retains active conversation after unarchive",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "lost accepted send response and refresh reconcile the original command without duplicate messages",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "provider failure stays visible and explicit retry creates another answer attempt without duplicating question",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "lost branch acceptance and refresh recover one target and edited draft; only explicit send calls provider",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "actual back/forward cache restoration after another tab changes identity",
+        "status": "NOT RUN",
+        "reason": "Chromium did not retain this navigation in bfcache; normal history restore tested instead"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "cross-tab authentication switch clears prior owner answer before next rendered frame; original owner can reopen own formal history",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "confirmed clear removes cloud assistant data while retaining the ledger",
+        "status": "PASS"
+      }
+    ],
+    "backend": "built from current worktree",
+    "providerCalls": 18,
+    "provider": "deterministic protocol fixture; not model certification"
+  },
+  "compatibility": {
+    "executedAt": "2026-10-15T15:50:30.645Z",
+    "frontend": "final production dist",
+    "backend": "old main baseline 1a21bc9bfd2b155a3ed9b8ac57caff7c76bbb293; explicit compatibility-only override",
+    "results": [
+      {
+        "variant": "desktop",
+        "status": "PASS",
+        "responses": [
+          {
+            "path": "/api/v1/llm/assistant/capabilities.json",
+            "status": 404
+          },
+          {
+            "path": "/api/v1/llm/assistant/capabilities.json",
+            "status": 404
+          }
+        ],
+        "navigations": 3,
+        "providerCalls": 0,
+        "explanation": "Explicit server upgrade message; no refresh loop or model request"
+      },
+      {
+        "variant": "mobile",
+        "status": "PASS",
+        "responses": [
+          {
+            "path": "/api/v1/llm/assistant/capabilities.json",
+            "status": 404
+          },
+          {
+            "path": "/api/v1/llm/assistant/capabilities.json",
+            "status": 404
+          }
+        ],
+        "navigations": 2,
+        "providerCalls": 0,
+        "explanation": "Explicit server upgrade message; no refresh loop or model request"
+      }
+    ],
+    "scope": "Independent mixed-version smoke before final R13 preflight repair, not represented as a post-R13 rerun"
+  },
+  "delivery": {
+    "checkedOn": "2026-10-16",
+    "repository": "XueHua-s/ezbookkeeping",
+    "base": "main",
+    "branch": "codex/ai-assistant-experience",
+    "prStatusAtPrecommitAudit": "NOT CREATED; current PR state is authoritative on GitHub",
+    "intendedPR": "draft",
+    "headBeforeImplementationCommit": "a5abfe62"
+  },
+  "resources": {
+    "databaseContainers": "REMOVED and independently confirmed absent on 2026-10-16",
+    "evidenceArtifacts": "retained",
+    "note": "historical localhost DSNs no longer live",
+    "validationServices": "all test application/browser environments stopped by owners"
+  },
+  "referenceProduction": {
+    "executedAt": "2026-10-15T16:24:13.500Z",
+    "frontend": "production dist",
+    "backend": "freshly built current Go and isolated SQLite",
+    "provider": "deterministic protocol fixture",
+    "status": "PASS",
+    "results": [
+      {
+        "variant": "desktop",
+        "scenario": "real ledger modification is explicitly marked; saved answer/draft/reading offset retained; explicit current-bill and ask-again controls",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "transport failure shows distinct retry explanation and preserves answer/draft/reading offset",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "preflight ID redirected to isolated foreign owner bill; actual HTTP authorization rejection uses neutral inaccessible explanation and preserves draft/offset",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "explicit ask-again creates second answer version using current ledger; original answer and queriedAt unchanged; unsent draft retained",
+        "status": "PASS"
+      },
+      {
+        "variant": "desktop",
+        "scenario": "real deleted bill uses same neutral inaccessible explanation and preserves saved answer/draft/reading offset",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "real ledger modification is explicitly marked; saved answer/draft/reading offset retained; explicit current-bill and ask-again controls",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "transport failure shows distinct retry explanation and preserves answer/draft/reading offset",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "preflight ID redirected to isolated foreign owner bill; actual HTTP authorization rejection uses neutral inaccessible explanation and preserves draft/offset",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "explicit ask-again creates second answer version using current ledger; original answer and queriedAt unchanged; unsent draft retained",
+        "status": "PASS"
+      },
+      {
+        "variant": "mobile",
+        "scenario": "real deleted bill uses same neutral inaccessible explanation and preserves saved answer/draft/reading offset",
+        "status": "PASS"
+      }
+    ],
+    "providerCalls": 8
+  }
+}

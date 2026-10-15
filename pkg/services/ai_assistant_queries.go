@@ -42,6 +42,7 @@ type AssistantQueryService struct {
 	cursorKey      []byte
 	timeout        time.Duration
 	maxResultBytes int
+	resultFits     func(data.ToolResult) bool
 	observe        func(AssistantQueryObservation)
 	handlers       map[data.ToolName]assistantToolHandler
 }
@@ -240,7 +241,7 @@ func (s *AssistantQueryService) Execute(c core.Context, call data.ToolCall) (res
 		if err != nil {
 			return err
 		}
-		if len(raw) > s.maxResultBytes {
+		if len(raw) > s.maxResultBytes || (s.resultFits != nil && !s.resultFits(result)) {
 			return &data.ToolError{Code: data.ToolErrorResultTooLarge, Message: "Tool result exceeds the result limit"}
 		}
 		return nil

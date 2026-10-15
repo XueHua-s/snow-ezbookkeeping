@@ -1,0 +1,62 @@
+[
+  {
+    "variant": "desktop",
+    "scenario": "textarea has no native inner border or outline",
+    "status": "PASS",
+    "inputStyle": {
+      "border": "0px",
+      "outline": "none"
+    }
+  },
+  {
+    "variant": "desktop",
+    "scenario": "toolbar and horizontal fit",
+    "metrics": {
+      "height": 61,
+      "width": 1250,
+      "docWidth": 1280,
+      "viewport": 1280
+    }
+  },
+  {
+    "variant": "desktop",
+    "scenario": "real Clipboard Markdown and code preserves raw syntax and indentation",
+    "status": "PASS"
+  },
+  {
+    "variant": "desktop",
+    "scenario": "actual route drawer keyboard/Esc/More and memory",
+    "status": "PASS",
+    "pageErrors": []
+  },
+  {
+    "variant": "mobile",
+    "scenario": "textarea has no native inner border or outline",
+    "status": "PASS",
+    "inputStyle": {
+      "border": "0px",
+      "outline": "none"
+    }
+  },
+  {
+    "variant": "mobile",
+    "scenario": "toolbar and horizontal fit",
+    "metrics": {
+      "height": 94.59375,
+      "width": 390,
+      "docWidth": 390,
+      "viewport": 390
+    }
+  },
+  {
+    "variant": "mobile",
+    "scenario": "real Clipboard Markdown and code preserves raw syntax and indentation",
+    "status": "PASS"
+  },
+  {
+    "variant": "mobile",
+    "scenario": "actual route drawer keyboard/Esc/More and memory",
+    "status": "PASS",
+    "pageErrors": []
+  }
+]

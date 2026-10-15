@@ -232,6 +232,8 @@ type ConversationMessage struct {
 // The adapter must include required private state when measuring the actual
 // serialized upstream request against MaxRequestBytes, despite json:"-" here.
 type ToolTurnInput struct {
+	MaxInputTokens  int                   `json:"-"`
+	MaxOutputTokens int                   `json:"-"`
 	Messages        []ConversationMessage `json:"messages"`
 	Tools           []ToolDefinition      `json:"tools"`
 	State           any                   `json:"-"`
@@ -241,10 +243,11 @@ type ToolTurnInput struct {
 // TurnResponse only marks Completed after the protocol's valid end marker.
 // Content from tool-bearing turns must not be emitted as a final answer.
 type TurnResponse struct {
-	Content   string     `json:"content"`
-	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
-	Completed bool       `json:"completed"`
-	State     any        `json:"-"`
+	OutputLimited bool       `json:"-"`
+	Content       string     `json:"content"`
+	ToolCalls     []ToolCall `json:"tool_calls,omitempty"`
+	Completed     bool       `json:"completed"`
+	State         any        `json:"-"`
 }
 
 // DisplayEvent is limited to a provider's explicitly displayable summary.

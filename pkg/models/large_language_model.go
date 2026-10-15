@@ -87,6 +87,8 @@ type AIAssistantReferencedTransaction struct {
 	SourceAccountName      string          `json:"sourceAccountName,omitempty"`
 	DestinationAccountName string          `json:"destinationAccountName,omitempty"`
 	SourceAmount           int64           `json:"sourceAmount"`
+	SourceAmountMinor      string          `json:"sourceAmountMinor,omitempty"`
+	DestinationAmountMinor string          `json:"destinationAmountMinor,omitempty"`
 	DestinationAmount      int64           `json:"destinationAmount,omitempty"`
 	Currency               string          `json:"currency,omitempty"`
 	DestinationCurrency    string          `json:"destinationCurrency,omitempty"`

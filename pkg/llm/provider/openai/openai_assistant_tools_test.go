@@ -173,7 +173,11 @@ func TestAssistantProtocolRejectsPartialCalls(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			turn, err := test()
-			requireAssistantCode(t, err, data.ToolErrorProtocol)
+			if name == "chat_length" {
+				requireAssistantCode(t, err, data.ToolErrorBudgetExhausted)
+			} else {
+				requireAssistantCode(t, err, data.ToolErrorProtocol)
+			}
 			require.False(t, turn.Completed)
 			require.Empty(t, turn.ToolCalls)
 		})

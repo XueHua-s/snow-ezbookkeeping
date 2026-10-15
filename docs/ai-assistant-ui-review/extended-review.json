@@ -1,0 +1,171 @@
+[
+  {
+    "scenario": "desktop-dark",
+    "status": "PASS",
+    "metrics": {
+      "direction": "ltr",
+      "background": "rgb(26, 26, 26)",
+      "classes": "expense-amount-color-green income-amount-color-red",
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 1280,
+      "composer": {
+        "top": 710.8125,
+        "bottom": 779.8125,
+        "left": 231,
+        "right": 979.625
+      }
+    },
+    "pageErrors": []
+  },
+  {
+    "scenario": "desktop-rtl",
+    "status": "PASS",
+    "metrics": {
+      "direction": "rtl",
+      "background": "rgb(255, 255, 255)",
+      "classes": "expense-amount-color-green income-amount-color-red",
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 1280,
+      "composer": {
+        "top": 710.8125,
+        "bottom": 779.8125,
+        "left": 300.375,
+        "right": 1049
+      }
+    },
+    "pageErrors": []
+  },
+  {
+    "scenario": "desktop-zoom200",
+    "status": "PASS",
+    "metrics": {
+      "direction": "ltr",
+      "background": "rgb(255, 255, 255)",
+      "classes": "expense-amount-color-green income-amount-color-red",
+      "width": 640,
+      "height": 450,
+      "dpr": 2,
+      "scrollWidth": 640,
+      "composer": {
+        "top": 260.8046875,
+        "bottom": 329.8046875,
+        "left": 42,
+        "right": 528.6328125
+      }
+    },
+    "pageErrors": []
+  },
+  {
+    "scenario": "desktop-narrow",
+    "status": "PASS",
+    "metrics": {
+      "direction": "ltr",
+      "background": "rgb(255, 255, 255)",
+      "classes": "expense-amount-color-green income-amount-color-red",
+      "width": 640,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 640,
+      "composer": {
+        "top": 710.8125,
+        "bottom": 779.8125,
+        "left": 42,
+        "right": 528.625
+      }
+    },
+    "pageErrors": []
+  },
+  {
+    "scenario": "mobile-dark",
+    "status": "PASS",
+    "metrics": {
+      "direction": "ltr",
+      "background": "rgb(0, 0, 0)",
+      "classes": "expense-amount-color-green income-amount-color-red dark ios ios-translucent-bars ios-translucent-modals device-pixel-ratio-1 device-desktop device-macos font-size-default",
+      "width": 390,
+      "height": 844,
+      "dpr": 1,
+      "scrollWidth": 390,
+      "composer": {
+        "top": 740.203125,
+        "bottom": 802.203125,
+        "left": 27,
+        "right": 297.90625
+      }
+    },
+    "pageErrors": []
+  },
+  {
+    "scenario": "mobile-rtl",
+    "status": "PASS",
+    "metrics": {
+      "direction": "rtl",
+      "background": "rgb(239, 239, 244)",
+      "classes": "expense-amount-color-green income-amount-color-red ios ios-translucent-bars ios-translucent-modals device-pixel-ratio-1 device-desktop device-macos font-size-default",
+      "width": 390,
+      "height": 844,
+      "dpr": 1,
+      "scrollWidth": 390,
+      "composer": {
+        "top": 740.203125,
+        "bottom": 802.203125,
+        "left": 92.09375,
+        "right": 363
+      }
+    },
+    "pageErrors": []
+  },
+  {
+    "scenario": "mobile-small",
+    "status": "PASS",
+    "metrics": {
+      "direction": "ltr",
+      "background": "rgb(239, 239, 244)",
+      "classes": "expense-amount-color-green income-amount-color-red ios ios-translucent-bars ios-translucent-modals device-pixel-ratio-1 device-desktop device-macos font-size-default",
+      "width": 320,
+      "height": 568,
+      "dpr": 1,
+      "scrollWidth": 320,
+      "composer": {
+        "top": 464.203125,
+        "bottom": 526.203125,
+        "left": 27,
+        "right": 227.90625
+      }
+    },
+    "pageErrors": []
+  },
+  {
+    "scenario": "desktop confirmation cancellation restores focus",
+    "status": "PASS",
+    "flow": "More \u2192 Clear all assistant data \u2192 Cancel; after 500 ms activeElement is visible SUMMARY More",
+    "destructiveActionExecuted": false
+  },
+  {
+    "scenario": "mobile-landscape",
+    "status": "PASS",
+    "metrics": {
+      "messageHeight": 130,
+      "direction": "ltr",
+      "background": "rgb(239, 239, 244)",
+      "classes": "expense-amount-color-green income-amount-color-red ios ios-translucent-bars ios-translucent-modals device-pixel-ratio-1 device-desktop device-macos font-size-default",
+      "width": 568,
+      "height": 320,
+      "dpr": 1,
+      "scrollWidth": 568,
+      "composer": {
+        "top": 252.203125,
+        "bottom": 296.203125,
+        "left": 21,
+        "right": 481.90625
+      }
+    },
+    "pageErrors": [],
+    "draft": "Five lines retained, not sent",
+    "visualReview": "PASS after compact landscape CSS; 130 px message viewport and 44 px internally scrolling textarea"
+  }
+]

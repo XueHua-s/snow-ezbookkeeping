@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"strings"
 	"time"
 
 	"github.com/mayswind/ezbookkeeping/pkg/core"
@@ -13,6 +14,10 @@ func RequestLog(c *core.WebContext) {
 	start := time.Now()
 	path := c.Request.URL.Path
 	query := c.Request.URL.RawQuery
+	// Search terms, continuations and export cursors are private assistant data.
+	if strings.Contains(path, "/llm/assistant/") {
+		query = ""
+	}
 
 	c.Next()
 

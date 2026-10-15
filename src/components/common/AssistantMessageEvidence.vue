@@ -13,8 +13,8 @@ const emit = defineEmits<{ openReference: [id: string] }>();
 const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
 const references = computed(() => props.message.references?.filter(reference => /^[1-9]\d*$/.test(reference.id)).slice(0, ASSISTANT_MAX_REFERENCES).map(reference => ({
     ...reference,
-    sourceAmountText: reference.hideAmount ? DISPLAY_HIDDEN_AMOUNT : formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.sourceAmount), reference.currency || false),
-    destinationAmountText: reference.hideAmount ? DISPLAY_HIDDEN_AMOUNT : formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.destinationAmount ?? 0), reference.destinationCurrency || false)
+    sourceAmountText: reference.hideAmount ? DISPLAY_HIDDEN_AMOUNT : !reference.sourceAmountMinor && !Number.isSafeInteger(reference.sourceAmount) ? tt('Amount cannot be displayed precisely') : formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.sourceAmountMinor ?? (Number.isSafeInteger(reference.sourceAmount) ? reference.sourceAmount : 0)), reference.currency || false),
+    destinationAmountText: reference.hideAmount ? DISPLAY_HIDDEN_AMOUNT : !reference.destinationAmountMinor && !Number.isSafeInteger(reference.destinationAmount ?? 0) ? tt('Amount cannot be displayed precisely') : formatAmountToLocalizedNumeralsWithCurrency(parseBigDecimal(reference.destinationAmountMinor ?? (Number.isSafeInteger(reference.destinationAmount ?? 0) ? reference.destinationAmount ?? 0 : 0)), reference.destinationCurrency || false)
 })) ?? []);
 const queries = computed(() => props.message.queries?.map(query => ({ ...query, scopeText: scopeDetails(query.scope).join(' · ') })) ?? []);
 

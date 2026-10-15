@@ -1,0 +1,157 @@
+{
+  "results": [
+    {
+      "variant": "desktop",
+      "scenario": "actual route send/detail/back/refresh with draft",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "real shared IndexedDB retains conflicting drafts from two tabs",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "real browser IndexedDB refusal keeps editable draft and visibly warns about refresh loss",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "second device reads same history; idle foreground synchronizes rename without replacing local draft",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "real browser clipboard receives exact selected original Markdown",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "offline edits and online recovery do not send a model request",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "current conversation Markdown export contains stored selected answer",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "server generation disabled across restart retains history/draft/export and does not call provider",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "memory creation and confirmed forgetting through actual management UI",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "search result and archive/unarchive through both platform history controls",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "lost accepted send response and refresh reconcile the original command without duplicate messages",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "provider failure stays visible and explicit retry creates another answer attempt without duplicating question",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "lost branch acceptance and refresh recover one target and edited draft; only explicit send calls provider",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "cross-tab authentication switch clears prior owner answer before next rendered frame; original owner can reopen own formal history",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "confirmed clear removes cloud assistant data while retaining the ledger",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "actual route send/detail/back/refresh with draft",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "real shared IndexedDB retains conflicting drafts from two tabs",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "real browser IndexedDB refusal keeps editable draft and visibly warns about refresh loss",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "second device reads same history; idle foreground synchronizes rename without replacing local draft",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "real browser clipboard receives exact selected original Markdown",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "offline edits and online recovery do not send a model request",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "current conversation Markdown export contains stored selected answer",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "server generation disabled across restart retains history/draft/export and does not call provider",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "memory creation and confirmed forgetting through actual management UI",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "search result and archive/unarchive through both platform history controls",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "lost accepted send response and refresh reconcile the original command without duplicate messages",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "provider failure stays visible and explicit retry creates another answer attempt without duplicating question",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "lost branch acceptance and refresh recover one target and edited draft; only explicit send calls provider",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "cross-tab authentication switch clears prior owner answer before next rendered frame; original owner can reopen own formal history",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "confirmed clear removes cloud assistant data while retaining the ledger",
+      "status": "PASS"
+    }
+  ],
+  "backend": "built from current worktree",
+  "providerCalls": 18,
+  "provider": "deterministic protocol fixture; not model certification"
+}

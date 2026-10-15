@@ -1,0 +1,161 @@
+{
+  "status": "PASS",
+  "nginx": "nginx version: nginx/1.28.3",
+  "imageDigests": [
+    "nginx@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236"
+  ],
+  "productionAPI": true,
+  "database": "isolated SQLite",
+  "provider": "controlled HTTP protocol fixture",
+  "providerCalls": 2,
+  "commandCount": 1,
+  "runId": "ISOLATED_RUN_1",
+  "results": [
+    {
+      "route": "off",
+      "firstByteMs": 3,
+      "elapsedMs": 10504,
+      "disconnected": false,
+      "snapshots": [
+        {
+          "state": "queued",
+          "revision": 1,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 3,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 4,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 5,
+          "terminal": false
+        },
+        {
+          "state": "completed",
+          "revision": 6,
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "route": "on",
+      "firstByteMs": 20,
+      "elapsedMs": 10522,
+      "disconnected": false,
+      "snapshots": [
+        {
+          "state": "queued",
+          "revision": 1,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 3,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 4,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 5,
+          "terminal": false
+        },
+        {
+          "state": "completed",
+          "revision": 6,
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "route": "forced",
+      "firstByteMs": 10,
+      "elapsedMs": 10511,
+      "disconnected": false,
+      "snapshots": [
+        {
+          "state": "queued",
+          "revision": 1,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 3,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 4,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 5,
+          "terminal": false
+        },
+        {
+          "state": "completed",
+          "revision": 6,
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "route": "timeout",
+      "firstByteMs": 4,
+      "elapsedMs": 2000,
+      "disconnected": true,
+      "snapshots": [
+        {
+          "state": "queued",
+          "revision": 1,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 3,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 4,
+          "terminal": false
+        }
+      ]
+    }
+  ],
+  "reconnected": {
+    "route": "on",
+    "firstByteMs": 10525,
+    "elapsedMs": 10525,
+    "disconnected": false,
+    "snapshots": [
+      {
+        "state": "completed",
+        "revision": 6,
+        "terminal": true
+      }
+    ]
+  },
+  "completedState": "completed",
+  "checks": [
+    "real nginx buffering off",
+    "real nginx buffering on honoring X-Accel-Buffering",
+    "buffering-on with X-Accel-Buffering ignored (measured timing)",
+    "actual proxy idle disconnect",
+    "same-run status polling recovery",
+    "terminal reconnect afterRevision equal",
+    "no duplicate model calls"
+  ],
+  "sanitization": "Only the isolated database run ID was replaced; measured timings, states, revisions, configuration and call counts are unchanged."
+}

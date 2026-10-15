@@ -1,3 +1,5 @@
+import type { AssistantCommand } from './ai_assistant_conversation.ts';
+
 export interface ExportTransactionDataRequest {
     readonly maxTime: number;
     readonly minTime: number;
@@ -11,6 +13,7 @@ export interface ExportTransactionDataRequest {
 }
 
 export interface ClearDataRequest {
+    readonly assistantCommand?: AssistantCommand;
     readonly password: string;
 }
 

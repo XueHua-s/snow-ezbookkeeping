@@ -107,6 +107,7 @@ func (t *Transaction) ToTransactionInfoResponse(tagIds []int64, editable bool) *
 	}
 
 	return &TransactionInfoResponse{
+		LastModifiedUnixTime: t.UpdatedUnixTime,
 		Id:                   t.TransactionId,
 		TimeSequenceId:       t.TransactionTime,
 		Type:                 transactionType,

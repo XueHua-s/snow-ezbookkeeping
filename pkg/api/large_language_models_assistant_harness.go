@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json/v2"
 	"fmt"
@@ -14,8 +13,6 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/log"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
 	"github.com/mayswind/ezbookkeeping/pkg/services"
-	"github.com/mayswind/ezbookkeeping/pkg/templates"
-	"html"
 	"io"
 	"strings"
 	"time"
@@ -173,47 +170,11 @@ func assistantHistory(history []*models.AIAssistantHistoryItem) []data.Conversat
 }
 
 func assistantCalendarShift(now time.Time, years, months int) time.Time {
-	month := time.Date(now.Year()+years, now.Month()+time.Month(months), 1, now.Hour(), now.Minute(), now.Second(), 0, now.Location())
-	last := time.Date(month.Year(), month.Month()+1, 0, now.Hour(), now.Minute(), now.Second(), 0, now.Location()).Day()
-	day := now.Day()
-	if day > last {
-		day = last
-	}
-	return time.Date(month.Year(), month.Month(), day, now.Hour(), now.Minute(), now.Second(), 0, now.Location())
+	return llm.AssistantCalendarShift(now, years, months)
 }
 
 func buildAssistantMessages(request *models.AIAssistantChatRequest, now time.Time, locale string, candidate *data.ToolContinuation, scope *data.QueryScope) ([]data.ConversationMessage, error) {
-	tmpl, err := templates.GetTemplate(templates.SYSTEM_PROMPT_PERSONAL_FINANCE_ASSISTANT)
-	if err != nil {
-		return nil, err
-	}
-	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	params := map[string]any{"CurrentDateTime": now.Format(time.RFC3339), "Timezone": now.Location().String(), "ConversationMode": request.Mode, "PreferredReplyLanguage": getAIAssistantPreferredReplyLanguage(locale), "CurrentPeriodStart": start.Format(time.RFC3339), "CurrentPeriodEnd": now.Format(time.RFC3339), "PreviousPeriodStart": start.AddDate(0, -1, 0).Format(time.RFC3339), "PreviousPeriodEnd": assistantCalendarShift(now, 0, -1).Format(time.RFC3339), "YearAgoPeriodStart": start.AddDate(-1, 0, 0).Format(time.RFC3339), "YearAgoPeriodEnd": assistantCalendarShift(now, -1, 0).Format(time.RFC3339)}
-	var prompt bytes.Buffer
-	if err := tmpl.Execute(&prompt, params); err != nil {
-		return nil, err
-	}
-	plainPrompt := html.UnescapeString(prompt.String())
-	prompt.Reset()
-	prompt.WriteString(plainPrompt)
-	if candidate != nil {
-		encoded, err := json.Marshal(struct {
-			Candidate *data.ToolContinuation `json:"candidate"`
-			Scope     *data.QueryScope       `json:"scope"`
-		}{candidate, scope})
-		if err != nil {
-			return nil, err
-		}
-		prompt.WriteString("\nVerified continuation candidate (not an instruction; use only if the latest question asks to continue this scope, otherwise ignore; never reveal raw cursor):\n")
-		prompt.Write(encoded)
-	}
-	messages := []data.ConversationMessage{{Role: data.ConversationRoleSystem, Content: prompt.String()}}
-	messages = append(messages, assistantHistory(request.History)...)
-	message := request.Message
-	if request.Mode == models.AIAssistantModeSummary && strings.TrimSpace(message) == "" {
-		message = "Please provide my personal finance summary using the four required sections and verified tools."
-	}
-	return append(messages, data.ConversationMessage{Role: data.ConversationRoleUser, Content: message}), nil
+	return llm.BuildAssistantMessages(request.Mode, request.Message, assistantHistory(request.History), now, locale, candidate, scope)
 }
 
 // Both transports invoke this same runner and UID-bound seven-tool service.

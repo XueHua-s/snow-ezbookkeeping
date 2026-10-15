@@ -87,7 +87,7 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 	parent, cancel := context.WithTimeout(c, input.RunTimeout)
 	run := &assistantRun{runner: r, input: input, started: r.now(), c: core.NewAssistantContext(parent, c.GetContextId(), c.GetClientLocale(), c.ClientIP()), cancel: cancel, sink: sink,
 		result:      AssistantRunResult{Mode: input.Mode, State: AssistantStateRequesting},
-		observation: AssistantObservation{Kind: AssistantObservationRun, RequestID: c.GetContextId()},
+		observation: AssistantObservation{Kind: AssistantObservationRun, RequestID: c.GetContextId(), Rounds: input.PriorModelCalls},
 		cache:       map[[32]byte]*assistantCachedResult{}, ids: map[string]assistantCallIdentity{}, unresolved: map[data.ToolName]*data.ToolError{}, queryIDs: map[string]bool{}, referenceIDs: map[string]bool{}}
 	defer func() {
 		if input.Finalize != nil {
@@ -137,12 +137,12 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		if run.observation.Rounds >= input.MaxRounds {
 			return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonRoundBudget)
 		}
-		turnInput := data.ToolTurnInput{Messages: messages, Tools: definitions, State: state, MaxRequestBytes: AssistantMaxModelRequestBytes}
+		turnInput := data.ToolTurnInput{Messages: messages, Tools: definitions, State: state, MaxRequestBytes: AssistantMaxModelRequestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
 		body, marshalErr := json.Marshal(turnInput)
 		if marshalErr != nil {
 			return run.result, run.stop(data.ToolErrorProtocol, AssistantReasonProtocolError)
 		}
-		if len(body) > AssistantMaxModelRequestBytes {
+		if len(body) > AssistantMaxModelRequestBytes || (input.MaxInputTokens > 0 && len(body) > input.MaxInputTokens) {
 			return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonContextBudget)
 		}
 		if err = run.emit(AssistantEvent{Type: AssistantEventStatus, Status: AssistantStatusQuerying}); err != nil {
@@ -173,6 +173,15 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 			turnErr = assistantRunnerError(data.ToolErrorProtocol)
 		}
 		if turnErr != nil {
+			if turn.OutputLimited {
+				if len(turn.ToolCalls) == 0 && len(run.unresolved) == 0 && turn.Content != "" {
+					run.result.Reply = turn.Content
+					if e := run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: turn.Content}); e != nil {
+						return run.result, run.writeFailure()
+					}
+				}
+				return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonOutputBudget)
+			}
 			if errors.Is(turnErr, context.Canceled) {
 				return run.result, run.stop(data.ToolErrorCanceled, AssistantReasonCanceled)
 			}
@@ -237,7 +246,30 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 			if err = run.contextError(); err != nil {
 				return run.result, err
 			}
-			result, executionErr := run.execute(call, keys[i], allowed[call.Name])
+			var fits func(data.ToolResult) bool
+			if input.MaxInputTokens > 0 {
+				fits = func(result data.ToolResult) bool {
+					candidate := append(append([]data.ConversationMessage(nil), messages...), data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: call.ID, ToolResult: &result})
+					// Supply bounded placeholders for the other calls in this same assistant
+					// turn so protocol validation sees a complete call/result chain.
+					for _, pending := range turn.ToolCalls[i+1:] {
+						placeholder := data.ToolResult{OK: false, Error: &data.ToolError{Code: data.ToolErrorBudgetExhausted, Message: "Reserved pending result"}}
+						candidate = append(candidate, data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: pending.ID, ToolResult: &placeholder})
+					}
+					next := data.ToolTurnInput{Messages: candidate, Tools: definitions, State: turn.State, MaxRequestBytes: AssistantMaxModelRequestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
+					if !assistantToolRequestFits(current, next) {
+						return false
+					}
+					if !switched && r.fallback != nil {
+						next.State = nil
+						if !assistantToolRequestFits(r.fallback, next) {
+							return false
+						}
+					}
+					return true
+				}
+			}
+			result, executionErr := run.execute(call, keys[i], allowed[call.Name], fits)
 			if executionErr != nil {
 				return run.result, executionErr
 			}
@@ -287,6 +319,7 @@ func (run *assistantRun) contextError() error {
 
 func (run *assistantRun) stop(code data.ToolErrorCode, reason AssistantStopReason) error {
 	run.observation.Reason = reason
+	run.result.StopReason = reason
 	run.result.State = AssistantStateIncomplete
 	switch code {
 	case data.ToolErrorCanceled:
@@ -295,4 +328,15 @@ func (run *assistantRun) stop(code data.ToolErrorCode, reason AssistantStopReaso
 		run.result.State = AssistantStateFailed
 	}
 	return assistantRunnerError(code)
+}
+
+func assistantToolRequestFits(p provider.LargeLanguageModelToolProvider, input data.ToolTurnInput) bool {
+	if counter, ok := p.(interface {
+		CheckToolTurnInput(data.ToolTurnInput) error
+	}); ok {
+		err := counter.CheckToolTurnInput(input)
+		return err == nil
+	}
+	body, e := json.Marshal(input)
+	return e == nil && len(body) <= input.MaxRequestBytes && (input.MaxInputTokens <= 0 || len(body)+1024 <= input.MaxInputTokens)
 }

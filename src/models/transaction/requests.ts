@@ -147,6 +147,7 @@ export interface TransactionReconciliationStatementRequest {
 export type TransactionGeoLocationResponse = Coordinate;
 
 export interface TransactionInfoResponse {
+    readonly lastModifiedUnixTime?: number;
     readonly id: string;
     readonly timeSequenceId: string;
     readonly type: number;

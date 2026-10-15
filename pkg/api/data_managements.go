@@ -16,6 +16,7 @@ const pageCountForDataExport = 1000
 // DataManagementsApi represents data management api
 type DataManagementsApi struct {
 	ApiUsingConfig
+	assistantStorage        *services.AssistantStorageService
 	tokens                  *services.TokenService
 	users                   *services.UserService
 	accounts                *services.AccountService
@@ -139,5 +140,19 @@ func (a *DataManagementsApi) DataStatisticsHandler(c *core.WebContext) (any, *er
 		TotalCustomIconCount:           totalCustomIconCount,
 	}
 
+	if a.assistantStorage != nil {
+		state, err := a.assistantStorage.GetUserState(c, uid)
+		if err != nil {
+			return nil, errs.ErrOperationFailed
+		}
+		dataStatisticsResp.AssistantUsedBytes = state.UsedBytes
+		dataStatisticsResp.AssistantReservedBytes = state.ReservedBytes
+		dataStatisticsResp.AssistantConversationCount = state.ConversationCount
+	}
 	return dataStatisticsResp, nil
+}
+
+// SetAssistantStorage attaches the shared assistant persistence boundary.
+func (a *DataManagementsApi) SetAssistantStorage(storage *services.AssistantStorageService) {
+	a.assistantStorage = storage
 }

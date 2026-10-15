@@ -207,7 +207,7 @@ type ConfirmDialogType = InstanceType<typeof ConfirmDialog>;
 type SnackBarType = InstanceType<typeof SnackBar>;
 
 const { tt } = useI18n();
-const { dataStatistics, displayDataStatistics, getExportFileName } = useDataManagementPageBase();
+const { dataStatistics, displayDataStatistics, getExportFileName, clearAllUserData } = useDataManagementPageBase();
 
 const rootStore = useRootStore();
 const userStore = useUserStore();
@@ -306,9 +306,7 @@ function clearAllData(): void {
     confirmDialog.value?.open('Are you sure you want to clear all data?', { color: 'error' }).then(() => {
         clearingData.value = true;
 
-        rootStore.clearAllUserData({
-            password: currentPasswordForClearData.value
-        }).then(() => {
+        clearAllUserData(currentPasswordForClearData.value, () => confirmDialog.value?.open('Assistant data was cleared, but other data may remain. Inspect the data counts before continuing. Start a new clear operation that also removes data created since the previous attempt?', { color: 'error' }).then(() => true).catch(() => false) ?? Promise.resolve(false)).then(() => {
             clearingData.value = false;
             currentPasswordForClearData.value = '';
 

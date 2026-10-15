@@ -109,8 +109,8 @@ const props = defineProps<{
 }>();
 
 const { tt } = useI18n();
-const { showToast, routeBackOnError } = useI18nUIComponents();
-const { dataStatistics, displayDataStatistics, getExportFileName } = useDataManagementPageBase();
+const { showToast, showConfirm, routeBackOnError } = useI18nUIComponents();
+const { dataStatistics, displayDataStatistics, getExportFileName, clearAllUserData } = useDataManagementPageBase();
 
 const rootStore = useRootStore();
 const userStore = useUserStore();
@@ -204,9 +204,7 @@ function clearAllData(password: string | null): void {
     clearingData.value = true;
     showLoading(() => clearingData.value);
 
-    rootStore.clearAllUserData({
-        password: password
-    }).then(() => {
+    clearAllUserData(password, () => new Promise(resolve => showConfirm('Assistant data was cleared, but other data may remain. Inspect the data counts before continuing. Start a new clear operation that also removes data created since the previous attempt?', () => resolve(true), () => resolve(false)))).then(() => {
         clearingData.value = false;
         currentPasswordForClearData.value = '';
         hideLoading();

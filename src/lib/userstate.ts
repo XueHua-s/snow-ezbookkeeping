@@ -250,6 +250,8 @@ export function getCurrentUserInfo(): UserBasicInfo | null {
 
 export function updateCurrentUserInfo(user: UserBasicInfo): void {
     if (isObject(user)) {
+        const previous = getCurrentUserInfo();
+        if (previous && previous.username !== user.username) window.dispatchEvent(new Event('assistant-identity-cleared'));
         localStorage.setItem(userInfoLocalStorageKey, JSON.stringify(user));
     }
 }
@@ -303,12 +305,14 @@ export function clearUserTransactionDraft(): void {
 }
 
 export function clearCurrentSessionToken(): void {
+    window.dispatchEvent(new Event('assistant-identity-hidden'));
     sessionStorage.removeItem(tokenSessionStorageKey);
     sessionStorage.removeItem(encryptedTokenSessionStorageKey);
     sessionStorage.removeItem(appLockStateSessionStorageKey);
 }
 
 export function clearCurrentTokenAndUserInfo(clearAppLockState: boolean): void {
+    window.dispatchEvent(new Event('assistant-identity-cleared'));
     if (clearAppLockState) {
         sessionStorage.removeItem(appLockStateSessionStorageKey);
     }

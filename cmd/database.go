@@ -157,6 +157,12 @@ func updateAllDatabaseTablesStructure(c *core.CliContext) error {
 
 	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] ai assistant embedding table maintained successfully")
 
+	// Additive assistant migration: legacy embedding data remains untouched.
+	err = datastore.Container.UserDataStore.SyncStructs(new(models.AssistantConversation), new(models.AssistantMessage), new(models.AssistantMemory), new(models.AssistantUserState), new(models.AssistantCommandReceipt))
+	if err != nil {
+		return err
+	}
+
 	err = datastore.Container.UserDataStore.SyncStructs(new(models.UserCustomExchangeRate))
 
 	if err != nil {

@@ -102,6 +102,10 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 		return nil, err
 	}
 
+	config.AIAssistantExperience, err = loadAIAssistantExperienceConfiguration(cfgFile)
+	if err != nil {
+		return nil, err
+	}
 	config.AIAssistantRuntimeConfig, err = loadAIAssistantRuntimeConfiguration(cfgFile)
 	if err != nil {
 		return nil, err

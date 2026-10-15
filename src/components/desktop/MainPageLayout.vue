@@ -77,7 +77,7 @@
                                     </v-btn>
                                 </router-link>
 
-                                <router-link to="/assistant" v-if="isAIAssistantEnabled()"
+                                <router-link to="/assistant"
                                              :aria-current="isTopNavigationActive('/assistant') ? 'page' : undefined">
                                     <v-btn class="top-navigation-button ms-1" density="comfortable" variant="text"
                                            :aria-label="tt('AI Assistant')" :icon="true"
@@ -191,7 +191,6 @@
 </template>
 
 <script setup lang="ts">
-import { isAIAssistantEnabled } from '@/lib/server_settings.ts';
 import AboutDialog from '@/views/desktop/common/dialogs/AboutDialog.vue';
 import SnackBar from '@/components/desktop/SnackBar.vue';
 

@@ -123,7 +123,7 @@ func (e *assistantQueryExecution) PageFits(result data.ToolResult) bool {
 		result.Warnings = []string{}
 	}
 	b, err := json.Marshal(result)
-	return err == nil && len(b) <= e.Service.maxResultBytes
+	return err == nil && len(b) <= e.Service.maxResultBytes && (e.Service.resultFits == nil || e.Service.resultFits(result))
 }
 
 func assistantCount(n int64) string { return strconv.FormatInt(n, 10) }

@@ -1,0 +1,19 @@
+{
+  "runAt": "2026-10-15T11:21:09.475Z",
+  "passed": [
+    "real send / tool query / completed reply",
+    "regenerate preserves a second answer version",
+    "select successful answer version",
+    "history query branch restores authoritative source and pages explicitly",
+    "explicit restart query uses authorized saved scope",
+    "branch first stage creates reviewable target without model call",
+    "branch second stage sends explicitly",
+    "add / disable / forget memory commands",
+    "rename and archive persist",
+    "current conversation Markdown export with viewed version",
+    "delete and clear commands"
+  ],
+  "realHTTP": true,
+  "realModel": false,
+  "queryPageSize": 8
+}

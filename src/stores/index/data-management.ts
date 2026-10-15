@@ -1,6 +1,8 @@
 import { clearCustomIconCache } from '@/lib/cache.ts';
 import logger from '@/lib/logger.ts';
 import services from '@/lib/services.ts';
+import { AssistantDataClearIncompleteError } from '@/stores/assistant/types.ts';
+import { useAssistantStore } from '@/stores/assistant.ts';
 import type { useIndexSession } from './session.ts';
 
 interface Context {
@@ -95,11 +97,14 @@ export function useIndexDataManagement(context: Context) {
         });
     }
 
-    function clearAllUserData({ password }: { password: string }): Promise<boolean> {
+    async function clearAllUserData({ password, newOperation = false }: { password: string; newOperation?: boolean }): Promise<boolean> {
+        const assistant = useAssistantStore();
+        const assistantCommand = await assistant.prepareDataClear(newOperation);
         return new Promise((resolve, reject) => {
             services.clearAllData({
-                password: password
-            }).then(response => {
+                password: password,
+                assistantCommand
+            }).then(async response => {
                 const data = response.data;
 
                 if (!data || !data.success || !data.result) {
@@ -130,9 +135,13 @@ export function useIndexDataManagement(context: Context) {
                 userCustomIconsStore.resetCustomIcons();
                 clearCustomIconCache();
 
+                // The successful clear response is authoritative even if its UI refresh is unavailable.
+                await assistant.synchronize().catch(() => undefined);
                 resolve(data.result);
             }).catch(error => {
-                logger.error('failed to clear user data', error);
+                logger.error('failed to clear user data');
+                if (error?.response?.status === 401) assistant.reset(false);
+                if (error?.response?.data?.errorCode === 215051) { reject(new AssistantDataClearIncompleteError()); return; }
 
                 if (error && error.processed) {
                     reject(error);

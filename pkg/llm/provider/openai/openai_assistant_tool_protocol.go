@@ -76,6 +76,13 @@ func selectedChatChoice(b []byte) (*assistantChatChoice, error) {
 
 func finishChatToolTurn(content string, calls []assistantWireCall, finish string) (data.TurnResponse, error) {
 	var zero data.TurnResponse
+	if finish == "length" {
+		partial := data.TurnResponse{OutputLimited: true}
+		if len(calls) == 0 {
+			partial.Content = content
+		}
+		return partial, assistantError(data.ToolErrorBudgetExhausted)
+	}
 	if (len(calls) > 0 && finish != "tool_calls") || (len(calls) == 0 && finish != "stop") {
 		return zero, assistantError(data.ToolErrorProtocol)
 	}
@@ -230,6 +237,9 @@ func readChatToolStream(r io.Reader) (data.TurnResponse, error) {
 		return false, nil
 	})
 	if err != nil {
+		if result.OutputLimited {
+			return result, err
+		}
 		return data.TurnResponse{}, err
 	}
 	return result, nil
@@ -259,6 +269,14 @@ func parseResponsesToolTurn(b []byte) (data.TurnResponse, []json.RawMessage, err
 	}
 	if isContextLimit(b) {
 		return zero, nil, assistantError(data.ToolErrorBudgetExhausted)
+	}
+	if json.Unmarshal(b, &envelope) == nil && envelope.Status == "incomplete" {
+		var details struct {
+			Reason string `json:"reason"`
+		}
+		if json.Unmarshal(envelope.IncompleteDetails, &details) == nil && details.Reason == "max_output_tokens" {
+			return assistantLimitedResponse(envelope.Output), nil, assistantError(data.ToolErrorBudgetExhausted)
+		}
 	}
 	if json.Unmarshal(b, &envelope) != nil || envelope.Status != "completed" || (len(envelope.Error) > 0 && string(envelope.Error) != "null") || (len(envelope.IncompleteDetails) > 0 && string(envelope.IncompleteDetails) != "null") || len(envelope.Output) == 0 {
 		return zero, nil, assistantError(data.ToolErrorProtocol)
@@ -335,7 +353,11 @@ func readResponsesToolStream(r io.Reader, emit data.DisplayEventSink) (data.Turn
 			return false, assistantError(data.ToolErrorProtocol)
 		}
 		switch event.Type {
-		case "error", "response.failed", "response.incomplete":
+		case "response.incomplete":
+			var parseErr error
+			result, outputs, parseErr = parseResponsesToolTurn(event.Response)
+			return false, parseErr
+		case "error", "response.failed":
 			return false, assistantError(data.ToolErrorProtocol)
 		case "response.reasoning_summary_text.delta":
 			if emit != nil && event.Delta != "" {
@@ -429,6 +451,9 @@ func readResponsesToolStream(r io.Reader, emit data.DisplayEventSink) (data.Turn
 		return false, nil
 	})
 	if err != nil {
+		if result.OutputLimited {
+			return result, nil, err
+		}
 		return data.TurnResponse{}, nil, err
 	}
 	return result, outputs, nil
@@ -436,4 +461,30 @@ func readResponsesToolStream(r io.Reader, emit data.DisplayEventSink) (data.Turn
 
 func sameResponseItemIdentity(a, b assistantResponseItem) bool {
 	return a.ID == b.ID && a.Type == b.Type && a.CallID == b.CallID && a.Name == b.Name && a.Role == b.Role
+}
+
+func assistantLimitedResponse(outputs []json.RawMessage) data.TurnResponse {
+	result := data.TurnResponse{OutputLimited: true}
+	for _, raw := range outputs {
+		var item assistantResponseItem
+		if json.Unmarshal(raw, &item) != nil {
+			return data.TurnResponse{OutputLimited: true}
+		}
+		if item.Type == "function_call" {
+			return data.TurnResponse{OutputLimited: true}
+		}
+		if item.Type != "message" {
+			continue
+		}
+		if item.Role != "assistant" {
+			return data.TurnResponse{OutputLimited: true}
+		}
+		for _, part := range item.Content {
+			if part.Type != "output_text" {
+				return data.TurnResponse{OutputLimited: true}
+			}
+			result.Content += part.Text
+		}
+	}
+	return result
 }

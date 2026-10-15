@@ -8,7 +8,8 @@ import type {
 } from 'workbox-core/types';
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
+import { isAssistantApiUrl, removeAssistantCachedResponses } from './lib/assistant_cache_policy.ts';
 
 interface CacheTimestampEntry {
     request: Request;
@@ -205,6 +206,15 @@ const customIconCacheConfig: CustomIconCacheConfig = {
 
 self.skipWaiting();
 clientsClaim();
+// Register before broad static/map rules: configurable map patterns must never
+// turn authenticated conversation responses into an offline history cache.
+registerRoute(
+    ({ url }) => isAssistantApiUrl(url),
+    new NetworkOnly({ fetchOptions: { cache: 'no-store' } })
+);
+self.addEventListener('activate', event => {
+    event.waitUntil(removeAssistantCachedResponses(caches));
+});
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
