@@ -1,0 +1,339 @@
+import { AMOUNT_FACTOR, DEFAULT_DECIMAL_NUMBER_COUNT, DISPLAY_HIDDEN_AMOUNT, MAX_SUPPORTED_DECIMAL_NUMBER_COUNT } from '@/consts/numeral.ts';
+import {
+    type BigDecimal,
+    DecimalSeparator,
+    DigitGroupingSymbol,
+    type HiddenAmount,
+    type NumberFormatOptions,
+    NumeralSystem
+} from '@/core/numeral.ts';
+import { isDefined, isNumber, isString, removeAll, replaceAll } from '@/lib/common.ts';
+import logger from '@/lib/logger.ts';
+import { parseBigDecimal } from './decimal.ts';
+
+export function appendDigitGroupingSymbolAndDecimalSeparator(textualNumber: string, options: NumberFormatOptions): string {
+    if (!textualNumber) {
+        return textualNumber;
+    }
+
+    const numeralSystem = options.numeralSystem || NumeralSystem.Default;
+    const digitGroupingType = options.digitGrouping;
+    const digitGroupingSymbol = options.digitGroupingSymbol || DigitGroupingSymbol.Default.symbol;
+    const decimalSeparator = options.decimalSeparator || DecimalSeparator.Default.symbol;
+
+    const negative = textualNumber.charAt(0) === '-';
+
+    if (negative) {
+        textualNumber = textualNumber.substring(1);
+    }
+
+    const integerChars: string[] = [];
+    const decimalChars: string[] = [];
+    let currentDecimalSeparator = '';
+
+    if (textualNumber === DISPLAY_HIDDEN_AMOUNT) {
+        for (let i = 0; i < textualNumber.length - 2; i++) {
+            integerChars.push(textualNumber.charAt(i));
+        }
+
+        const decimalStartIndex = Math.max(0, textualNumber.length - 2);
+
+        for (let i = decimalStartIndex; i < textualNumber.length; i++) {
+            decimalChars.push(textualNumber.charAt(i));
+        }
+    } else {
+        for (let i = 0; i < textualNumber.length; i++) {
+            const ch = textualNumber.charAt(i);
+
+            if (!currentDecimalSeparator) {
+                if (numeralSystem.isDigit(ch)) {
+                    integerChars.push(ch);
+                } else {
+                    currentDecimalSeparator = ch;
+                }
+            } else {
+                if (numeralSystem.isDigit(ch)) {
+                    decimalChars.push(ch);
+                } else {
+                    throw new Error('Number \"' + textualNumber + '\" is not a valid textual number');
+                }
+            }
+        }
+    }
+
+    let integer = '';
+
+    if (digitGroupingType) {
+        integer = digitGroupingType.format(integerChars, digitGroupingSymbol);
+    } else {
+        integer = integerChars.join('');
+    }
+
+    const decimals = decimalChars.join('');
+
+    if (decimals) {
+        textualNumber = `${integer}${decimalSeparator}${decimals}`;
+    } else {
+        textualNumber = integer;
+    }
+
+    if (negative) {
+        textualNumber = `-${textualNumber}`;
+    }
+
+    return textualNumber;
+}
+
+export function parseAmount(str: string, options: NumberFormatOptions): number {
+    if (!isString(str)) {
+        return 0;
+    }
+
+    if (!str || str.length < 1) {
+        return 0;
+    }
+
+    const negative = str.charAt(0) === '-';
+
+    if (negative) {
+        str = str.substring(1);
+    }
+
+    if (!str || str.length < 1) {
+        return 0;
+    }
+
+    const sign = negative ? -1 : 1;
+
+    const numeralSystem = options.numeralSystem || NumeralSystem.Default;
+    const decimalSeparator = options.decimalSeparator || DecimalSeparator.Default.symbol;
+    const digitGroupingSymbol = options.digitGroupingSymbol || DigitGroupingSymbol.Default.symbol;
+
+    if (str.indexOf(digitGroupingSymbol) >= 0) {
+        str = removeAll(str, digitGroupingSymbol);
+    }
+
+    let decimalSeparatorPos = str.indexOf(decimalSeparator);
+
+    if (decimalSeparatorPos < 0) {
+        return sign * numeralSystem.parseInt(str) * AMOUNT_FACTOR;
+    } else if (decimalSeparatorPos === 0) {
+        str = numeralSystem.digitZero + str;
+        decimalSeparatorPos++;
+    }
+
+    const integer = str.substring(0, decimalSeparatorPos);
+    const decimals = str.substring(decimalSeparatorPos + 1, str.length);
+
+    if (decimals.length < 1) {
+        return sign * numeralSystem.parseInt(integer) * AMOUNT_FACTOR;
+    } else if (decimals.length === 1) {
+        return sign * numeralSystem.parseInt(integer) * AMOUNT_FACTOR + sign * numeralSystem.parseInt(decimals) * AMOUNT_FACTOR / 10;
+    } else if (decimals.length === 2) {
+        return sign * numeralSystem.parseInt(integer) * AMOUNT_FACTOR + sign * numeralSystem.parseInt(decimals);
+    } else {
+        return sign * numeralSystem.parseInt(integer) * AMOUNT_FACTOR + sign * numeralSystem.parseInt(decimals.substring(0, 2));
+    }
+}
+
+export function formatAmount(value: BigDecimal, options: NumberFormatOptions): string {
+    if (!value) {
+        throw new Error('big decimal \"' + value + '\" is not valid');
+    }
+
+    const numeralSystem = options.numeralSystem || NumeralSystem.Default;
+    let textualNumber = numeralSystem.formatBigDecimal(value.truncate());
+
+    if (!textualNumber) {
+        return textualNumber;
+    }
+
+    const negative = textualNumber.charAt(0) === '-';
+
+    if (negative) {
+        textualNumber = textualNumber.substring(1);
+    }
+
+    const digitGroupingType = options.digitGrouping;
+    const digitGroupingSymbol = options.digitGroupingSymbol || DigitGroupingSymbol.Default.symbol;
+    const decimalSeparator = options.decimalSeparator || DecimalSeparator.Default.symbol;
+    let decimalNumberCount = options.decimalNumberCount;
+
+    if (!isNumber(decimalNumberCount) || decimalNumberCount > MAX_SUPPORTED_DECIMAL_NUMBER_COUNT) {
+        decimalNumberCount = DEFAULT_DECIMAL_NUMBER_COUNT;
+    }
+
+    let integer = numeralSystem.digitZero;
+    let decimals = numeralSystem.doubleDigitZero;
+
+    if (textualNumber.length > 2) {
+        integer = textualNumber.substring(0, textualNumber.length - 2);
+        decimals = textualNumber.substring(textualNumber.length - 2);
+    } else if (textualNumber.length === 2) {
+        decimals = textualNumber;
+    } else if (textualNumber.length === 1) {
+        decimals = numeralSystem.digitZero + textualNumber;
+    }
+
+    if (decimalNumberCount === 0) {
+        if (decimals === numeralSystem.doubleDigitZero) {
+            decimals = '';
+        } else if (decimals.charAt(1) === numeralSystem.digitZero) {
+            decimals = decimals.charAt(0);
+        }
+    } else if (decimalNumberCount === 1) {
+        if (decimals.charAt(1) === numeralSystem.digitZero) {
+            decimals = decimals.charAt(0);
+        }
+    }
+
+    if (options.trimTailZero) {
+        if (decimals.charAt(0) === numeralSystem.digitZero && decimals.charAt(1) === numeralSystem.digitZero) {
+            decimals = '';
+        } else if (decimals.charAt(0) !== numeralSystem.digitZero && decimals.charAt(1) === numeralSystem.digitZero) {
+            decimals = decimals.charAt(0);
+        }
+    }
+
+    if (integer && integer.length > 1 && digitGroupingType) {
+        integer = digitGroupingType.format(integer.split(''), digitGroupingSymbol);
+    }
+
+    if (decimals) {
+        textualNumber = `${integer}${decimalSeparator}${decimals}`;
+    } else {
+        textualNumber = integer;
+    }
+
+    if (negative) {
+        textualNumber = `-${textualNumber}`;
+    }
+
+    return textualNumber;
+}
+
+export function formatHiddenAmount(value: HiddenAmount, options: NumberFormatOptions): string {
+    return appendDigitGroupingSymbolAndDecimalSeparator(value, options);
+}
+
+export function formatNumber(value: number, options: NumberFormatOptions, precision?: number): string {
+    const numeralSystem = options.numeralSystem || NumeralSystem.Default;
+
+    if (isDefined(precision)) {
+        const ratio = Math.pow(10, precision);
+        const normalizedValue = Math.trunc(value * ratio);
+        const textualValue = numeralSystem.formatNumber(normalizedValue / ratio);
+        return appendDigitGroupingSymbolAndDecimalSeparator(textualValue, options);
+    } else {
+        const textualValue = numeralSystem.formatNumber(value);
+        return appendDigitGroupingSymbolAndDecimalSeparator(textualValue, options);
+    }
+}
+
+export function formatBigDecimal(value: BigDecimal, options: NumberFormatOptions, precision?: number): string {
+    const numeralSystem = options.numeralSystem || NumeralSystem.Default;
+
+    if (isDefined(precision)) {
+        const ratio = Math.pow(10, precision);
+        const normalizedValue = value.multiply(ratio).truncate();
+        const textualValue = numeralSystem.formatBigDecimal(normalizedValue.divide(ratio));
+        return appendDigitGroupingSymbolAndDecimalSeparator(textualValue, options);
+    } else {
+        const textualValue = numeralSystem.formatBigDecimal(value);
+        return appendDigitGroupingSymbolAndDecimalSeparator(textualValue, options);
+    }
+}
+
+export function formatPercent(value: number, precision: number, lowPrecisionValue: string, options: NumberFormatOptions): string {
+    const numeralSystem = options.numeralSystem || NumeralSystem.Default;
+    const ratio = Math.pow(10, precision);
+    const normalizedValue = Math.trunc(value * ratio);
+
+    if (value > 0 && normalizedValue < 1 && lowPrecisionValue) {
+        const systemDecimalSeparator = DecimalSeparator.Dot.symbol;
+        const decimalSeparator = options.decimalSeparator || DecimalSeparator.Default.symbol;
+
+        lowPrecisionValue = numeralSystem.replaceWesternArabicDigitsToLocalizedDigits(lowPrecisionValue);
+
+        if (systemDecimalSeparator === decimalSeparator) {
+            return lowPrecisionValue + '%';
+        }
+
+        return replaceAll(lowPrecisionValue, systemDecimalSeparator, decimalSeparator) + '%';
+    }
+
+    return formatNumber(value, options, precision) + '%';
+}
+
+export function getAmountWithDecimalNumberCount(amount: BigDecimal, decimalNumberCount: number): BigDecimal {
+    if (decimalNumberCount === 0) {
+        return amount.divide(AMOUNT_FACTOR).truncate().multiply(AMOUNT_FACTOR);
+    } else if (decimalNumberCount === 1) {
+        const factor = AMOUNT_FACTOR / 10;
+        return amount.divide(factor).truncate().multiply(factor);
+    }
+
+    return amount;
+}
+
+export function formatExchangeRateAmount(exchangeRateAmount: BigDecimal, options: NumberFormatOptions): string {
+    const numeralSystem = options.numeralSystem || NumeralSystem.Default;
+    const rateStr = numeralSystem.formatBigDecimal(exchangeRateAmount);
+    const decimalSeparator = DecimalSeparator.Dot.symbol;
+
+    if (rateStr.indexOf(decimalSeparator) < 0) {
+        return appendDigitGroupingSymbolAndDecimalSeparator(rateStr, options);
+    } else {
+        let firstNonZeroPos = 0;
+
+        for (let i = 0; i < rateStr.length; i++) {
+            if (rateStr.charAt(i) !== decimalSeparator && rateStr.charAt(i) !== numeralSystem.digitZero) {
+                firstNonZeroPos = Math.min(i + 4, rateStr.length);
+                break;
+            }
+        }
+
+        const trimmedRateStr = rateStr.substring(0, Math.max(6, Math.max(firstNonZeroPos, rateStr.indexOf(decimalSeparator) + 2)));
+        return appendDigitGroupingSymbolAndDecimalSeparator(trimmedRateStr, options);
+    }
+}
+
+export function getAdaptiveDisplayAmountRate(amount1: number, amount2: number, options: NumberFormatOptions, fromExchangeRate?: { rate: string }, toExchangeRate?: { rate: string }): string | null {
+    const numeralSystem = options.numeralSystem || NumeralSystem.Default;
+    let finalAmount1: BigDecimal = parseBigDecimal(amount1);
+    let finalAmount2: BigDecimal = parseBigDecimal(amount2);
+
+    if (!amount1 || !amount2 || amount1 === amount2) {
+        if (!fromExchangeRate || !fromExchangeRate.rate || !toExchangeRate || !toExchangeRate.rate) {
+            return null;
+        }
+
+        try {
+            finalAmount1 = parseBigDecimal(fromExchangeRate.rate);
+            finalAmount2 = parseBigDecimal(toExchangeRate.rate);
+        } catch (ex) {
+            logger.warn(`failed to parse exchange rate: ${ex}`);
+            return null;
+        }
+    }
+
+    if (finalAmount1.greaterThan(finalAmount2)) {
+        const rate: BigDecimal = finalAmount1.divide(finalAmount2);
+        const displayRateStr = formatExchangeRateAmount(rate, options);
+        return `${displayRateStr} : ${numeralSystem.getLocalizedDigit(1)}`;
+    } else {
+        const rate: BigDecimal = finalAmount2.divide(finalAmount1);
+        const displayRateStr = formatExchangeRateAmount(rate, options);
+        return `${numeralSystem.getLocalizedDigit(1)} : ${displayRateStr}`;
+    }
+}
+
+export function getExchangedAmountByRate(amount: BigDecimal, fromRate: string, toRate: string): BigDecimal | null {
+    try {
+        const exchangeRate = parseBigDecimal(toRate).divide(parseBigDecimal(fromRate));
+        return amount.multiply(exchangeRate);
+    } catch (ex) {
+        logger.warn(`failed to get exchanged amount by rate: ${ex}`);
+        return null;
+    }
+}

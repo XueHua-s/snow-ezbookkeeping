@@ -8,6 +8,8 @@ export default [
         languageOptions: {
             parserOptions: {
                 projectService: true,
+                // Keep the project service stable when switching between Vue and TS modules.
+                extraFileExtensions: ['.vue'],
                 tsconfigRootDir: import.meta.dirname,
             }
         },

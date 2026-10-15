@@ -1,5 +1,6 @@
 @use './variable';
 @use './override/vuetify';
+@use './override/vuetify-layout';
 @use './override/vue-datepicker';
 @use './base/global';
 @use './layout/layout';
@@ -7,5 +8,6 @@
 @use './components/transaction-calendar';
 @use './components/overview';
 @use './components/overview-widget';
+@use './components/overview-widget-variants';
 @use './components/setting-items';
 @use './utilities/helpers';

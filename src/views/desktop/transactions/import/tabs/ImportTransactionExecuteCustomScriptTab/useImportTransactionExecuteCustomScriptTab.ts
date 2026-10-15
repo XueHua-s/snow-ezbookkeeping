@@ -1,0 +1,468 @@
+import type { SetupProps } from '@/lib/ui/props.ts';
+import { type CodeEditorExtraLib } from '@/components/desktop/CodeEditor.vue';
+import SnackBar from '@/components/desktop/SnackBar.vue';
+import type { NameNumeralValue } from '@/core/base.ts';
+import { KnownDateTimeFormat } from '@/core/datetime.ts';
+import { KnownFileType } from '@/core/file.ts';
+import {
+    isDefined,
+    isObject,
+    isString
+} from '@/lib/common.ts';
+import {
+    getBrowserTimezoneName,
+    getCurrentUnixTime,
+    getTimezoneOffsetMinutes,
+    parseDateTimeFromKnownDateTimeFormat,
+    parseDateTimeFromString
+} from '@/lib/datetime.ts';
+import logger from '@/lib/logger.ts';
+import {
+    openTextFileContent,
+    startDownloadFile
+} from '@/lib/ui/common.ts';
+import { useI18n } from '@/locales/helpers.ts';
+import type { ImportTransactionRequest, ImportTransactionRequestItem } from '@/models/imported_transaction.ts';
+import { useSettingsStore } from '@/stores/setting.ts';
+import {
+    mdiContentSaveOutline,
+    mdiFolderOpenOutline
+} from '@mdi/js';
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue';
+
+export type SnackBarType = InstanceType<typeof SnackBar>;
+
+export type SandboxRequest = {
+    source: string;
+    parsedFileData: string[][];
+    code: string;
+};
+
+export type SandboxResponse = {
+    result?: string;
+    knownError?: string;
+    error?: string;
+};
+
+export interface ImportTransactionDefineColumnMenu {
+    prependIcon: string;
+    title: string;
+    disabled?: boolean;
+    onClick: () => void;
+}
+
+// Coordinates ImportTransactionExecuteCustomScriptTab state and effects; called once from the component setup.
+export function useImportTransactionExecuteCustomScriptTab(props: SetupProps<{
+    parsedFileData?: string[][];
+    disabled?: boolean;
+}>) {
+    const {
+        tt,
+        formatDateTimeToGregorianDefaultDateTime,
+        formatNumberToLocalizedNumerals
+    } = useI18n();
+
+    const settingsStore = useSettingsStore();
+
+    const sandboxMessageSignature: string = '#ezBookkeeping-sandbox-message#';
+
+    const sandboxBuildinScripts: string = `
+<script>
+window.TransactionType = {
+    Income: 'Income',
+    Expense: 'Expense',
+    Transfer: 'Transfer'
+};
+
+window.parseDateTime = function(dateTime, format) {
+    return {
+        dateTime: dateTime,
+        format: format
+    };
+};
+
+window.parseUtcOffset = function(timezoneName) {
+    return {
+        name: timezoneName
+    };
+};
+
+window.addEventListener('message', function (event) {
+    if (!event.data || typeof event.data !== 'string' || event.data[0] !== '{' || event.data.indexOf('${sandboxMessageSignature}') <= 0) {
+        return;
+    }
+
+    try {
+        const data = JSON.parse(event.data);
+
+        if (!data || !data.source || data.source !== '${sandboxMessageSignature}') {
+            return;
+        }
+
+        const parsedFileData = data.parsedFileData;
+        eval(data.code);
+
+        if (window.parse) {
+            const result = [];
+
+            for (let i = 0; i < parsedFileData.length; i++) {
+                try {
+                    const row = parsedFileData[i];
+                    const transaction = window.parse(row, i);
+
+                    if (transaction) {
+                        result.push(transaction);
+                    }
+                } catch (error) {
+                    window.parent.postMessage({ error: error.message }, '*');
+                    return;
+                }
+            }
+
+            window.parent.postMessage({ result: JSON.stringify(result) }, '*');
+        } else {
+            window.parent.postMessage({ knownError: 'No parse function defined' }, '*');
+        }
+    } catch (error) {
+        window.parent.postMessage({ error: error.message }, '*');
+    }
+});
+<\/script>
+`;
+
+    const sandbox = useTemplateRef<HTMLIFrameElement>('sandbox');
+
+    const snackbar = useTemplateRef<SnackBarType>('snackbar');
+
+    const sandboxLoaded = ref<boolean>(false);
+
+    const customScript = ref<string>('');
+
+    const previewResult = ref<ImportTransactionRequestItem[] | undefined>(undefined);
+
+    const executingScript = ref<boolean>(false);
+
+    const executionError = ref<string>('');
+
+    const previewCount = ref<number>(10);
+
+    const currentTimezoneName = computed<string>(() => settingsStore.appSettings.timeZone || getBrowserTimezoneName());
+
+    const previewCounts = computed<NameNumeralValue[]>(() => getTablePageOptions(previewResult.value?.length));
+
+    const customScriptEditorExtraLibs = computed<CodeEditorExtraLib[]>(() => [{
+        filePath: 'inmemory://model/ezbookkeeping-import-transaction.d.ts',
+        content: `
+interface ParsedDateTime {
+    dateTime: string;
+    format: string;
+}
+
+interface ParsedUtcOffset {
+    name: string;
+}
+
+/** ${tt('sample.importTransactionCustomScript.functionReturnDescription')} */
+interface ImportTransaction {
+    /** ${tt('sample.importTransactionCustomScript.fieldTimeDescription')} */
+    time: string | ParsedDateTime;
+    /** ${tt('sample.importTransactionCustomScript.fieldUtcOffsetDescription')} */
+    utcOffset: string | ParsedUtcOffset;
+    /** ${tt('sample.importTransactionCustomScript.fieldTypeDescription')} */
+    type: 'Income' | 'Expense' | 'Transfer';
+    /** ${tt('sample.importTransactionCustomScript.fieldCategoryNameDescription')} */
+    categoryName?: string;
+    /** ${tt('sample.importTransactionCustomScript.fieldSourceAccountNameDescription')} */
+    sourceAccountName?: string;
+    /** ${tt('sample.importTransactionCustomScript.fieldDestinationAccountNameDescription')} */
+    destinationAccountName?: string;
+    /** ${tt('sample.importTransactionCustomScript.fieldSourceAmountDescription')} */
+    sourceAmount: string;
+    /** ${tt('sample.importTransactionCustomScript.fieldDestinationAmountDescription')} */
+    destinationAmount?: string;
+    /** ${tt('sample.importTransactionCustomScript.fieldGeoLocationDescription')} */
+    geoLocation?: string;
+    /** ${tt('sample.importTransactionCustomScript.fieldTagNamesDescription')} */
+    tagNames?: string;
+    /** ${tt('sample.importTransactionCustomScript.fieldCommentDescription')} */
+    description?: string;
+}
+
+/** ${tt('sample.importTransactionCustomScript.fieldTypeDescription')} */
+declare const TransactionType: Readonly<{
+    /** ${tt('Income')} */
+    Income: 'Income';
+    /** ${tt('Expense')} */
+    Expense: 'Expense';
+    /** ${tt('Transfer')} */
+    Transfer: 'Transfer';
+}>;
+
+/** ${tt('sample.importTransactionCustomScript.fieldTimeDescription')} */
+declare function parseDateTime(dateTime: string, format: string): ParsedDateTime;
+
+/** ${tt('sample.importTransactionCustomScript.fieldUtcOffsetDescription')} */
+declare function parseUtcOffset(timezoneName: string): ParsedUtcOffset;`
+    }]);
+
+    const sampleScript = computed<string>(() => `// ${tt('sample.importTransactionCustomScript.headerComment')}
+/**
+ * ${tt('sample.importTransactionCustomScript.functionDescription')}
+ * @param {string[]} row - ${tt('sample.importTransactionCustomScript.functionParamRowDescription')}
+ * @param {number} index - ${tt('sample.importTransactionCustomScript.functionParamIndexDescription')}
+ * @returns {ImportTransaction|null} ${tt('sample.importTransactionCustomScript.functionReturnDescription')}
+ */
+function parse(row, index) {
+    if (index < 1) {
+        return null;
+    }
+
+    return {
+        // ${tt('sample.importTransactionCustomScript.fieldTimeDescription')}
+        time: row[0],
+        // ${tt('sample.importTransactionCustomScript.fieldUtcOffsetDescription')}
+        utcOffset: ${currentTimezoneName.value ? 'parseUtcOffset(\'' + currentTimezoneName.value + '\')' : '\'' + getTimezoneOffsetMinutes(getCurrentUnixTime()) + '\''},
+        // ${tt('sample.importTransactionCustomScript.fieldTypeDescription')}
+        type: TransactionType.Expense,
+        // ${tt('sample.importTransactionCustomScript.fieldCategoryNameDescription')}
+        categoryName: row[4],
+        // ${tt('sample.importTransactionCustomScript.fieldSourceAccountNameDescription')}
+        sourceAccountName: row[5],
+        // ${tt('sample.importTransactionCustomScript.fieldDestinationAccountNameDescription')}
+        destinationAccountName: row[8],
+        // ${tt('sample.importTransactionCustomScript.fieldSourceAmountDescription')}
+        sourceAmount: row[7],
+        // ${tt('sample.importTransactionCustomScript.fieldDestinationAmountDescription')}
+        destinationAmount: row[10],
+        // ${tt('sample.importTransactionCustomScript.fieldGeoLocationDescription')}
+        geoLocation: undefined,
+        // ${tt('sample.importTransactionCustomScript.fieldTagNamesDescription')}
+        tagNames: '',
+        // ${tt('sample.importTransactionCustomScript.fieldCommentDescription')}
+        description: row[13]
+    };
+}`);
+
+    const displayPreviewResult = computed<string>(() => {
+        if (executingScript.value) {
+            return tt('Executing Script...');
+        } else if (executionError.value) {
+            return executionError.value;
+        } else if (previewResult.value) {
+            if (previewCount.value > 0) {
+                const rows = previewResult.value.slice(0, previewCount.value);
+                return JSON.stringify(rows, null, 4);
+            } else {
+                return JSON.stringify(previewResult.value, null, 4);
+            }
+        } else {
+            return tt('No Preview Result');
+        }
+    });
+
+    const menus = computed<ImportTransactionDefineColumnMenu[]>(() => [
+        {
+            prependIcon: mdiFolderOpenOutline,
+            title: tt('Load Script File'),
+            onClick: loadScriptFile
+        },
+        {
+            prependIcon: mdiContentSaveOutline,
+            title: tt('Save Script File'),
+            onClick: saveScriptFile
+        }
+    ]);
+
+    function getTablePageOptions(linesCount?: number): NameNumeralValue[] {
+        const pageOptions: NameNumeralValue[] = [];
+
+        if (!linesCount) {
+            linesCount = 0;
+        }
+
+        for (const count of [ 10, 50, 100 ]) {
+            if (count > 10 && count > previewCount.value && linesCount < count) {
+                break;
+            }
+
+            pageOptions.push({ value: count, name: formatNumberToLocalizedNumerals(count) });
+        }
+
+        pageOptions.push({ value: -1, name: tt('All') });
+
+        return pageOptions;
+    }
+
+    function reloadSandbox(): void {
+        sandboxLoaded.value = false;
+
+        if (sandbox.value) {
+            sandbox.value.src = 'about:blank';
+            sandbox.value.srcdoc = sandboxBuildinScripts;
+
+            sandbox.value.onload = () => {
+                sandboxLoaded.value = true;
+            };
+        }
+    }
+
+    function executeCustomScript(): void {
+        if (!sandbox.value || props.disabled || executingScript.value) {
+            return;
+        }
+
+        executingScript.value = true;
+
+        const sandboxRequest: SandboxRequest = {
+            source: sandboxMessageSignature,
+            parsedFileData: props.parsedFileData || [],
+            code: customScript.value + `\n\n;if (typeof parse !== 'undefined') { window.parse = parse; }`
+        };
+
+        sandbox.value?.contentWindow?.postMessage(JSON.stringify(sandboxRequest), '*');
+    }
+
+    function generateResult(): string | undefined {
+        if (!previewResult.value) {
+            snackbar.value?.showError('Please execute the custom script first');
+            return undefined;
+        }
+
+        const result: ImportTransactionRequest = {
+            transactions: previewResult.value
+        };
+
+        return JSON.stringify(result);
+    }
+
+    function reset(): void {
+        customScript.value = sampleScript.value;
+        previewResult.value = undefined;
+        executionError.value = '';
+        executingScript.value = false;
+        previewCount.value = 10;
+    }
+
+    function loadScriptFile(): void {
+        openTextFileContent({
+            allowedExtensions: KnownFileType.JS.contentType
+        }).then(content => {
+            customScript.value = content;
+        }).catch(error => {
+            logger.error('Failed to load script file', error);
+            snackbar.value?.showError('Cannot load script file');
+        });
+    }
+
+    function saveScriptFile(): void {
+        const fileName = KnownFileType.JS.formatFileName(tt('dataExport.defaultImportHandlingScript'));
+        startDownloadFile(fileName, KnownFileType.JS.createBlob(customScript.value));
+    }
+
+    function onMessage(event: MessageEvent<SandboxResponse>): void {
+        if (event.source !== sandbox.value?.contentWindow) {
+            return;
+        }
+
+        executingScript.value = false;
+
+        const data = event.data;
+
+        if (data.knownError) {
+            snackbar.value?.showError(data.knownError);
+            previewResult.value = undefined;
+            executionError.value = `// ${tt(data.knownError)}`;
+        } else if (data.error) {
+            logger.error('Failed to execute custom script: ' + data.error);
+            snackbar.value?.showError('Failed to execute custom script');
+            previewResult.value = undefined;
+            executionError.value = `// ${data.error}`;
+        } else if (data.result) {
+            const originalResult = JSON.parse(data.result) as Record<string, unknown>[];
+            const finalResult: ImportTransactionRequestItem[] = [];
+
+            for (const item of originalResult) {
+                let time: string = '';
+                let unixTime: number | undefined = undefined;
+                let utcOffset: string = '';
+
+                if (isString(item['time'])) {
+                    time = String(item['time']);
+                    const dateTime = parseDateTimeFromKnownDateTimeFormat(time, KnownDateTimeFormat.DefaultDateTime);
+
+                    if (dateTime && KnownDateTimeFormat.DefaultDateTime.isValid(time)) {
+                        unixTime = dateTime.getUnixTime();
+                    }
+                } else if (isObject(item['time']) && isDefined((item['time'] as Record<string, unknown>)['dateTime']) && isDefined((item['time'] as Record<string, unknown>)['format'])) {
+                    const originalDateTime = String((item['time'] as Record<string, unknown>)['dateTime']);
+                    const format = String((item['time'] as Record<string, unknown>)['format']);
+                    const dateTime = parseDateTimeFromString(originalDateTime, format);
+
+                    if (dateTime) {
+                        time = formatDateTimeToGregorianDefaultDateTime(dateTime);
+                        unixTime = dateTime.getUnixTime();
+                    }
+
+                    if (!isDefined(unixTime)) {
+                        logger.error('Failed to parse time "' + originalDateTime + '" with custom format "' + format + '"');
+                        snackbar.value?.showError('Failed to parse time');
+                        previewResult.value = undefined;
+                        executionError.value = `// ${tt('Failed to parse time')} "${originalDateTime}"`;
+                        return;
+                    }
+                }
+
+                if (!isDefined(unixTime)) {
+                    logger.error('Failed to parse time "' + item['time'] + '"');
+                    snackbar.value?.showError('Failed to parse time');
+                    previewResult.value = undefined;
+                    executionError.value = `// ${tt('Failed to parse time')} "${item['time']}"`;
+                    return;
+                }
+
+                if (isString(item['utcOffset'])) {
+                    utcOffset = String(item['utcOffset']);
+                } else if (isObject(item['utcOffset']) && isDefined((item['utcOffset'] as Record<string, unknown>)['name'])) {
+                    const timezoneName = String((item['utcOffset'] as Record<string, unknown>)['name']);
+                    utcOffset = getTimezoneOffsetMinutes(unixTime, timezoneName).toString(10);
+                }
+
+                const finalItem: ImportTransactionRequestItem = {
+                    time: time,
+                    utcOffset: utcOffset,
+                    type: (isDefined(item['type'])) ? String(item['type']) : '',
+                    categoryName: (isDefined(item['categoryName']) && item['categoryName'] !== '') ? String(item['categoryName']) : undefined,
+                    sourceAccountName: (isDefined(item['sourceAccountName']) && item['sourceAccountName'] !== '') ? String(item['sourceAccountName']) : undefined,
+                    destinationAccountName: (isDefined(item['destinationAccountName']) && item['destinationAccountName'] !== '') ? String(item['destinationAccountName']) : undefined,
+                    sourceAmount: (isDefined(item['sourceAmount'])) ? String(item['sourceAmount']) : '',
+                    destinationAmount: (isDefined(item['destinationAmount']) && item['destinationAmount'] !== '') ? String(item['destinationAmount']) : undefined,
+                    geoLocation: (isDefined(item['geoLocation']) && item['geoLocation']) ? String(item['geoLocation']) : undefined,
+                    tagNames: (isDefined(item['tagNames']) && item['tagNames']) ? String(item['tagNames']) : undefined,
+                    comment: (isDefined(item['description']) && item['description']) ? String(item['description']) : undefined
+                };
+                finalResult.push(finalItem);
+            }
+
+            previewResult.value = finalResult;
+            executionError.value = '';
+        }
+
+        reloadSandbox();
+    }
+
+    onMounted(() => {
+        customScript.value = sampleScript.value;
+        reloadSandbox();
+        window.addEventListener('message', onMessage);
+    });
+
+    onUnmounted(() => {
+        window.removeEventListener('message', onMessage);
+    });
+
+    return {
+        tt, formatNumberToLocalizedNumerals, sandbox, snackbar, sandboxLoaded, customScript, previewResult, executingScript,
+        previewCount, previewCounts, customScriptEditorExtraLibs, displayPreviewResult, menus, executeCustomScript,
+        generateResult, reset,
+    };
+}

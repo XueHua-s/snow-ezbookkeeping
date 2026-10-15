@@ -15,9 +15,10 @@
     "serve": "cross-env NODE_ENV=development vite",
     "build": "cross-env NODE_ENV=production vite build",
     "serve:dist": "vite preview",
-    "lint": "vue-tsc --noEmit && eslint . --fix",
+    "lint": "npm run check:source-lines && vue-tsc --noEmit && eslint . --fix",
     "test": "vitest run",
-    "test:browser": "vitest run --config vitest.browser.config.ts"
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "check:source-lines": "node scripts/check-source-lines.mjs"
   },
   "dependencies": {
     "@markdown-next/parser": "1.1.1",
