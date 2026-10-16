@@ -55,7 +55,7 @@ const references = computed(() =>
                 ><span>{{ tt('View Details') }}</span>
             </button>
         </div>
-        <button v-if="canPage && answer.pageableQueryId" type="button" @click="emit('nextPage')">
+        <button v-if="canPage && answer.pageableQueryId" class="more-bills" type="button" @click="emit('nextPage')">
             {{ pageLabel || tt('View more bills') }}
         </button>
     </section>
@@ -70,6 +70,9 @@ const references = computed(() =>
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 8px;
+}
+.bills + .more-bills {
+    margin-block-start: 12px;
 }
 button {
     min-height: 44px;
