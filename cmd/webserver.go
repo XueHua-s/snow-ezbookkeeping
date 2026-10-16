@@ -11,7 +11,6 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/auth/oauth2"
 	"github.com/mayswind/ezbookkeeping/pkg/core"
 	"github.com/mayswind/ezbookkeeping/pkg/cron"
-	"github.com/mayswind/ezbookkeeping/pkg/errs"
 	"github.com/mayswind/ezbookkeeping/pkg/log"
 	"github.com/mayswind/ezbookkeeping/pkg/mcp"
 	"github.com/mayswind/ezbookkeeping/pkg/middlewares"
@@ -282,18 +281,7 @@ func startWebServer(c *core.CliContext) error {
 
 	listenAddr := fmt.Sprintf("%s:%d", config.HttpAddr, config.HttpPort)
 
-	if config.Protocol == settings.SCHEME_SOCKET {
-		log.BootInfof(c, "[webserver.startWebServer] will run at socks:%s", config.UnixSocketPath)
-		err = router.RunUnix(config.UnixSocketPath)
-	} else if config.Protocol == settings.SCHEME_HTTP {
-		log.BootInfof(c, "[webserver.startWebServer] will run at http://%s", listenAddr)
-		err = router.Run(listenAddr)
-	} else if config.Protocol == settings.SCHEME_HTTPS {
-		log.BootInfof(c, "[webserver.startWebServer] will run at https://%s", listenAddr)
-		err = router.RunTLS(listenAddr, config.CertFile, config.CertKeyFile)
-	} else {
-		err = errs.ErrInvalidProtocol
-	}
+	err = serveAssistantApplication(c, config, router, listenAddr)
 
 	if err != nil {
 		log.BootErrorf(c, "[webserver.startWebServer] cannot start, because %s", err)

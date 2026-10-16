@@ -27,6 +27,11 @@ func (s *UserService) EnableUser(c core.Context, username string) error {
 		return errs.ErrUsernameIsEmpty
 	}
 
+	user, lookupErr := s.GetUserByUsername(c, username)
+	if lookupErr != nil {
+		return lookupErr
+	}
+
 	now := time.Now().Unix()
 
 	updateModel := &models.User{
@@ -41,13 +46,21 @@ func (s *UserService) EnableUser(c core.Context, username string) error {
 	} else if updatedRows < 1 {
 		return errs.ErrUserNotFound
 	}
-	return nil
+	return s.fenceAssistantAccount(c, user.Uid, false, false)
 }
 
 // DisableUser sets user disabled
 func (s *UserService) DisableUser(c core.Context, username string) error {
 	if username == "" {
 		return errs.ErrUsernameIsEmpty
+	}
+
+	user, lookupErr := s.GetUserByUsername(c, username)
+	if lookupErr != nil {
+		return lookupErr
+	}
+	if err := s.fenceAssistantAccount(c, user.Uid, true, false); err != nil {
+		return err
 	}
 
 	now := time.Now().Unix()
@@ -186,6 +199,14 @@ func (s *UserService) SetUserEmailUnverified(c core.Context, username string) er
 func (s *UserService) DeleteUser(c core.Context, username string) error {
 	if username == "" {
 		return errs.ErrUsernameIsEmpty
+	}
+
+	user, lookupErr := s.GetUserByUsername(c, username)
+	if lookupErr != nil {
+		return lookupErr
+	}
+	if err := s.fenceAssistantAccount(c, user.Uid, true, true); err != nil {
+		return err
 	}
 
 	now := time.Now().Unix()

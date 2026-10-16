@@ -66,6 +66,11 @@ type AssistantEvent struct {
 type EventSink func(event AssistantEvent) error
 
 type AssistantRunInput struct {
+	// PriorModelCalls accounts for preparing calls within this same foreground run.
+	PriorModelCalls uint32
+	MaxInputTokens  int
+	MaxOutputTokens int
+
 	UID          int64
 	Mode         string
 	Messages     []data.ConversationMessage
@@ -87,6 +92,7 @@ type AssistantRunInput struct {
 // AssistantRunResult retains confirmed evidence even on error. Continuation
 // refers to the last successful pageable query and never resumes automatically.
 type AssistantRunResult struct {
+	StopReason   AssistantStopReason
 	Mode         string
 	State        AssistantState
 	Reply        string
@@ -115,6 +121,7 @@ const (
 	AssistantReasonRoundBudget         AssistantStopReason = "round_budget"
 	AssistantReasonCallBudget          AssistantStopReason = "call_budget"
 	AssistantReasonContextBudget       AssistantStopReason = "context_budget"
+	AssistantReasonOutputBudget        AssistantStopReason = "output_limit"
 	AssistantReasonResultBudget        AssistantStopReason = "result_budget"
 	AssistantReasonNoProgress          AssistantStopReason = "no_progress"
 	AssistantReasonRepeatedError       AssistantStopReason = "repeated_error"

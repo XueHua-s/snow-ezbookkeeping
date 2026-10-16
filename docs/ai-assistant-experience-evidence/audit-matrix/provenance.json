@@ -1,0 +1,18 @@
+{
+  "mysql": "mysql  Ver 8.0.46 for Linux on aarch64 (MySQL Community Server - GPL)",
+  "postgres": "postgres (PostgreSQL) 16.15",
+  "go": "go version go1.27.1 darwin/arm64",
+  "node": "v22.20.0",
+  "npm": "10.9.3",
+  "cpu": "Apple M5",
+  "memoryBytes": "17179869184",
+  "system": "macOS-27.2-arm64-arm-64bit",
+  "databaseImages": {
+    "ebk-experience-verify-matrix-mysql": "sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+    "ebk-experience-verify-matrix-postgres": "sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea"
+  },
+  "frontend": {
+    "files": 107,
+    "sha256": "ba13bcd1e34f10a293a2717b7a48558c524c9ad16340cc07ae9614b971e5eead"
+  }
+}

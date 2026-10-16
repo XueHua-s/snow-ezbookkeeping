@@ -6,6 +6,7 @@ import { useRootStore } from '@/stores/index.ts';
 import { useSettingsStore } from '@/stores/setting.ts';
 import { useUserStore } from '@/stores/user.ts';
 import { useTokensStore } from '@/stores/token.ts';
+import logger from '@/lib/logger.ts';
 import { useTransactionsStore } from '@/stores/transaction.ts';
 import { useExchangeRatesStore } from '@/stores/exchangeRates.ts';
 
@@ -42,6 +43,7 @@ export function useUnlockPageBase() {
     function doAfterUnlocked(): void {
         transactionsStore.initTransactionDraft();
         tokensStore.refreshTokenAndRevokeOldToken().then(response => {
+            if (!response.isCurrent()) return;
             if (response.user) {
                 const localeDefaultSettings = setLanguage(response.user.language);
                 settingsStore.updateLocalizedDefaultSettings(localeDefaultSettings);
@@ -56,6 +58,8 @@ export function useUnlockPageBase() {
             if (response.notificationContent) {
                 rootStore.setNotificationContent(response.notificationContent);
             }
+        }).catch(error => {
+            if (!error.processed) logger.warn('Unable to refresh the current session');
         });
     }
 

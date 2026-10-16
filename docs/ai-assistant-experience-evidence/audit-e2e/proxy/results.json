@@ -1,0 +1,161 @@
+{
+  "status": "PASS",
+  "nginx": "nginx version: nginx/1.28.3",
+  "imageDigests": [
+    "nginx@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236"
+  ],
+  "productionAPI": true,
+  "backend": "Docker image sha256:990c1f23742049c78c43832cdde54e69a575412675524f4a8ac88d4b80bc0dff; see docker-runtime.json",
+  "database": "isolated SQLite",
+  "provider": "controlled HTTP protocol fixture",
+  "providerCalls": 2,
+  "commandCount": 1,
+  "runId": "<synthetic-run>",
+  "results": [
+    {
+      "route": "off",
+      "firstByteMs": 6,
+      "elapsedMs": 10523,
+      "disconnected": false,
+      "snapshots": [
+        {
+          "state": "queued",
+          "revision": 1,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 3,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 4,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 5,
+          "terminal": false
+        },
+        {
+          "state": "completed",
+          "revision": 6,
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "route": "on",
+      "firstByteMs": 16,
+      "elapsedMs": 10531,
+      "disconnected": false,
+      "snapshots": [
+        {
+          "state": "queued",
+          "revision": 1,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 3,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 4,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 5,
+          "terminal": false
+        },
+        {
+          "state": "completed",
+          "revision": 6,
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "route": "forced",
+      "firstByteMs": 7,
+      "elapsedMs": 10520,
+      "disconnected": false,
+      "snapshots": [
+        {
+          "state": "queued",
+          "revision": 1,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 3,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 4,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 5,
+          "terminal": false
+        },
+        {
+          "state": "completed",
+          "revision": 6,
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "route": "timeout",
+      "firstByteMs": 14,
+      "elapsedMs": 2019,
+      "disconnected": true,
+      "snapshots": [
+        {
+          "state": "queued",
+          "revision": 1,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 3,
+          "terminal": false
+        },
+        {
+          "state": "running",
+          "revision": 4,
+          "terminal": false
+        }
+      ]
+    }
+  ],
+  "reconnected": {
+    "route": "on",
+    "firstByteMs": 10538,
+    "elapsedMs": 10539,
+    "disconnected": false,
+    "snapshots": [
+      {
+        "state": "completed",
+        "revision": 6,
+        "terminal": true
+      }
+    ]
+  },
+  "completedState": "completed",
+  "checks": [
+    "real nginx buffering off",
+    "real nginx buffering on honoring X-Accel-Buffering",
+    "buffering-on with X-Accel-Buffering ignored (measured timing)",
+    "actual proxy idle disconnect",
+    "same-run status polling recovery",
+    "terminal reconnect afterRevision equal",
+    "no duplicate model calls"
+  ]
+}

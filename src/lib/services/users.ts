@@ -106,6 +106,7 @@ export const usersServices = {
     },
     clearAllData: (req: ClearDataRequest): ApiResponsePromise<boolean> => {
         return axios.post<ApiResponse<boolean>>('v1/data/clear/all.json', req, {
+            ignoreError: true,
             timeout: DEFAULT_CLEAR_ALL_TRANSACTIONS_API_TIMEOUT
         } as ApiRequestConfig);
     },

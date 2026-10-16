@@ -2,6 +2,8 @@ import { ref, computed } from 'vue';
 
 import { useI18n } from '@/locales/helpers.ts';
 
+import { useRootStore } from '@/stores/index.ts';
+import { AssistantDataClearIncompleteError } from '@/stores/assistant/types.ts';
 import { useUserStore } from '@/stores/user.ts';
 
 import type { DataStatisticsResponse, DisplayDataStatistics } from '@/models/data_management.ts';
@@ -12,6 +14,7 @@ export function useDataManagementPageBase() {
     const { tt, formatBigDecimalToLocalizedNumerals } = useI18n();
 
     const userStore = useUserStore();
+    const rootStore = useRootStore();
 
     const dataStatistics = ref<DataStatisticsResponse | null>(null);
 
@@ -33,6 +36,15 @@ export function useDataManagementPageBase() {
         };
     });
 
+    async function clearAllUserData(password: string, confirmNewOperation: () => Promise<boolean>) {
+        try { return await rootStore.clearAllUserData({ password }); } catch (error) {
+            if (!(error instanceof AssistantDataClearIncompleteError)) throw error;
+            dataStatistics.value = await userStore.getUserDataStatistics();
+            if (!await confirmNewOperation()) throw { processed: true };
+            return rootStore.clearAllUserData({ password, newOperation: true });
+        }
+    }
+
     function getExportFileName(fileExtension: string): string {
         const nickname = userStore.currentUserNickname;
 
@@ -51,6 +63,6 @@ export function useDataManagementPageBase() {
         // computed states
         displayDataStatistics,
         // functions
-        getExportFileName
+        getExportFileName, clearAllUserData
     }
 }

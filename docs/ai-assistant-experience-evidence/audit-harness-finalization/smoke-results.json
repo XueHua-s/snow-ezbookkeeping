@@ -1,0 +1,61 @@
+{
+  "status": "PASS",
+  "at": "2026-10-15T23:42:08.341Z",
+  "results": [
+    {
+      "scenario": "Actual project entrypoint serves fresh database as UID:GID 1000:1000",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Anonymous assistant access rejected",
+      "status": "PASS",
+      "httpStatus": 400
+    },
+    {
+      "scenario": "Synthetic registration, authorization, account/category/transaction creation",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Persistent send executes real query and reads back answer/reference/evidence",
+      "status": "PASS",
+      "referenceCount": 1,
+      "queryCount": 1
+    },
+    {
+      "scenario": "Provider 503 yields persistent failed terminal state",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Cancel after provider request closes unfinished upstream response and persists canceled",
+      "status": "PASS",
+      "upstreamResponseCompleted": false,
+      "closeObservedWithinMs": 543
+    },
+    {
+      "scenario": "Same-container restart disables generation; authenticated history remains readable and sends rejected",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Same token/history/ledger persist across two real container restarts; generation reopens",
+      "status": "PASS"
+    },
+    {
+      "scenario": "npm run test:production: desktop/mobile production login renders without network/runtime errors",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Stopped-container SQLite inspection confirms five additive tables and retained legacy embedding table",
+      "status": "PASS",
+      "tables": [
+        "a_i_assistant_embedding",
+        "assistant_command_receipt",
+        "assistant_conversation",
+        "assistant_memory",
+        "assistant_message",
+        "assistant_user_state"
+      ]
+    }
+  ],
+  "providerCalls": 6,
+  "provider": "Deterministic host-loopback protocol fixture; not model quality evidence"
+}

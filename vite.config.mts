@@ -1,0 +1,411 @@
+import fs from 'node:fs';
+import { resolve } from 'node:path';
+
+import { type UserConfig, type Plugin, defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue';
+import vuetify from 'vite-plugin-vuetify';
+import { VitePWA } from 'vite-plugin-pwa';
+import Checker from 'vite-plugin-checker';
+import { minify } from 'terser';
+import git from 'git-rev-sync';
+
+import packageFile from './package.json' with { type: 'json' };
+import contributorsFile from './contributors.json' with { type: 'json' };
+import thirdPartyLicenseFile from './third-party-dependencies.json' with { type: 'json' };
+
+const SRC_DIR = resolve(import.meta.dirname, './src');
+const PUBLIC_DIR = resolve(import.meta.dirname, './public');
+const BUILD_DIR = resolve(import.meta.dirname, './dist',);
+
+function minifyWorkerWithTerser(): Plugin {
+    const minifyOptionsHash = `terser-${packageFile.devDependencies.terser}-compress-mangle-no-comments`;
+
+    return {
+        name: 'minify-worker-with-terser',
+        apply: 'build',
+        augmentChunkHash(): string {
+            return minifyOptionsHash;
+        },
+        generateBundle(_, bundle): Promise<void> {
+            const minifyPromises: Promise<void>[] = [];
+
+            for (const output of Object.values(bundle)) {
+                if (output.type !== 'chunk') {
+                    continue;
+                }
+
+                minifyPromises.push(minify(output.code, {
+                    compress: true,
+                    format: {
+                        comments: false
+                    },
+                    mangle: true
+                }).then(result => {
+                    if (!result.code) {
+                        throw new Error(`Terser failed to minify worker ${output.fileName}.`);
+                    }
+
+                    output.code = result.code;
+                    output.map = null;
+                }));
+            }
+
+            return Promise.all(minifyPromises).then(() => undefined);
+        }
+    };
+}
+
+function injectFramework7CssFile({ htmlFileName, placeHolders }: { htmlFileName: string, placeHolders: { name: string, srcFileName: string, distFileNamePrefix: string }[] }): Plugin[] {
+    return [
+        {
+            name: 'inject-framework7-css-file:serve',
+            apply: 'serve',
+            enforce: 'post',
+            transformIndexHtml(html: string): string {
+                for (const placeholder of placeHolders) {
+                    html = html.replace(`{{${placeholder.name}}}`, `${placeholder.srcFileName}`);
+                }
+                return html;
+            }
+        },
+        {
+            name: 'inject-framework7-css-file:build',
+            apply: 'build',
+            enforce: 'post',
+            generateBundle(_, bundle): void {
+                const placeholderCssFilePathMap: Record<string, string> = {};
+
+                for (const fileName of Object.keys(bundle)) {
+                    for (const placeholder of placeHolders) {
+                        if (fileName.startsWith(placeholder.distFileNamePrefix)) {
+                            placeholderCssFilePathMap[placeholder.name] = fileName;
+                            break;
+                        }
+                    }
+                }
+
+                const htmlAsset = bundle[htmlFileName];
+
+                if (!htmlAsset || htmlAsset.type !== 'asset') {
+                    return;
+                }
+
+                let html = htmlAsset.source as string;
+
+                for (const [placeholder, filePath] of Object.entries(placeholderCssFilePathMap)) {
+                    html = html.replace(`{{${placeholder}}}`, `./${filePath}`);
+                }
+
+                htmlAsset.source = html;
+            }
+        }
+    ];
+}
+
+export default defineConfig(() => {
+    const licenseContent = fs.readFileSync(new URL('./LICENSE', import.meta.url), { encoding: 'utf-8' });
+    const buildUnixTime = process.env['buildUnixTime'] || '';
+
+    const options: UserConfig = {
+        root: SRC_DIR,
+        publicDir: PUBLIC_DIR,
+        base: './',
+        define: {
+            __EZBOOKKEEPING_IS_PRODUCTION__: process.env['NODE_ENV'] === 'production',
+            __EZBOOKKEEPING_VERSION__: JSON.stringify(packageFile.version),
+            __EZBOOKKEEPING_BUILD_UNIX_TIME__: JSON.stringify(buildUnixTime),
+            __EZBOOKKEEPING_BUILD_COMMIT_HASH__: JSON.stringify(git.short(import.meta.dirname)),
+            __EZBOOKKEEPING_CONTRIBUTORS__: JSON.stringify(contributorsFile),
+            __EZBOOKKEEPING_LICENSE__: JSON.stringify(licenseContent),
+            __EZBOOKKEEPING_THIRD_PARTY_LICENSES__: JSON.stringify(thirdPartyLicenseFile)
+        },
+        plugins: [
+            vue({
+                template: {
+                    compilerOptions: {
+                        isCustomElement: tag => tag.includes('swiper-')
+                    }
+                }
+            }),
+            vuetify({
+                styles: {
+                    configFile: 'styles/desktop/settings.scss'
+                }
+            }),
+            injectFramework7CssFile({
+                htmlFileName: 'mobile.html',
+                placeHolders: [
+                    {
+                        name: 'framework7-ltr-css-filepath',
+                        srcFileName: 'mobile-ltr.scss',
+                        distFileNamePrefix: 'css/vendor-framework7-ltr'
+                    },
+                    {
+                        name: 'framework7-rtl-css-filepath',
+                        srcFileName: 'mobile-rtl.scss',
+                        distFileNamePrefix: 'css/vendor-framework7-rtl'
+                    }
+                ]
+            }),
+            Checker({
+                vueTsc: true
+            }),
+            VitePWA({
+                strategies: 'injectManifest',
+                srcDir: './',
+                filename: 'sw.ts',
+                injectRegister: false,
+                manifestFilename: 'manifest.json',
+                manifest: {
+                    name: 'ezBookkeeping',
+                    short_name: 'ezBookkeeping',
+                    description: 'An open source, powerful, self-hosted personal finance app that is easy to use.',
+                    theme_color: '#C67E48',
+                    background_color: '#F6F7F8',
+                    start_url: './',
+                    scope: './',
+                    display: 'standalone',
+                    related_applications: [],
+                    prefer_related_applications: false,
+                    icons: [
+                        {
+                            src: 'img/ezbookkeeping-192.png',
+                            sizes: '192x192',
+                            type: 'image/png'
+                        },
+                        {
+                            src: 'img/ezbookkeeping-512.png',
+                            sizes: '512x512',
+                            type: 'image/png'
+                        }
+                    ],
+                    share_target: {
+                        action: './__share__image__',
+                        method: 'POST',
+                        enctype: 'multipart/form-data',
+                        params: {
+                            files: [
+                                {
+                                    'name': 'image',
+                                    'accept': ['image/*']
+                                }
+                            ]
+                        }
+                    }
+                },
+                injectManifest: {
+                    globDirectory: 'dist/',
+                    globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,gif,tiff,bmp,ttf,woff,woff2,svg,eot}'],
+                    globIgnores: [
+                        'index.html',
+                        'mobile.html',
+                        'desktop.html',
+                        'robots.txt',
+                        'img/desktop/*',
+                        'fonts/*.eot',
+                        'fonts/*.ttf',
+                        'fonts/*.svg',
+                        'fonts/*.woff',
+                        'css/*.css',
+                        'js/*.js'
+                    ],
+                    maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
+                }
+            })
+        ],
+        worker: {
+            plugins: () => [
+                minifyWorkerWithTerser()
+            ],
+            rolldownOptions: {
+                output: {
+                    chunkFileNames: 'js/[name]-[hash].js',
+                    entryFileNames: chunkInfo => {
+                        if (chunkInfo.name === 'editor.worker') {
+                            return 'js/sw.monaco-editor-[hash].js';
+                        } else if (chunkInfo.name === 'ts.worker') {
+                            return 'js/sw.monaco-editor-lang-ts-[hash].js';
+                        }
+
+                        return 'js/[name]-[hash].js';
+                    }
+                }
+            }
+        },
+        build: {
+            target: [
+                'chrome119',
+                'edge119',
+                'firefox128',
+                'safari16.4'
+            ],
+            minify: 'terser',
+            outDir: BUILD_DIR,
+            sourcemap: false,
+            assetsInlineLimit: 0,
+            emptyOutDir: true,
+            rolldownOptions: {
+                input: {
+                    index: resolve(SRC_DIR, 'index.html'),
+                    desktop: resolve(SRC_DIR, 'desktop.html'),
+                    mobile: resolve(SRC_DIR, 'mobile.html'),
+                    'vendor-framework7-ltr': resolve(SRC_DIR, 'mobile-ltr.scss'),
+                    'vendor-framework7-rtl': resolve(SRC_DIR, 'mobile-rtl.scss')
+                },
+                output: {
+                    assetFileNames: assetInfo => {
+                        const fileExt = assetInfo.names[0]?.split('.')[1];
+
+                        if (!fileExt) {
+                            throw new Error('Invalid asset file name.');
+                        }
+
+                        let assetType = fileExt;
+
+                        if (/png|jpe?g|gif|tiff|bmp|ico/i.test(fileExt)) {
+                            assetType = 'img';
+                        } else if (/ttf|woff|woff2|svg|eot/i.test(fileExt)) {
+                            assetType = 'fonts';
+                        }
+
+                        return `${assetType}/[name]-[hash][extname]`;
+                    },
+                    chunkFileNames: 'js/[name]-[hash].js',
+                    entryFileNames: 'js/[name]-[hash].js',
+                    codeSplitting: {
+                        includeDependenciesRecursively: false,
+                        groups: [
+                            {
+                                name:  'leaflet',
+                                test: /[\\/]node_modules[\\/]leaflet[\\/]/i
+                            },
+                            {
+                                name:  'moment',
+                                test: /[\\/]node_modules[\\/](moment|moment-timezone)[\\/]/i
+                            },
+                            {
+                                name:  'echarts',
+                                test: /[\\/]node_modules[\\/](echarts|zrender|tslib|resize-detector)[\\/]/i
+                            },
+                            {
+                                name: 'monaco-editor',
+                                test: /[\\/]node_modules[\\/](monaco-editor|monaco-editor-core)[\\/]/i
+                            },
+                            {
+                                name:  'vendor-mobile',
+                                test: /[\\/]node_modules[\\/](dom7|framework7.*|skeleton-elements|swiper)[\\/]/i
+                            },
+                            {
+                                name:  'vendor-desktop',
+                                test: id => {
+                                    if (/[\\/]node_modules[\\/](vuetify|vue-router|vue3-perfect-scrollbar|perfect-scrollbar|vuedraggable|sortablejs|@mdi.*)[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]node_modules[\\/]vue-echarts[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/plugin-vuetify:/i.test(id)) {
+                                        return true;
+                                    } else {
+                                        return false;
+                                    }
+                                }
+                            },
+                            {
+                                name:  'vendor-common',
+                                test: /[\\/]node_modules[\\/]/i
+                            },
+                            {
+                                name:  'common',
+                                test: id => {
+                                    if (/[\\/]src[\\/](core|consts|models|stores)[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]src[\\/]lib[\\/]((map|calendar|category|common|datetime|numeral|overview_layout|services)[\\/]|ui[\\/]common|[a-zA-Z0-9-_]+\.(js|ts))/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]src[\\/]components[\\/](base|common)[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]src[\\/]views[\\/]base[\\/]/i.test(id)) {
+                                        return true;
+                                    } else if (/[\\/]src[\\/]locales[\\/]helpers([\\/]|\.(js|ts))/i.test(id)) {
+                                        return true;
+                                    } else {
+                                        return false;
+                                    }
+                                }
+                            },
+                            {
+                                name:  'locales',
+                                test: /[\\/]src[\\/]locales[\\/]/i
+                            }
+                        ]
+                    }
+                },
+                treeshake: false
+            },
+        },
+        resolve: {
+            alias: {
+                '@': SRC_DIR,
+                // @markdown-next/parser statically imports rehype-mathjax and can pull Node-only `require` code
+                // into browser bundles even when mathjax grammar is not enabled.
+                // We alias it to a browser-safe noop to prevent runtime `require is not defined`.
+                'rehype-mathjax/chtml': resolve(SRC_DIR, './lib/markdown/rehypeMathjaxChtmlStub.ts'),
+            },
+        },
+        server: {
+            host: '0.0.0.0',
+            port: 8081,
+            strictPort: true,
+            proxy: {
+                '/server_settings.js': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/mobile/server_settings.js': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/desktop/server_settings.js': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/oauth2': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/api': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/mcp': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/avatar': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/pictures': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/icons': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/qrcode': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/proxy': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                },
+                '/_AMapService': {
+                    target: 'http://127.0.0.1:8080/',
+                    changeOrigin: true
+                }
+            }
+        },
+    };
+
+    return options;
+})

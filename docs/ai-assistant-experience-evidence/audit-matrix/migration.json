@@ -1,0 +1,67 @@
+{
+  "baseline": "1a21bc9bfd2b155a3ed9b8ac57caff7c76bbb293",
+  "engines": {
+    "sqlite3": {
+      "status": "PASS",
+      "backup_sha256": "c2cc9b8c218a27ae9339ae9bc71f8617d95d13251dcf2506b3a0d20a405d7e1c",
+      "source": "<task-source-database>",
+      "restored": "<task-restored-database>"
+    },
+    "mysql": {
+      "status": "PASS",
+      "backup_sha256": "914282dd3c43d31ac8919c7e3a04f7adf2d7443e731c429d7388c7b55b31a893",
+      "source": "<task-source-database>",
+      "restored": "<task-restored-database>"
+    },
+    "postgres": {
+      "status": "PASS",
+      "backup_sha256": "b6385f071e4e535e9d68378196820c2111d49a44f6e5df6e39c38392c6d2493c",
+      "source": "<task-source-database>",
+      "restored": "<task-restored-database>"
+    }
+  },
+  "artifactHashes": {
+    "mysql-reupgrade.log": "4f1e80e40b2b621be18847c926ff39dcb4eb491e2425fb96473fb8000ec7a174",
+    "mysql-upgrade.log": "b9ef56c0d6208569b81979385cf947ee5665687a031b2db0e77e06fdcef269e7",
+    "mysql-recovered.json": "218c91e45a708045e822b03a5979aa5ee985a40b2308f6a5b9f1165e6f7fce68",
+    "mysql-legacy-before.json": "e997062ce24983f8ee2c6d5e6904221907e1bf579297409ca82d83cec891047c",
+    "postgres-legacy-upgraded.json": "e997062ce24983f8ee2c6d5e6904221907e1bf579297409ca82d83cec891047c",
+    "postgres-after-old-rollback.json": "1d8f51326090bcb9c5c78ff449a0f542944ff9f90b67041a4facfbdc5ba570a9",
+    "postgres-recovery.log": "90902c5b5d51c00d589fa8d697fbeede99a548db9dd6553352b41eaa4413b784",
+    "mysql-legacy-upgraded.json": "e997062ce24983f8ee2c6d5e6904221907e1bf579297409ca82d83cec891047c",
+    "sqlite3-rollback-old.log": "e8dbf126f4328ca1f38a1e0219b64cf06ee126e4742e61daa1a7b55244b34b97",
+    "mysql-restored.json": "38cd44747da46d8a95ccd0d7eccab6ce846f159be79f5c220e70a61ea7e1401a",
+    "postgres-legacy-before.json": "e997062ce24983f8ee2c6d5e6904221907e1bf579297409ca82d83cec891047c",
+    "commands.log": "3e3be761dd850439de441cc5f6b168aca0c2d60ba344c060f52473009712c028",
+    "mysql-before.json": "38cd44747da46d8a95ccd0d7eccab6ce846f159be79f5c220e70a61ea7e1401a",
+    "sqlite3-upgrade-repeat.log": "a326545e9641b449a2700dce85d6d8532d6e897c4c3e2a2d4d6659213c144492",
+    "postgres-reupgrade.log": "1438f0a6a3c84239efb52f87c3a02e54dcbe9fd5d677daab47ff7a9dc714e78e",
+    "results.json": "f072d0613da9c8c82d6fd47da59789325226f4b715817d2997928184bbe9360c",
+    "sqlite3-old-init.log": "6d3796d60696d908c5f92c9a6476985d7665630a6398206d3db435cf36f87725",
+    "sqlite3-recovered.json": "3d9e5c8975f531ff6088dee6903dd24fc7ac40c8f6c55b372e13bfe26131fb80",
+    "postgres-restored.json": "1d8f51326090bcb9c5c78ff449a0f542944ff9f90b67041a4facfbdc5ba570a9",
+    "mysql-recovery.log": "90902c5b5d51c00d589fa8d697fbeede99a548db9dd6553352b41eaa4413b784",
+    "sqlite3-after-old-rollback.json": "c4c510ed886c028f5031fb1611bb090ef56becd1003c6f9a2e0f171488d72546",
+    "postgres-before.json": "1d8f51326090bcb9c5c78ff449a0f542944ff9f90b67041a4facfbdc5ba570a9",
+    "postgres-upgrade-repeat.log": "1727c2296b9de79555993bae06a63aaf6aa6863fc10542c78fd8cbea91d8090f",
+    "mysql-rollback-old.log": "4f1e80e40b2b621be18847c926ff39dcb4eb491e2425fb96473fb8000ec7a174",
+    "sqlite3-legacy-before.json": "e997062ce24983f8ee2c6d5e6904221907e1bf579297409ca82d83cec891047c",
+    "mysql-reupgraded.json": "38cd44747da46d8a95ccd0d7eccab6ce846f159be79f5c220e70a61ea7e1401a",
+    "sqlite3-before.json": "c4c510ed886c028f5031fb1611bb090ef56becd1003c6f9a2e0f171488d72546",
+    "sqlite3-recovery.log": "90902c5b5d51c00d589fa8d697fbeede99a548db9dd6553352b41eaa4413b784",
+    "mysql-old-init.log": "609e32ecb617b2f01b9d14590141dd4270c092d0567114afa01082a2445acca6",
+    "sqlite3-reupgraded.json": "c4c510ed886c028f5031fb1611bb090ef56becd1003c6f9a2e0f171488d72546",
+    "postgres-upgrade.log": "1727c2296b9de79555993bae06a63aaf6aa6863fc10542c78fd8cbea91d8090f",
+    "postgres-rollback-old.log": "1438f0a6a3c84239efb52f87c3a02e54dcbe9fd5d677daab47ff7a9dc714e78e",
+    "mysql-upgrade-repeat.log": "b9ef56c0d6208569b81979385cf947ee5665687a031b2db0e77e06fdcef269e7",
+    "sqlite3-legacy-upgraded.json": "e997062ce24983f8ee2c6d5e6904221907e1bf579297409ca82d83cec891047c",
+    "sqlite3-restored.json": "c4c510ed886c028f5031fb1611bb090ef56becd1003c6f9a2e0f171488d72546",
+    "sqlite3-upgrade.log": "a326545e9641b449a2700dce85d6d8532d6e897c4c3e2a2d4d6659213c144492",
+    "sqlite3-reupgrade.log": "e8dbf126f4328ca1f38a1e0219b64cf06ee126e4742e61daa1a7b55244b34b97",
+    "postgres-reupgraded.json": "1d8f51326090bcb9c5c78ff449a0f542944ff9f90b67041a4facfbdc5ba570a9",
+    "postgres-recovered.json": "11c9fb2d69f6adae91c712754f082ee4e89334008ef3b7f7a0ff96c7678981b7",
+    "postgres-old-init.log": "ac1db516fd580865017c57f5914c95f721e8cea311002e058fcc3a0e7b499c89",
+    "mysql-after-old-rollback.json": "38cd44747da46d8a95ccd0d7eccab6ce846f159be79f5c220e70a61ea7e1401a"
+  },
+  "privateArtifactsRemaining": []
+}

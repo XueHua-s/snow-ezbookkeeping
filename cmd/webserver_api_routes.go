@@ -6,11 +6,19 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/core"
 	"github.com/mayswind/ezbookkeeping/pkg/middlewares"
 	"github.com/mayswind/ezbookkeeping/pkg/settings"
+	"github.com/mayswind/ezbookkeeping/pkg/utils"
+	"strings"
 )
 
 // registerAPIRoutes owns API authentication middleware and versioned endpoint bindings.
 func registerAPIRoutes(router *gin.Engine, config *settings.Config) {
 	apiRoute := router.Group("/api")
+	apiRoute.Use(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/v1/llm/assistant/") {
+			c.Header("Cache-Control", "no-store")
+		}
+		c.Next()
+	})
 
 	apiRoute.Use(bindMiddleware(middlewares.RequestId(config), config))
 	apiRoute.Use(bindMiddleware(middlewares.RequestLog, config))
@@ -211,6 +219,42 @@ func registerAPIRoutes(router *gin.Engine, config *settings.Config) {
 			apiV1Route.POST("/insights/explorers/hide.json", bindApi(api.InsightsExplorers.InsightsExplorerHideHandler, config))
 			apiV1Route.POST("/insights/explorers/move.json", bindApi(api.InsightsExplorers.InsightsExplorerMoveHandler, config))
 			apiV1Route.POST("/insights/explorers/delete.json", bindApi(api.InsightsExplorers.InsightsExplorerDeleteHandler, config))
+
+			// Persistent assistant history remains registered when generation is disabled.
+			apiV1Route.GET("/llm/assistant/capabilities.json", bindApi(api.LargeLanguageModels.AssistantCapabilitiesHandler, config))
+			apiV1Route.GET("/llm/assistant/commands/get.json", bindApi(api.LargeLanguageModels.AssistantCommandGetHandler, config))
+			apiV1Route.GET("/llm/assistant/conversations/list.json", bindApi(api.LargeLanguageModels.AssistantConversationListHandler, config))
+			apiV1Route.POST("/llm/assistant/conversations/search.json", bindApi(api.LargeLanguageModels.AssistantConversationSearchHandler, config))
+			apiV1Route.GET("/llm/assistant/conversations/get.json", bindApi(api.LargeLanguageModels.AssistantConversationGetHandler, config))
+			apiV1Route.GET("/llm/assistant/conversations/state.json", bindApi(api.LargeLanguageModels.AssistantConversationStateHandler, config))
+			apiV1Route.POST("/llm/assistant/conversations/update.json", bindApi(api.LargeLanguageModels.AssistantConversationUpdateHandler, config))
+			apiV1Route.POST("/llm/assistant/conversations/delete.json", bindApi(api.LargeLanguageModels.AssistantConversationDeleteHandler, config))
+			apiV1Route.POST("/llm/assistant/conversations/clear.json", bindApi(api.LargeLanguageModels.AssistantConversationClearHandler, config))
+			apiV1Route.POST("/llm/assistant/conversations/branch.json", bindApi(api.LargeLanguageModels.AssistantConversationBranchHandler, config))
+			apiV1Route.POST("/llm/assistant/messages/send.json", bindApi(api.LargeLanguageModels.AssistantMessageSendHandler, config))
+			apiV1Route.POST("/llm/assistant/messages/retry.json", bindApi(api.LargeLanguageModels.AssistantMessageRetryHandler, config))
+			apiV1Route.GET("/llm/assistant/messages/get.json", bindApi(api.LargeLanguageModels.AssistantMessageGetHandler, config))
+			apiV1Route.GET("/llm/assistant/messages/versions.json", bindApi(api.LargeLanguageModels.AssistantMessageVersionsHandler, config))
+			apiV1Route.POST("/llm/assistant/messages/select_version.json", bindApi(api.LargeLanguageModels.AssistantMessageSelectVersionHandler, config))
+			apiV1Route.GET("/llm/assistant/runs/stream.json", func(c *gin.Context) {
+				ctx := core.WrapWebContext(c, config.TrustedProxyIPs)
+				if err := api.LargeLanguageModels.AssistantRunStreamHandler(ctx); err != nil && !c.Writer.Written() {
+					utils.PrintJsonErrorResult(ctx, err)
+				}
+			})
+			apiV1Route.GET("/llm/assistant/runs/get.json", bindApi(api.LargeLanguageModels.AssistantRunGetHandler, config))
+			apiV1Route.POST("/llm/assistant/runs/cancel.json", bindApi(api.LargeLanguageModels.AssistantRunCancelHandler, config))
+			apiV1Route.GET("/llm/assistant/memories/list.json", bindApi(api.LargeLanguageModels.AssistantMemoryListHandler, config))
+			apiV1Route.POST("/llm/assistant/memories/save.json", bindApi(api.LargeLanguageModels.AssistantMemorySaveHandler, config))
+			apiV1Route.POST("/llm/assistant/memories/delete.json", bindApi(api.LargeLanguageModels.AssistantMemoryDeleteHandler, config))
+			apiV1Route.POST("/llm/assistant/memories/settings.json", bindApi(api.LargeLanguageModels.AssistantMemorySettingsHandler, config))
+
+			apiV1Route.POST("/llm/assistant/conversations/export.json", func(c *gin.Context) {
+				ctx := core.WrapWebContext(c, config.TrustedProxyIPs)
+				if err := api.LargeLanguageModels.AssistantConversationExportHandler(ctx); err != nil {
+					utils.PrintJsonErrorResult(ctx, err)
+				}
+			})
 
 			// Large Language Models
 			if config.TextRecognitionLLMConfig != nil && config.TextRecognitionLLMConfig.LLMProvider != "" {

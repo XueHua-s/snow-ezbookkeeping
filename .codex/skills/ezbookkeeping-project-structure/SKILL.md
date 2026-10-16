@@ -13,12 +13,12 @@ description: "Repository map for ezbookkeeping. Use when locating feature entry 
 
 ## Navigation Rules
 
-- Backend HTTP behavior starts from `pkg/api/*` and `cmd/webserver.go`.
+- Backend HTTP behavior starts from `pkg/api/*`, `cmd/webserver_api_routes.go` and `cmd/webserver.go`.
 - Domain/data behavior is usually in `pkg/services/*` and `pkg/models/*`.
-- Config authority is in `pkg/settings/setting.go` and `conf/ezbookkeeping.ini`.
+- Config authority is in `pkg/settings/` (schema, loaders, defaults and validation); `conf/ezbookkeeping.ini` documents the public options.
 - AI provider and model protocol code is in `pkg/llm/provider/*`.
-- Shared frontend behavior belongs in `src/views/base/*`; platform rendering lives in `src/views/desktop/*` and `src/views/mobile/*`.
-- Client-server wiring is usually in `src/lib/services.ts` and `src/lib/server_settings.ts`.
+- Shared page behavior belongs in `src/views/base/*`, shared state in `src/stores/*`, and shared rendering in `src/components/common/*`; platform routes/views/components adapt desktop and mobile navigation and UI.
+- Client-server wiring lives in `src/lib/services/*`; `src/lib/services.ts` is the existing facade. General server flags use `src/lib/server_settings.ts`; persistent assistant capabilities and effective limits use the authenticated assistant capabilities endpoint and shared assistant store.
 
 ## Execution Steps
 

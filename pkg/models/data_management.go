@@ -4,7 +4,8 @@ import "github.com/mayswind/ezbookkeeping/pkg/core"
 
 // ClearDataRequest represents all parameters of clear user data request
 type ClearDataRequest struct {
-	Password string `json:"password" binding:"omitempty,min=6,max=128"`
+	AssistantCommand *AssistantCommand `json:"assistantCommand,omitempty"`
+	Password         string            `json:"password" binding:"omitempty,min=6,max=128"`
 }
 
 // ClearAccountTransactionsRequest represents all parameters of clear transaction data of a specific account request
@@ -24,6 +25,9 @@ type DataStatisticsResponse struct {
 	TotalTransactionTemplateCount  int64 `json:"totalTransactionTemplateCount,string"`
 	TotalScheduledTransactionCount int64 `json:"totalScheduledTransactionCount,string"`
 	TotalCustomIconCount           int64 `json:"totalCustomIconCount,string"`
+	AssistantUsedBytes             int64 `json:"assistantUsedBytes,string"`
+	AssistantReservedBytes         int64 `json:"assistantReservedBytes,string"`
+	AssistantConversationCount     int   `json:"assistantConversationCount"`
 }
 
 // ExportTransactionDataRequest represents export transaction request

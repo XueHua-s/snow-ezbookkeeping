@@ -1,0 +1,13 @@
+{
+  "name": "ebk-assistant-e2e-<task>",
+  "events": [
+    {
+      "action": "start",
+      "at": "2026-10-15T23:14:54.240Z"
+    },
+    {
+      "action": "remove",
+      "at": "2026-10-15T23:15:19.692Z"
+    }
+  ]
+}

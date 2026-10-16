@@ -1,0 +1,97 @@
+{
+  "history": {
+    "fixture": {
+      "turns": 120,
+      "seed": "completed API-created synthetic question/answer copied only inside isolated SQLite fixture",
+      "messageBytes": 555816
+    },
+    "anchors": [
+      {
+        "before": {
+          "id": "3848431142243926199",
+          "offset": 69.1875,
+          "count": 30
+        },
+        "after": {
+          "id": "3848431142243926199",
+          "offset": 69.59375,
+          "count": 60
+        }
+      },
+      {
+        "before": {
+          "id": "3848431142243926139",
+          "offset": 69.1875,
+          "count": 60
+        },
+        "after": {
+          "id": "3848431142243926139",
+          "offset": 69.59375,
+          "count": 90
+        }
+      },
+      {
+        "before": {
+          "id": "3848431142243926079",
+          "offset": 69.1875,
+          "count": 90
+        },
+        "after": {
+          "id": "3848431142243926079",
+          "offset": 69.125,
+          "count": 90
+        }
+      }
+    ],
+    "bounded": {
+      "count": 90,
+      "first": 1,
+      "last": 90
+    },
+    "latest": 120,
+    "viewportReflow": {
+      "before": {
+        "id": "3848431142243926201",
+        "offset": -355.265625,
+        "count": 30
+      },
+      "after": {
+        "id": "3848431142243926201",
+        "offset": -355.265625
+      }
+    },
+    "viewport": {
+      "width": 1100,
+      "height": 760
+    }
+  },
+  "remoteDelete": {
+    "id": "",
+    "count": 0,
+    "draft": "",
+    "localDrafts": 0
+  },
+  "passed": [
+    "persist-before-HTTP",
+    "unknown-response-refresh-original-ID",
+    "confirm-without-resend",
+    "same-server-run-completed",
+    "two-stage-branch-failed-first-send-retains-target",
+    "delete-clears-current",
+    "independent-browser-context-remote-delete-clears-DOM-and-draft"
+  ],
+  "sends": 1,
+  "providerCalls": 3,
+  "artifacts": "/tmp/ebk-store-history-smoke",
+  "status": "passed",
+  "limitations": [
+    "120-turn fixture uses synthetic SQLite insertion then real API and DOM; not 120 model calls",
+    "Provider is deterministic test server, not real model certification",
+    "Reflow evidence covers viewport resize; does not certify every asynchronous resource loading case"
+  ],
+  "unitTests": {
+    "store": 28,
+    "relatedTotal": 35,
+    "result": "passed"
+  }
+}

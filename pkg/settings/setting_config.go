@@ -88,6 +88,7 @@ type Config struct {
 	AIAssistantLLMConfig                     *LLMConfig
 	AIAssistantFallbackLLMConfig             *LLMConfig
 	AIAssistantRuntimeConfig                 AIAssistantRuntimeConfig
+	AIAssistantExperience                    AIAssistantExperienceConfig
 
 	CodingAssistantLLMConfig *LLMConfig
 

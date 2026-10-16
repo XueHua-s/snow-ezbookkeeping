@@ -1,0 +1,33 @@
+{
+  "name": "ebk-assistant-e2e-93572aa4-f5ee-4ca9-a4ff-8e8ae724cacd",
+  "events": [
+    {
+      "action": "start",
+      "at": "2026-10-15T23:42:02.675Z"
+    },
+    {
+      "action": "stop",
+      "at": "2026-10-15T23:42:04.955Z"
+    },
+    {
+      "action": "start",
+      "at": "2026-10-15T23:42:05.067Z"
+    },
+    {
+      "action": "stop",
+      "at": "2026-10-15T23:42:05.215Z"
+    },
+    {
+      "action": "start",
+      "at": "2026-10-15T23:42:05.337Z"
+    },
+    {
+      "action": "stop",
+      "at": "2026-10-15T23:42:08.306Z"
+    },
+    {
+      "action": "remove",
+      "at": "2026-10-15T23:42:08.385Z"
+    }
+  ]
+}

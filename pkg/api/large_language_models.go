@@ -21,6 +21,7 @@ import (
 type LargeLanguageModelsApi struct {
 	ApiUsingConfig
 	assistant             *assistantDependencies
+	experience            *assistantExperienceDependencies
 	transactions          *services.TransactionService
 	transactionCategories *services.TransactionCategoryService
 	transactionTags       *services.TransactionTagService

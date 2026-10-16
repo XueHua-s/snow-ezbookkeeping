@@ -1,0 +1,18 @@
+{
+  "name": "ebk-assistant-e2e-93572aa4-f5ee-4ca9-a4ff-8e8ae724cacd",
+  "imageId": "sha256:b4e96d3244f696663aad9ff84a9c5cfd4c850371ec0a0ed14402bda735fcbd81",
+  "user": "1000:1000",
+  "entrypoint": [
+    "/docker-entrypoint.sh"
+  ],
+  "mounts": [],
+  "ports": {
+    "8080/tcp": [
+      {
+        "HostIp": "127.0.0.1",
+        "HostPort": "57429"
+      }
+    ]
+  },
+  "provider": "Host loopback fixture via Colima host.lima.internal; no provider port published; default Docker bridge has outbound access"
+}

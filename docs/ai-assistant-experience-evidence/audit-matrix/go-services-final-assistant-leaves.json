@@ -1,0 +1,2192 @@
+[
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateSixTransactionTruth",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateExternalTruth/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateExternalTruth/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.12
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateSharedFiltersAndIsolation",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateFull2500AndOverflow",
+    "status": "pass",
+    "elapsedSeconds": 0.08
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregatePeriodsAndOrdinalComparison",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateMissingCategoryComparison",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateCalendarAndEmptyWidePages",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateRatios",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/group_keyasc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/group_keydesc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/sumasc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/sumdesc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/countasc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/countdesc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/minasc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/mindesc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/maxasc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateStableMetricPagesAndFreshTotals/maxdesc",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateByteBudgetAndCancellation",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateWideMetricZeroPaging",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateZeroCombinationsAreNotCartesian",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateVirtualDeepSeekAndFiniteEnd",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateMidnightDSTAndSkippedDate",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAggregateHistoricalOffsetPreservesInstant",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantBalancesFullTotalsLeafHierarchyAndOverpayment",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantBalancesMixedInaccessibleIDsFail",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantBalancesExactBeyondInt64AndMinimumLiability",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantBalancesCurrentTotalsIndependentOfPageHighWater",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantClearThousandConversations/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantClearThousandConversations/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.62
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantClearThousandConversations/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.51
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCleanupSkipsEmptyStates",
+    "status": "pass",
+    "elapsedSeconds": 0.19
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLifecycleDatabaseContracts/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLifecycleDatabaseContracts/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLifecycleDatabaseContracts/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantAccountFencePreservesDisabledHistory",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCleanupBoundsAndPreservesOtherUsers",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantContextThirtyTurnsTwoCompactions",
+    "status": "pass",
+    "elapsedSeconds": 0.06
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantContextCompactionCASRejectsChangedVersion",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantContextConservativeWindow",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantPrepareUsesAcceptedPolicyAndLatestQuestion",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantPrepareActualWireFitsDefaultBudget",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCompactToolSchemaPreservesEveryConstraint",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantPrepareThirtyTwoTurnsAutomaticCompaction",
+    "status": "pass",
+    "elapsedSeconds": 0.18
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantPrepareRejectsOversizedContextBeforeModelCall",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantSavedCursorHandleIsRunLocalAndNeverPersisted",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationIncludeArchivedListsAndSearchesBothStates",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationCursorIsolationAndExpiry/another_user",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationCursorIsolationAndExpiry/another_filter",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationCursorIsolationAndExpiry/another_key",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationCursorIsolationAndExpiry/expired",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationCursorIsolationAndExpiry/malformed",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationCursorIsolationAndExpiry/tampered",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationSearchLiteralPattern",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationExportBatchesKeepQuestionVersionGroups/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationExportBatchesKeepQuestionVersionGroups/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.19
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationExportBatchesKeepQuestionVersionGroups/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationMemoryOffRevokesOtherRunsWithoutRevokingBranch",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantSnapshotExcludesPrivateGenerationData",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantSnapshotRejectsCorruptEvidence",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationBranchQueryRestartAuthorization",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationExportViewedVersionDoesNotChangeContext",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationBranchCannotReintroduceClearedLedgerPrefix",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/sqlite3/ImmutableBranchAndUID",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/sqlite3/ReceiptClearAndLiteralSearch",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/sqlite3/PagingAndRetryPreservesQuestion",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/mysql/ImmutableBranchAndUID",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/mysql/ReceiptClearAndLiteralSearch",
+    "status": "pass",
+    "elapsedSeconds": 0.12
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/mysql/PagingAndRetryPreservesQuestion",
+    "status": "pass",
+    "elapsedSeconds": 0.21
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/postgres/ImmutableBranchAndUID",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/postgres/ReceiptClearAndLiteralSearch",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationsDatabaseContracts/postgres/PagingAndRetryPreservesQuestion",
+    "status": "pass",
+    "elapsedSeconds": 0.24
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantConversationByteBudgetAndCompactedAncestor",
+    "status": "pass",
+    "elapsedSeconds": 0.04
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorOnlyCanonicalEquivalenceAndMismatch/cursor_only",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorOnlyCanonicalEquivalenceAndMismatch/explicit_default_page",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorOnlyCanonicalEquivalenceAndMismatch/equivalent_filter",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorOnlyCanonicalEquivalenceAndMismatch/different_page",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorOnlyCanonicalEquivalenceAndMismatch/different_amount",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorOnlyCanonicalEquivalenceAndMismatch/null_optional_filter_is_omitted",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorOnlyCanonicalEquivalenceAndMismatch/different_ordering",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/cross_uid",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/new_secret",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/other_purpose",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/timezone",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/expires_exactly_24h",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/future_issuance",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/tampered_payload",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/tampered_MAC",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorAuthenticationExpiryAndPurpose/oversized",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorFixedSigningVector",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorReauthorizationAndParentExpansion",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantNormalizeToolArgumentsCacheKey",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantCursorStrictProviderNullFieldsPreserveBoundConditions",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDescribeContinuationScopeDoesNotExecute",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantContinuationRequiresSignedNonemptyCursor",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/sqlite3/seven_tools_six_truth_and_balances",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/sqlite3/filters_and_rejection",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/sqlite3/2500_history_and_deep_ranking",
+    "status": "pass",
+    "elapsedSeconds": 0.91
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/mysql/seven_tools_six_truth_and_balances",
+    "status": "pass",
+    "elapsedSeconds": 0.25
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/mysql/filters_and_rejection",
+    "status": "pass",
+    "elapsedSeconds": 0.21
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/mysql/2500_history_and_deep_ranking",
+    "status": "pass",
+    "elapsedSeconds": 2.24
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/postgres/seven_tools_six_truth_and_balances",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/postgres/filters_and_rejection",
+    "status": "pass",
+    "elapsedSeconds": 0.15
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabaseContracts/postgres/2500_history_and_deep_ranking",
+    "status": "pass",
+    "elapsedSeconds": 2.09
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabase100KPlans",
+    "status": "skip",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantExperienceHistoryPerformance",
+    "status": "skip",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/defaults",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/null_defaults",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/array_empty_account",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/array_empty_category",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/array_empty_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/array_empty_type",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/arrays_null",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/any",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/all",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/no_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/tags_conflict",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/isolated_tag_match",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/isolated_tag_match_null",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/unknown_root",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/unknown_nested",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/duplicate_root",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/duplicate_nested_escaped",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/duplicate_nested_null",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/two_roots",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/nonobject",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/null_root",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/wrong_string",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/invalid_enum",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/null_array_element",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/numeric_id",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/empty_id",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/zero_id",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/id_overflow",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/negative_id",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/page_zero",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/page_negative",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/page_over",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/page_floating",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/page_scientific",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/page_overflow",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/page_200",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/empty_required_id",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/missing_required_id",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/null_required_id",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/large_string_id",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/fraction_time",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/zero_fraction_time",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/time_overflow",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/time_inverted",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/time_epoch",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_no_currency",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_negative",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_overflow",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_underflow",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_inverted",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_precision",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_scientific",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_NaN",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_comma",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_sort_multicurrency",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_sort_transfer_unspecified",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_sort_side",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/amount_sort_expense",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/empty_groups",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/duplicate_groups",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/multiple_time_groups",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/unsupported_week",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/empty_metrics",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/unselected_sort",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/selected_sort",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/empty_periods",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/missing_period_bound",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/null_period_bound",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/empty_period_name",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/periods_conflicting_filter",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/undefined_comparison",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/balance_empty_ids",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStrictArgumentMatrix/literal_keywords",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantNormalizationAndExactAmounts",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantArgumentLimitsAndSchemaSingleSource",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearScaling/sqlite3/0",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearScaling/sqlite3/1000",
+    "status": "pass",
+    "elapsedSeconds": 0.14
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearScaling/mysql/0",
+    "status": "pass",
+    "elapsedSeconds": 0.29
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearScaling/mysql/1000",
+    "status": "pass",
+    "elapsedSeconds": 1.52
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearScaling/postgres/0",
+    "status": "pass",
+    "elapsedSeconds": 0.31
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearScaling/postgres/1000",
+    "status": "pass",
+    "elapsedSeconds": 1.67
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/sqlite3/scan_count_independent_of_deletions/1",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/sqlite3/scan_count_independent_of_deletions/25",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/sqlite3/new_run_between_deletions",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/sqlite3/completed_same_turn_regeneration",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/sqlite3/partial_failure_keeps_prior_commit",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/sqlite3/rollback_and_final_cas_retry",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/mysql/scan_count_independent_of_deletions/1",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/mysql/scan_count_independent_of_deletions/25",
+    "status": "pass",
+    "elapsedSeconds": 0.28
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/mysql/new_run_between_deletions",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/mysql/completed_same_turn_regeneration",
+    "status": "pass",
+    "elapsedSeconds": 0.2
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/mysql/partial_failure_keeps_prior_commit",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/mysql/rollback_and_final_cas_retry",
+    "status": "pass",
+    "elapsedSeconds": 0.2
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/postgres/scan_count_independent_of_deletions/1",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/postgres/scan_count_independent_of_deletions/25",
+    "status": "pass",
+    "elapsedSeconds": 0.28
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/postgres/new_run_between_deletions",
+    "status": "pass",
+    "elapsedSeconds": 0.12
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/postgres/completed_same_turn_regeneration",
+    "status": "pass",
+    "elapsedSeconds": 0.15
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/postgres/partial_failure_keeps_prior_commit",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearReuseDatabaseContracts/postgres/rollback_and_final_cas_retry",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/sqlite3/all-transactions",
+    "status": "pass",
+    "elapsedSeconds": 0.04
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/sqlite3/all-data",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/sqlite3/account",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/mysql/all-transactions",
+    "status": "pass",
+    "elapsedSeconds": 0.19
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/mysql/all-data",
+    "status": "pass",
+    "elapsedSeconds": 0.2
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/mysql/account",
+    "status": "pass",
+    "elapsedSeconds": 0.2
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/postgres/all-transactions",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/postgres/all-data",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearCommitFencesInterleavedRun/postgres/account",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearRollbackKeepsRun/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearRollbackKeepsRun/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.1
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerClearRollbackKeepsRun/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.12
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerAccountClearPartialFailure/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.04
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerAccountClearPartialFailure/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.18
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerAccountClearPartialFailure/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.14
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerRepeatedClearAfterSameTurnRegeneration/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerRepeatedClearAfterSameTurnRegeneration/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.14
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLedgerRepeatedClearAfterSameTurnRegeneration/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryListExportContract/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryListExportContract/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.09
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryListExportContract/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.09
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryRevocationBeyondDefaultConcurrency/sqlite3/disable",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryRevocationBeyondDefaultConcurrency/sqlite3/invalidate-source",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryRevocationBeyondDefaultConcurrency/mysql/disable",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryRevocationBeyondDefaultConcurrency/mysql/invalidate-source",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryRevocationBeyondDefaultConcurrency/postgres/disable",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryRevocationBeyondDefaultConcurrency/postgres/invalidate-source",
+    "status": "pass",
+    "elapsedSeconds": 0.2
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryConfirmForgetAndRunningRevocation/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryConfirmForgetAndRunningRevocation/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.15
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryConfirmForgetAndRunningRevocation/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryCandidatesRequireUserQuoteAndExclusion/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryCandidatesRequireUserQuoteAndExclusion/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.1
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryCandidatesRequireUserQuoteAndExclusion/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.11
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryBackgroundIdleBudgetAndDisableFence/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryBackgroundIdleBudgetAndDisableFence/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMemoryBackgroundIdleBudgetAndDisableFence/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.14
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataFullPagesHierarchyAndIsolation/list_accounts",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataFullPagesHierarchyAndIsolation/list_categories",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataFullPagesHierarchyAndIsolation/list_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataLiteralSearchAndTypeScope",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataEmptyLedger",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataByteLimitedPagesDoNotSkip/list_accounts",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataByteLimitedPagesDoNotSkip/list_categories",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataByteLimitedPagesDoNotSkip/list_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataByteLimitedPagesDoNotSkip/get_account_balances",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataOversizedEntityFails",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantQueryFoundationExternal/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantQueryFoundationExternal/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.09
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStaticRegistryAndUnsupportedBoundary",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/all_hidden_future_effective",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/parent_child_dedup",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/parent_category",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/mixed_accounts",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/deleted_account",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/mixed_category",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/deleted_category",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/mixed_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/deleted_tag",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/any_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/all_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/no_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/literal_percent",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/literal_underscore",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/literal_backslash",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/case_insensitive",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/half_open_seconds",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/refund",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/destination_source_amount_cannot_mix",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/destination_match",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantReadOwnershipHiddenDeletedAndTagCombinations/source_only_destination_excluded",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/reciprocal",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/missing_source",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/cross_uid_source",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/deleted_source",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/missing_destination",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/wrong_reciprocal",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/wrong_amount",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/deleted_required_account",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/foreign_required_account",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/deleted_required_category",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/foreign_active_tag_relation",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/missing_active_tag_relation",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/deleted_tag_excluded",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/missing_tag_group",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/foreign_parent_account",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantLogicalTransferDetailsAndConsistency/foreign_parent_category",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantQueryObservationAndBoundedBatch",
+    "status": "pass",
+    "elapsedSeconds": 0.07
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantPageFitsShrinksWithoutSkippingAndMeasuresActualRecords",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantMetadataScopeUsesTopLevelFilters",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRegistryRealSevenTools/list_accounts",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRegistryRealSevenTools/list_categories",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRegistryRealSevenTools/list_tags",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRegistryRealSevenTools/query_transactions",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRegistryRealSevenTools/get_transaction",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRegistryRealSevenTools/aggregate_transactions",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRegistryRealSevenTools/get_account_balances",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunEvidenceExactAmountsAndContinuation",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerRealRunnerOutputAndEmpty/complete",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerRealRunnerOutputAndEmpty/empty",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerRealRunnerOutputAndEmpty/limit",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerCancelAbortsProviderAndCannotComplete",
+    "status": "pass",
+    "elapsedSeconds": 0.51
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerIdlePollDoesNotWriteSnapshots",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerStorageFailureStopsProviderWithoutFalseCompletion",
+    "status": "pass",
+    "elapsedSeconds": 1.24
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerApplicationStopCancelsAndSettles/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerApplicationStopCancelsAndSettles/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerApplicationStopCancelsAndSettles/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.11
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantWorkerProviderOutputLimitPersistsPartial",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/sqlite3/completed",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/sqlite3/failed",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/sqlite3/canceled",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/mysql/completed",
+    "status": "pass",
+    "elapsedSeconds": 0.11
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/mysql/failed",
+    "status": "pass",
+    "elapsedSeconds": 0.11
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/mysql/canceled",
+    "status": "pass",
+    "elapsedSeconds": 0.11
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/postgres/completed",
+    "status": "pass",
+    "elapsedSeconds": 0.12
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/postgres/failed",
+    "status": "pass",
+    "elapsedSeconds": 0.12
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunSendSettlementDatabaseContracts/postgres/canceled",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunDatabaseFencingAndRecovery/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunDatabaseFencingAndRecovery/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.12
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunDatabaseFencingAndRecovery/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunExpiredClaimNeverReplays",
+    "status": "pass",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunQueueExpiresAndDependencyRevocation/queue",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunQueueExpiresAndDependencyRevocation/epoch",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantRunAcceptancePolicySurvivesConfigReduction",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageRevocationAndRetention/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageRevocationAndRetention/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.12
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageRevocationAndRetention/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageExternalOperationAcceptance/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.32
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageExternalOperationAcceptance/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageExternalOperationAcceptance/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/sqlite3/receipt_epoch_rollback_and_retention",
+    "status": "pass",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/sqlite3/concurrent_quota_and_once_settlement",
+    "status": "pass",
+    "elapsedSeconds": 0.22
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/sqlite3/bounded_fields_logging_and_legacy",
+    "status": "pass",
+    "elapsedSeconds": 0.75
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/mysql/receipt_epoch_rollback_and_retention",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/mysql/concurrent_quota_and_once_settlement",
+    "status": "pass",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/mysql/bounded_fields_logging_and_legacy",
+    "status": "pass",
+    "elapsedSeconds": 0.92
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/postgres/receipt_epoch_rollback_and_retention",
+    "status": "pass",
+    "elapsedSeconds": 0.14
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/postgres/concurrent_quota_and_once_settlement",
+    "status": "pass",
+    "elapsedSeconds": 0.24
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantStorageDatabaseContracts/postgres/bounded_fields_logging_and_legacy",
+    "status": "pass",
+    "elapsedSeconds": 0.97
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantSubscriptionDatabaseLeases/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 0.4
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantSubscriptionDatabaseLeases/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.19
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantSubscriptionDatabaseLeases/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.17
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsProjectionAndCanonicalDetail",
+    "status": "pass",
+    "elapsedSeconds": 0.04
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsFullHistoryAndStablePages",
+    "status": "pass",
+    "elapsedSeconds": 0.24
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsMatchingAndAmountOrder",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsStableTiesAndAmountCursor",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsByteBudgetKeepsActualLastRow",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsHighWaterIsMatchingAndReauthorized",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsInaccessibleAndBrokenRelations/deleted_account",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsInaccessibleAndBrokenRelations/foreign_account",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsInaccessibleAndBrokenRelations/deleted_category",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsInaccessibleAndBrokenRelations/foreign_category",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsInaccessibleAndBrokenRelations/foreign_tag",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsInaccessibleAndBrokenRelations/missing_transfer",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsInaccessibleAndBrokenRelations/foreign_transfer",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsInaccessibleAndBrokenRelations/deleted_transfer",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsEmptyAndDeletedTag",
+    "status": "pass",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsExactOrderKeys",
+    "status": "pass",
+    "elapsedSeconds": 0
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsExternal/mysql",
+    "status": "pass",
+    "elapsedSeconds": 0.21
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantTransactionsExternal/postgres",
+    "status": "pass",
+    "elapsedSeconds": 0.11
+  }
+]

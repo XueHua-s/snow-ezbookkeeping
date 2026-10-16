@@ -1,0 +1,173 @@
+{
+  "at": "2026-10-15T23:45:24.413866+00:00",
+  "scope": "D8 harness-only bounded commands and explicit task resource cleanup; no product changes",
+  "build": {
+    "exit": 0,
+    "imageId": "sha256:b4e96d3244f696663aad9ff84a9c5cfd4c850371ec0a0ed14402bda735fcbd81",
+    "tag": "ebk-assistant-validation:20261016-bounded"
+  },
+  "equivalence": {
+    "baseline": "audit-e2e/build/build-provenance.json",
+    "frontendEqual": true,
+    "linuxBinaryEqual": true,
+    "sourceTreeEqual": false,
+    "note": "Source hash includes Go test files; source hash equality is not claimed. Linux executable and frontend bytes are identical."
+  },
+  "checks": [
+    {
+      "command": "focused Vitest: bounded-command/build-resources/environment/cleanup/docker-runtime",
+      "exit": 0,
+      "files": 5,
+      "tests": 21
+    },
+    {
+      "command": "bounded validation image build (fresh npm build + Linux CGO compile)",
+      "exit": 0
+    },
+    {
+      "command": "Docker smoke against 20261016-bounded image",
+      "exit": 0,
+      "scenarios": 10
+    },
+    {
+      "command": "Real Docker run without --rm, 1000ms timeout then explicit cleanup",
+      "exit": 0
+    },
+    {
+      "command": "Six edited/new runner/helper scripts node --check",
+      "exit": 0
+    },
+    {
+      "command": "npm run check:source-lines",
+      "exit": 0,
+      "files": 1716,
+      "over500": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0
+    },
+    {
+      "command": "Parent independent npm run test",
+      "exit": 0,
+      "files": 44,
+      "tests": 38917,
+      "attribution": "Parent executed; not repeated by child"
+    }
+  ],
+  "redChecks": [
+    {
+      "mutation": "Delay command deadline beyond test watchdog",
+      "exit": 1,
+      "failedTests": 1
+    },
+    {
+      "mutation": "Omit explicit daemon cleanup",
+      "exit": 1,
+      "failedTests": 2
+    },
+    {
+      "mutation": "Remove output chunk truncation",
+      "exit": 1,
+      "failedTests": 1
+    }
+  ],
+  "initialProbeCorrection": "First real-timeout probe expected uppercase No such object but current Docker inspect emits lowercase; assertion made case insensitive and rerun passed. Explicit rm had already succeeded; no product/helper change.",
+  "cleanup": {
+    "taskContainersRemaining": 0,
+    "taskNetworksCreated": 0,
+    "temporaryBuildAndFixtureDirectoriesRemoved": true,
+    "unrelatedContainerPreserved": "codex-s03-build",
+    "retainedImage": "ebk-assistant-validation:20261016-bounded"
+  },
+  "limits": {
+    "normalCommandsMs": 30000,
+    "frontendGoDockerBuildMs": 600000,
+    "productionSmokeMs": 180000,
+    "terminationGraceMs": 500,
+    "captureMaxBytes": 16777216,
+    "exitFallbackPerContainerMs": 10000
+  },
+  "notRun": [
+    "Full business E2E rerun (identical frontend and Linux executable; existing Gate16 evidence retained)",
+    "Stock Dockerfile/Node26 frontend stage/exact Alpine runtime image",
+    "Commercial providers/physical input/manual screen reader/actual bfcache"
+  ],
+  "logs": [
+    {
+      "path": ".vitest/final-build-cleanup/source-lines.log",
+      "sha256": "ad1a4ddf742ed91b5936f71b3a1f9871990a30cbf258bb55c83bfcd7b789a46e",
+      "bytes": 144
+    },
+    {
+      "path": ".vitest/final-build-cleanup/process-initial.log",
+      "sha256": "32db418956afd1866ea2ace1736b39107da68ff20f5dc0d143279a85b9bbae36",
+      "bytes": 196
+    },
+    {
+      "path": ".vitest/final-build-cleanup/real-docker-timeout-initial.log",
+      "sha256": "ebaa82c00f063ece32edcf954ca4bdc0ea756e52cfb894ddf1ae78b99b4950a3",
+      "bytes": 671
+    },
+    {
+      "path": ".vitest/final-build-cleanup/focused-initial.log",
+      "sha256": "f335ba51dd6d80ee2f2664aa1e7dbd3e89adbfa2efff6758c4c45809956e68df",
+      "bytes": 196
+    },
+    {
+      "path": ".vitest/final-build-cleanup/focused-final.log",
+      "sha256": "79e97d986f3b95ab6dade1bc3a52c49eea054a8dadbf02a9e04d789b997823f0",
+      "bytes": 196
+    },
+    {
+      "path": ".vitest/final-build-cleanup/timeout-red.log",
+      "sha256": "7aab75871e41fa430c9cbea71b6b64f181fb28441897b82fc16c113af1dafe89",
+      "bytes": 1263
+    },
+    {
+      "path": ".vitest/final-build-cleanup/smoke.log",
+      "sha256": "123a0ae687c08cb925a2591b5c283d5f8d174fd10e6aad83199a059a96b3db51",
+      "bytes": 1868
+    },
+    {
+      "path": ".vitest/final-build-cleanup/real-docker-timeout.log",
+      "sha256": "499880f1cbaff97aab23bd80d61bc68b72676219b2c40be67674ab33eebdd1d7",
+      "bytes": 110
+    },
+    {
+      "path": ".vitest/final-build-cleanup/cleanup-red.log",
+      "sha256": "f9dbb97aee5cace7e0e876d6f12e5bdd5cec0b17cfd69f224445c4e252118cc6",
+      "bytes": 2214
+    },
+    {
+      "path": ".vitest/final-build-cleanup/focused-green.log",
+      "sha256": "7a521cb667824bf660c331fbc0772b4891bd1b96f25680b401a9673af463fcad",
+      "bytes": 196
+    },
+    {
+      "path": ".vitest/final-build-cleanup/output-red.log",
+      "sha256": "13713cef77fab7adeb3ef18cf14ecbac600c601983adba099859d89cd2f3a332",
+      "bytes": 1152
+    },
+    {
+      "path": ".vitest/final-build-cleanup/build.log",
+      "sha256": "1f6816e465db2b6e232ab87f02107dc5fc2d73e1e63a423327dae3e20c4acd3d",
+      "bytes": 11052
+    },
+    {
+      "path": ".vitest/final-build-cleanup/smoke/application.log",
+      "sha256": "781c178c9b58f9035e4dd61110c23fc710a9a4b5b02cf4ff15f9f91c328620c7",
+      "bytes": 54868
+    },
+    {
+      "path": "/tmp/ebk-parent-final-unit.log",
+      "sha256": "11d525c1debb6251a2c80156b2a22a26804f4e52c3e226151d01dccdebcafd4c",
+      "bytes": 530
+    },
+    {
+      "path": "/tmp/ebk-parent-final-lines.log",
+      "sha256": "ad1a4ddf742ed91b5936f71b3a1f9871990a30cbf258bb55c83bfcd7b789a46e",
+      "bytes": 144
+    }
+  ]
+}

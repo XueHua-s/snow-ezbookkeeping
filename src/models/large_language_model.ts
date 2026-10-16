@@ -51,6 +51,8 @@ export interface AIAssistantReferencedTransaction {
     readonly sourceAccountName?: string;
     readonly destinationAccountName?: string;
     readonly sourceAmount: number;
+    readonly sourceAmountMinor?: string;
+    readonly destinationAmountMinor?: string;
     readonly destinationAmount?: number;
     readonly currency?: string;
     readonly destinationCurrency?: string;

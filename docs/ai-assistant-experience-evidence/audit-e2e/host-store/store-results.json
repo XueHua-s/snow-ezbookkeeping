@@ -1,0 +1,89 @@
+{
+  "backend": "current host Go build and isolated SQLite (not Docker)",
+  "frontend": "Vite current source with real store module imports",
+  "browser": "156.0.8078.4",
+  "history": {
+    "fixture": {
+      "turns": 120,
+      "seed": "completed API-created synthetic question/answer copied only inside isolated SQLite fixture",
+      "messageBytes": 555816
+    },
+    "anchors": [
+      {
+        "before": {
+          "id": "synthetic-id-1",
+          "offset": -402.953125,
+          "count": 30
+        },
+        "after": {
+          "id": "synthetic-id-1",
+          "offset": -402.546875,
+          "count": 60
+        }
+      },
+      {
+        "before": {
+          "id": "synthetic-id-2",
+          "offset": 69.1875,
+          "count": 60
+        },
+        "after": {
+          "id": "synthetic-id-2",
+          "offset": 69.59375,
+          "count": 90
+        }
+      },
+      {
+        "before": {
+          "id": "synthetic-id-3",
+          "offset": 69.1875,
+          "count": 90
+        },
+        "after": {
+          "id": "synthetic-id-3",
+          "offset": 69.125,
+          "count": 90
+        }
+      }
+    ],
+    "bounded": {
+      "count": 90,
+      "first": 1,
+      "last": 90
+    },
+    "latest": 120,
+    "viewportReflow": {
+      "before": {
+        "id": "synthetic-id-4",
+        "offset": -355.265625,
+        "count": 30
+      },
+      "after": {
+        "id": "synthetic-id-4",
+        "offset": -355.265625
+      }
+    },
+    "viewport": {
+      "width": 1100,
+      "height": 760
+    }
+  },
+  "remoteDelete": {
+    "id": "",
+    "count": 0,
+    "draft": "",
+    "localDrafts": 0
+  },
+  "passed": [
+    "persist-before-HTTP",
+    "unknown-response-refresh-original-ID",
+    "confirm-without-resend",
+    "same-server-run-completed",
+    "two-stage-branch-failed-first-send-retains-target",
+    "delete-clears-current",
+    "independent-browser-context-remote-delete-clears-DOM-and-draft"
+  ],
+  "sends": 1,
+  "providerCalls": 3,
+  "artifacts": "<workspace>/.vitest/final-host-store-fixed"
+}

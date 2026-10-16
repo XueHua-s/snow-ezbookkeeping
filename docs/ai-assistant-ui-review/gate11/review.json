@@ -1,0 +1,378 @@
+[
+  {
+    "variant": "desktop",
+    "dark": false,
+    "colors": [
+      {
+        "state": "rest",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.582353 0.370588 0.211765)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          149,
+          94,
+          54
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "light",
+        "ratio": 5.340437603189229
+      },
+      {
+        "state": "hover",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.504706 0.321176 0.183529)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          129,
+          82,
+          47
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "light",
+        "ratio": 6.600888431598556
+      },
+      {
+        "state": "focus",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.582353 0.370588 0.211765)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          149,
+          94,
+          54
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(0, 0, 0)",
+        "colorScheme": "light",
+        "ratio": 5.340437603189229
+      },
+      {
+        "state": "pressed",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.504706 0.321176 0.183529)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          129,
+          82,
+          47
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(0, 0, 0)",
+        "colorScheme": "light",
+        "ratio": 6.600888431598556
+      }
+    ],
+    "topLayer": {
+      "outsideFound": true,
+      "outsideFocusBlocked": true,
+      "modal": true
+    },
+    "errors": [],
+    "titleAccessible": true,
+    "resizeAndNavigation": "PASS"
+  },
+  {
+    "variant": "desktop",
+    "dark": true,
+    "colors": [
+      {
+        "state": "rest",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.582353 0.370588 0.211765)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          149,
+          94,
+          54
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "dark",
+        "ratio": 5.340437603189229
+      },
+      {
+        "state": "hover",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.504706 0.321176 0.183529)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          129,
+          82,
+          47
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "dark",
+        "ratio": 6.600888431598556
+      },
+      {
+        "state": "focus",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.582353 0.370588 0.211765)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          149,
+          94,
+          54
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "dark",
+        "ratio": 5.340437603189229
+      },
+      {
+        "state": "pressed",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.504706 0.321176 0.183529)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          129,
+          82,
+          47
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "dark",
+        "ratio": 6.600888431598556
+      }
+    ],
+    "topLayer": {
+      "outsideFound": true,
+      "outsideFocusBlocked": true,
+      "modal": true
+    },
+    "errors": [],
+    "titleAccessible": true,
+    "resizeAndNavigation": "PASS"
+  },
+  {
+    "variant": "mobile",
+    "dark": false,
+    "colors": [
+      {
+        "state": "rest",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.582353 0.370588 0.211765)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          149,
+          94,
+          54
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "light",
+        "ratio": 5.340437603189229
+      },
+      {
+        "state": "hover",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.504706 0.321176 0.183529)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          129,
+          82,
+          47
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "light",
+        "ratio": 6.600888431598556
+      },
+      {
+        "state": "focus",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.582353 0.370588 0.211765)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          149,
+          94,
+          54
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(0, 0, 0)",
+        "colorScheme": "light",
+        "ratio": 5.340437603189229
+      },
+      {
+        "state": "pressed",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.504706 0.321176 0.183529)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          129,
+          82,
+          47
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(0, 0, 0)",
+        "colorScheme": "light",
+        "ratio": 6.600888431598556
+      }
+    ],
+    "topLayer": {
+      "outsideFound": true,
+      "outsideFocusBlocked": true,
+      "modal": true
+    },
+    "errors": [],
+    "titleAccessible": true,
+    "resizeAndNavigation": "PASS"
+  },
+  {
+    "variant": "mobile",
+    "dark": true,
+    "colors": [
+      {
+        "state": "rest",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.582353 0.370588 0.211765)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          149,
+          94,
+          54
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "dark",
+        "ratio": 5.340437603189229
+      },
+      {
+        "state": "hover",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.504706 0.321176 0.183529)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          129,
+          82,
+          47
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "dark",
+        "ratio": 6.600888431598556
+      },
+      {
+        "state": "focus",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.582353 0.370588 0.211765)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          149,
+          94,
+          54
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "dark",
+        "ratio": 5.340437603189229
+      },
+      {
+        "state": "pressed",
+        "foreground": "rgb(255, 255, 255)",
+        "background": "color(srgb 0.504706 0.321176 0.183529)",
+        "foregroundRGB": [
+          255,
+          255,
+          255
+        ],
+        "backgroundRGB": [
+          129,
+          82,
+          47
+        ],
+        "disabled": false,
+        "filter": "none",
+        "outlineColor": "rgb(255, 255, 255)",
+        "colorScheme": "dark",
+        "ratio": 6.600888431598556
+      }
+    ],
+    "topLayer": {
+      "outsideFound": true,
+      "outsideFocusBlocked": true,
+      "modal": true
+    },
+    "errors": [],
+    "titleAccessible": true,
+    "resizeAndNavigation": "PASS"
+  }
+]

@@ -1,0 +1,543 @@
+{
+  "date": "2026-10-15",
+  "oldCommit": "1a21bc9bfd2b155a3ed9b8ac57caff7c76bbb293",
+  "artifactDirectory": "/var/folders/pf/q768gkkd2zb8rl5rtp6w0nw40000gn/T/ebk_experience_migration_iap5gtsd",
+  "results": {
+    "sqlite3": {
+      "status": "PASS",
+      "backup_sha256": "46339d71f9b7474a70c420ed6f8076727318ab00e042234a5d96527639c2062c",
+      "source": "ebk_experience_migration_sqlite3_1792062589259701000",
+      "restored": "ebk_experience_migration_sqlite3_1792062589259701000_restored"
+    },
+    "mysql": {
+      "status": "PASS",
+      "backup_sha256": "438791448c7dda9463bb95f4706f7da5cc118285053b5f3e03d2bd62d75f01ad",
+      "source": "ebk_experience_migration_mysql_1792062591968797000",
+      "restored": "ebk_experience_migration_mysql_1792062591968797000_restored"
+    },
+    "postgres": {
+      "status": "PASS",
+      "backup_sha256": "c049c1c25b2caf35a7c8d979871ffbe9dc7f9f5c4c8e089f29f38533ff00c44f",
+      "source": "ebk_experience_migration_postgres_1792062595510322000",
+      "restored": "ebk_experience_migration_postgres_1792062595510322000_restored"
+    }
+  },
+  "manifests": {
+    "mysql-after-old-rollback.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "b196e42e9fb19ad72e735098db4a0a07b653cd3dc35e964e8629c9f8b70d8003",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "b96e0f9a7d19992fa4f61b926da1f5aac7102fa1a9023bcf596aca1ae4743206",
+        "rowCount": 1
+      }
+    },
+    "mysql-before.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "b196e42e9fb19ad72e735098db4a0a07b653cd3dc35e964e8629c9f8b70d8003",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "b96e0f9a7d19992fa4f61b926da1f5aac7102fa1a9023bcf596aca1ae4743206",
+        "rowCount": 1
+      }
+    },
+    "mysql-legacy-before.json": {
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      }
+    },
+    "mysql-legacy-upgraded.json": {
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      }
+    },
+    "mysql-recovered.json": {
+      "conversation": {
+        "sha256": "ebfd0c203c774ca04c701026d0011bc4188794309a7c6ead6e9dda4985e134a0",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "549e51897a4a535bc59d2358c66ef746b924048cdebf34268186ac6ef33b3416",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "744be64f0a2f60b5b4076ee88242567e8456b81042251ee5f0c59968599d1471",
+        "rowCount": 1
+      }
+    },
+    "mysql-restored.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "b196e42e9fb19ad72e735098db4a0a07b653cd3dc35e964e8629c9f8b70d8003",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "b96e0f9a7d19992fa4f61b926da1f5aac7102fa1a9023bcf596aca1ae4743206",
+        "rowCount": 1
+      }
+    },
+    "mysql-reupgraded.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "b196e42e9fb19ad72e735098db4a0a07b653cd3dc35e964e8629c9f8b70d8003",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "b96e0f9a7d19992fa4f61b926da1f5aac7102fa1a9023bcf596aca1ae4743206",
+        "rowCount": 1
+      }
+    },
+    "postgres-after-old-rollback.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "3d7d16665591783571ac6af17c628f8208bc0f264606d8e5170b79c73e616704",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "f3bc70273afb8b770013141f0d41d6da3f47b93f147e0ef4d0abaa5644ae402c",
+        "rowCount": 1
+      }
+    },
+    "postgres-before.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "3d7d16665591783571ac6af17c628f8208bc0f264606d8e5170b79c73e616704",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "f3bc70273afb8b770013141f0d41d6da3f47b93f147e0ef4d0abaa5644ae402c",
+        "rowCount": 1
+      }
+    },
+    "postgres-legacy-before.json": {
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      }
+    },
+    "postgres-legacy-upgraded.json": {
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      }
+    },
+    "postgres-recovered.json": {
+      "conversation": {
+        "sha256": "5edd449947f438f8a9363070783cb2d73ce02263134baaa7123f2923a2531d45",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "7a0620a1d91ef4f79cccb6c296a9d362f10d467843f8c9dbb2aa0d6b067907fb",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "1386cef55ce0ab519a22032f68aedad80fb43e27ce9c1fca611a03fd10fd46b8",
+        "rowCount": 1
+      }
+    },
+    "postgres-restored.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "3d7d16665591783571ac6af17c628f8208bc0f264606d8e5170b79c73e616704",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "f3bc70273afb8b770013141f0d41d6da3f47b93f147e0ef4d0abaa5644ae402c",
+        "rowCount": 1
+      }
+    },
+    "postgres-reupgraded.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "3d7d16665591783571ac6af17c628f8208bc0f264606d8e5170b79c73e616704",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "f3bc70273afb8b770013141f0d41d6da3f47b93f147e0ef4d0abaa5644ae402c",
+        "rowCount": 1
+      }
+    },
+    "sqlite3-after-old-rollback.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "7f2df525e3ac468e7db615a10e650b0daa8c3026d79e38b66a6242dec81399d0",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "f6bc71a60a416b3bb62c0d4161a497c5fa5c90aa3c9f429be88411726e453bf2",
+        "rowCount": 1
+      }
+    },
+    "sqlite3-before.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "7f2df525e3ac468e7db615a10e650b0daa8c3026d79e38b66a6242dec81399d0",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "f6bc71a60a416b3bb62c0d4161a497c5fa5c90aa3c9f429be88411726e453bf2",
+        "rowCount": 1
+      }
+    },
+    "sqlite3-legacy-before.json": {
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      }
+    },
+    "sqlite3-legacy-upgraded.json": {
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      }
+    },
+    "sqlite3-recovered.json": {
+      "conversation": {
+        "sha256": "97f9178fdc4495d3d6b9cfeb820da244448296b579f8da955cac8f62024e51d0",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "f56eccb09be769d8b5c690084acdb4d1115bb464288815884030f01988f8c140",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "0bb87251d5ea1dfa246c66944691d94edb82ef81fd33bed015e1efc2629924bd",
+        "rowCount": 1
+      }
+    },
+    "sqlite3-restored.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "7f2df525e3ac468e7db615a10e650b0daa8c3026d79e38b66a6242dec81399d0",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "f6bc71a60a416b3bb62c0d4161a497c5fa5c90aa3c9f429be88411726e453bf2",
+        "rowCount": 1
+      }
+    },
+    "sqlite3-reupgraded.json": {
+      "conversation": {
+        "sha256": "c7268c3418a4d5f82fb2d757fef9c2d1cf51ec72d00cdb6adaaa4c0473b3cd57",
+        "rowCount": 2
+      },
+      "embedding": {
+        "sha256": "699f64a51aee92226383ab576cd6e0215c2a68c291cfcc4c9171dd659c7913c8",
+        "rowCount": 1
+      },
+      "ledger": {
+        "sha256": "479f855fded1bee9a1656dfa7e5c06587530f34e9f52b291461e8643b8612602",
+        "rowCount": 1
+      },
+      "memory": {
+        "sha256": "b95e3921f55c2c9ea2fef5c075bb604c6c42a5f79c77aa034b59ffda8faf7a7c",
+        "rowCount": 1
+      },
+      "message": {
+        "sha256": "7f2df525e3ac468e7db615a10e650b0daa8c3026d79e38b66a6242dec81399d0",
+        "rowCount": 4
+      },
+      "receipt": {
+        "sha256": "c056efd2c561df661186578a19f6e0a06cb46feb019c5100c25db2aecbf0c932",
+        "rowCount": 1
+      },
+      "state": {
+        "sha256": "f6bc71a60a416b3bb62c0d4161a497c5fa5c90aa3c9f429be88411726e453bf2",
+        "rowCount": 1
+      }
+    }
+  },
+  "recovery": {
+    "sqlite3": "recovery: interrupted; partial body preserved; zero provider eligibility calls\n",
+    "mysql": "recovery: interrupted; partial body preserved; zero provider eligibility calls\n",
+    "postgres": "recovery: interrupted; partial body preserved; zero provider eligibility calls\n"
+  },
+  "commandsSha256": "c81f0035672f3c871b392d52712241f0103cfdaf895046b21c3bd84a54734ed6"
+}

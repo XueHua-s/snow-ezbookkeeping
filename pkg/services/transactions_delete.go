@@ -11,6 +11,10 @@ import (
 
 // DeleteTransaction deletes an existed transaction from database
 func (s *TransactionService) DeleteTransaction(c core.Context, uid int64, transactionId int64) error {
+	return s.deleteTransaction(c, uid, transactionId, nil)
+}
+
+func (s *TransactionService) deleteTransaction(c core.Context, uid int64, transactionId int64, clear *assistantLedgerClear) error {
 	if uid <= 0 {
 		return errs.ErrUserIdInvalid
 	}
@@ -32,7 +36,7 @@ func (s *TransactionService) DeleteTransaction(c core.Context, uid int64, transa
 		DeletedUnixTime: now,
 	}
 
-	return s.UserDataDB(uid).DoTransaction(c, func(sess *xorm.Session) error {
+	return s.withLedgerClearTransaction(c, uid, clear, func(sess *xorm.Session) error {
 		// Get and verify current transaction
 		oldTransaction := &models.Transaction{}
 		has, err := sess.ID(transactionId).Where("uid=? AND deleted=?", uid, false).Get(oldTransaction)
@@ -161,7 +165,7 @@ func (s *TransactionService) DeleteTransaction(c core.Context, uid int64, transa
 }
 
 // DeleteAllTransactions deletes all existed transactions from database
-func (s *TransactionService) DeleteAllTransactions(c core.Context, uid int64, deleteAccount bool) error {
+func (s *TransactionService) DeleteAllTransactions(c core.Context, uid int64, deleteAccount bool, assistant *AssistantStorageService) error {
 	if uid <= 0 {
 		return errs.ErrUserIdInvalid
 	}
@@ -189,7 +193,7 @@ func (s *TransactionService) DeleteAllTransactions(c core.Context, uid int64, de
 		DeletedUnixTime: now,
 	}
 
-	return s.UserDataDB(uid).DoTransaction(c, func(sess *xorm.Session) error {
+	return s.withLedgerClearTransaction(c, uid, newAssistantLedgerClear(assistant, uid), func(sess *xorm.Session) error {
 		// Update all transactions to deleted
 		_, err := sess.Cols("deleted", "deleted_unix_time").Where("uid=? AND deleted=?", uid, false).Update(updateModel)
 
@@ -223,7 +227,7 @@ func (s *TransactionService) DeleteAllTransactions(c core.Context, uid int64, de
 }
 
 // DeleteAllTransactionsOfAccount deletes all existed transactions of specific account from database
-func (s *TransactionService) DeleteAllTransactionsOfAccount(c core.Context, uid int64, accountId int64, pageCount int32) error {
+func (s *TransactionService) DeleteAllTransactionsOfAccount(c core.Context, uid int64, accountId int64, pageCount int32, assistant *AssistantStorageService) error {
 	if uid <= 0 {
 		return errs.ErrUserIdInvalid
 	}
@@ -242,13 +246,14 @@ func (s *TransactionService) DeleteAllTransactionsOfAccount(c core.Context, uid 
 		return nil
 	}
 
+	clear := newAssistantLedgerClear(assistant, uid)
 	for i := 0; i < len(transactions); i++ {
 		transaction := transactions[i]
 
 		if transaction.Type == models.TRANSACTION_DB_TYPE_TRANSFER_IN {
-			err = s.DeleteTransaction(c, uid, transaction.RelatedId)
+			err = s.deleteTransaction(c, uid, transaction.RelatedId, clear)
 		} else {
-			err = s.DeleteTransaction(c, uid, transaction.TransactionId)
+			err = s.deleteTransaction(c, uid, transaction.TransactionId, clear)
 		}
 
 		if err != nil {

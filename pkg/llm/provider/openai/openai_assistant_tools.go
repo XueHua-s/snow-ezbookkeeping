@@ -114,6 +114,9 @@ func (p *assistantToolProvider) RunToolTurn(c core.Context, uid int64, input dat
 		}
 	}
 	if err != nil {
+		if turn.OutputLimited && c.Err() == nil {
+			return turn, assistantTransportError(c, err)
+		}
 		return zero, assistantTransportError(c, err)
 	}
 	if err = c.Err(); err != nil {
@@ -221,6 +224,13 @@ func (p *assistantToolProvider) toolRequestBody(input data.ToolTurnInput, displa
 		}
 	}
 	body := map[string]any{"model": p.model, "tools": tools, "stream": p.stream || (p.responses && display)}
+	if input.MaxOutputTokens > 0 {
+		if p.responses {
+			body["max_output_tokens"] = input.MaxOutputTokens
+		} else {
+			body["max_completion_tokens"] = input.MaxOutputTokens
+		}
+	}
 	if p.responses {
 		reasoning := map[string]any{}
 		if effort, ok := openAIResponsesRequestReasoningEffortsMapping[p.thinking]; ok {
@@ -271,7 +281,8 @@ func (p *assistantToolProvider) toolRequestBody(input data.ToolTurnInput, displa
 	if limit <= 0 {
 		limit = assistantDefaultRequestBytes
 	}
-	if len(b) > limit {
+	// One token per UTF-8 wire byte is conservative for unknown tokenizers and includes private state.
+	if len(b) > limit || (input.MaxInputTokens > 0 && len(b) > input.MaxInputTokens) {
 		return nil, nil, assistantError(data.ToolErrorBudgetExhausted)
 	}
 	return b, items, nil
@@ -411,3 +422,14 @@ func validArguments(b []byte) bool {
 }
 
 var _ provider.LargeLanguageModelToolProvider = (*assistantToolProvider)(nil)
+
+// CheckToolTurnInput measures the exact wire envelope, including adapter-owned
+// state and JSON escaping, without sending an upstream request.
+func (p *assistantToolProvider) CheckToolTurnInput(input data.ToolTurnInput) error {
+	_, _, err := p.toolRequestBody(input, false)
+	if err != nil {
+		return err
+	}
+	_, _, err = p.toolRequestBody(input, true)
+	return err
+}

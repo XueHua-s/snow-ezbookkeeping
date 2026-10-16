@@ -1,0 +1,20 @@
+{
+  "runAt": "2026-10-15T23:02:27.703Z",
+  "passed": [
+    "real send / tool query / completed reply",
+    "regenerate preserves a second answer version",
+    "select successful answer version",
+    "history query branch restores authoritative source and pages explicitly",
+    "explicit restart query uses authorized saved scope",
+    "branch first stage creates reviewable target without model call",
+    "branch second stage sends explicitly",
+    "add / disable / forget memory commands",
+    "rename and archive persist",
+    "current conversation Markdown export with viewed version",
+    "delete and clear commands"
+  ],
+  "realHTTP": true,
+  "realModel": false,
+  "backend": "Docker image sha256:990c1f23742049c78c43832cdde54e69a575412675524f4a8ac88d4b80bc0dff; see docker-runtime.json",
+  "queryPageSize": 8
+}

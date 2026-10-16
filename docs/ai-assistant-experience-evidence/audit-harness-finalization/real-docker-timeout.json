@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "name": "ebk-assistant-timeout-probe-4139fd6c-2711-407a-87b5-d00fcce51619",
+  "commandTimeoutMs": 1000,
+  "actualContainerStarted": true,
+  "containerExistedAfterCLIStopped": true,
+  "explicitCleanupConfirmedAbsent": true,
+  "temporaryDirectoryRemoved": true
+}

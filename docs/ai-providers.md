@@ -47,7 +47,7 @@ request_timeout = 180000
 
 `run_timeout`（整体）和 `query_timeout`（单次查询）单位为毫秒，`max_rounds` 为轮数，均须为 1–4294967295 的整数。仅在 `[llm_assistant]` 配置这些预算；主备共用。供应商 `request_timeout` 与整体截止时间取较早者。浏览器 JSON/SSE 超时均为服务端 `run_timeout` 加 10 秒，反向代理读取超时应至少覆盖该值，例如默认预算配置 `proxy_read_timeout 190s`；SSE 每 15 秒心跳，并须关闭代理缓冲。预算耗尽、取消、查询错误和供应商断流会显示明确终态，不能当作成功空账本。
 
-摘要默认查询本月截至现在的收支、上月同进度比较、本期分类分布和当前余额；显式期间优先。当前余额与历史收支净额独立，不能重建历史任意时点余额。会话与续查只在当前页面短期保留；“下一页”需要显式操作，每次续查重新鉴权。工具没有写账单、任意 SQL、附件内容识别或跨用户查询能力。
+摘要默认查询本月截至现在的收支、上月同进度比较、本期分类分布和当前余额；显式期间优先。当前余额与历史收支净额独立，不能重建历史任意时点余额。新会话与回答保存在本服务器，离页不会停止生成；旧无状态接口仍不保存历史。“下一页”需要显式操作，每次续查重新鉴权。工具没有写账单、任意 SQL、附件内容识别或跨用户查询能力。
 
 ## 密钥文件
 
@@ -84,3 +84,18 @@ go test -count=1 -timeout=12m -run '^TestAIDeploymentIntegration$' ./pkg/api
 ```
 
 需要活跃模型的密钥环境变量及文件，工作目录包含 `templates/`。测试识别合成收据并检查金额 `12.34`，助手要求实际执行 `list_accounts` 和 `get_account_balances` 后分别在 JSON/SSE 路径完成；不创建账单、不访问 embedding 缓存。支持配置的 Chat Completions、强制流式 Chat Completions 与 Responses；可加 `EBK_AI_DEPLOYMENT_FORCE_FALLBACK=1` 将隔离主模型端点替换为本地 503，从而测试实际备用模型（必须已配置）。仅验证助手可使用 `-run '^TestAIDeploymentIntegration$/assistant'`。这项 smoke 只验证两工具及传输，七题财务真值仍须按验收记录单独核对。仅识图可使用 `-run '^TestAIDeploymentIntegration$/receipt$'`。真实模型、三库及双端 GUI 的执行记录和待验证项见 [验收记录](ai-assistant-harness-verification.md)；mock 通过不代表真实模型验收完成。
+
+
+## 持久化助手与运行边界
+
+新页面通过 `/api/v1/llm/assistant/capabilities.json` 读取服务器有效限制与生成可用性。`[assistant_experience]` 是保存容量、Unicode/UTF-8 输入、上下文窗口、租约、订阅和后台整理预算的配置入口；默认值和边界见随版本发布的 `conf/ezbookkeeping.ini`。不要用浏览器配置覆盖服务器配额。`[llm_assistant]` 的模型与工具只读规则仍适用于新旧接口。
+
+正式记录属于认证用户，保存于服务器数据库；模型调用会将本轮所需问题、历史、摘要、已启用记忆及查询结果发送给配置的供应商。长期记忆默认关闭，可以在设置中开启、检查来源、确认候选、更正或遗忘。遗忘阻止该来源重新提取，原聊天仍保留；移除原聊天需删除会话。
+
+离页、断开 SSE、退出客户端仅结束订阅，服务器任务继续按预算运行。停止按钮显式提交取消命令；断线恢复读取同一 run 的持久化快照，不自动发起新模型请求。进程重启后，已开始但租约失效的任务标记中断，不自动重放已经收费的上游请求。生成关闭或 provider 不可用时，历史、复制、导出、删除及手工记忆管理仍可用。
+
+所有新写命令使用固定 `clientRequestId`、`requestIssuedAt`、`expectedDeletionEpoch`。结果未知时查询原命令；不要更新时间或 ID 来重播。清空后必须同步新 epoch，再由用户主动发送。回执最少保留 48 小时；未知命令只接受 24 小时窗口。停止、删除和读取不受正文存储配额阻断。
+
+代理必须禁止助手 API 缓存和 SSE 缓冲，例如 Nginx 对助手路径使用 `proxy_buffering off`、`proxy_cache off`，保留服务器 `Cache-Control: no-store` 与 `X-Accel-Buffering: no`；不要记录完整查询字符串（搜索词和游标属于私有数据）。订阅超限返回 429，客户端降级查询同一个任务状态。应用日志只记录受控 ID、状态、原因和计量，不记录正文、记忆、模型私有状态或密钥。
+
+新端遇到旧后端需要升级提示，不能伪装云端保存；升级前请复制旧页面仍需保留的内容，旧页面已丢失的历史无法回填。上线、回滚、全库备份与在线删除保留期见 [迁移说明](ai-storage-migration.md)。新功能验收范围与尚未运行项以 [体验验收报告](ai-assistant-experience-verification.md) 为准，旧 harness smoke 不证明持久化与记忆验收完成。

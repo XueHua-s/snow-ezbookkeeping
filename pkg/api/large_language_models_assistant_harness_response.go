@@ -100,7 +100,11 @@ func assistantReferences(refs []data.TransactionReference) ([]*models.AIAssistan
 		default:
 			return nil, errs.ErrAIAssistantFailed
 		}
-		result = append(result, &models.AIAssistantReferencedTransaction{Id: id, Time: at.Unix(), TimeText: at.In(time.FixedZone("", int(ref.TimezoneOffset)*60)).Format("2006-01-02 15:04:05"), Type: kind, CategoryName: ref.CategoryName, SourceAccountName: ref.SourceAccountName, DestinationAccountName: ref.DestinationAccountName, SourceAmount: amount, DestinationAmount: destination, Currency: ref.Currency, DestinationCurrency: ref.DestinationCurrency, Comment: ref.Comment, HideAmount: ref.HideAmount})
+		destinationMinor := ""
+		if ref.DestinationAmount != "" {
+			destinationMinor = strconv.FormatInt(destination, 10)
+		}
+		result = append(result, &models.AIAssistantReferencedTransaction{Id: id, Time: at.Unix(), TimeText: at.In(time.FixedZone("", int(ref.TimezoneOffset)*60)).Format("2006-01-02 15:04:05"), Type: kind, CategoryName: ref.CategoryName, SourceAccountName: ref.SourceAccountName, DestinationAccountName: ref.DestinationAccountName, SourceAmount: amount, SourceAmountMinor: strconv.FormatInt(amount, 10), DestinationAmount: destination, DestinationAmountMinor: destinationMinor, Currency: ref.Currency, DestinationCurrency: ref.DestinationCurrency, Comment: ref.Comment, HideAmount: ref.HideAmount})
 	}
 	return result, nil
 }

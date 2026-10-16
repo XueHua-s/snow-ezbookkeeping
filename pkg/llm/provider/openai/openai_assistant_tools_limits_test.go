@@ -78,15 +78,19 @@ func TestAssistantToolProviderTimeoutAndCancellation(t *testing.T) {
 		runTimeout      time.Duration
 		stream          bool
 		cancel          bool
+		requireStarted  bool
 	}{
-		{"provider-shorter", 30, time.Second, false, false},
-		{"run-shorter", 1000, 30 * time.Millisecond, false, false},
-		{"provider-stream", 30, time.Second, true, false},
-		{"explicit-cancel", 1000, time.Second, false, true},
+		{"provider-shorter", 30, time.Second, false, false, false},
+		{"run-shorter", 1000, 30 * time.Millisecond, false, false, false},
+		{"provider-stream", 30, time.Second, true, false, false},
+		{"run-started-before-deadline", 5000, 500 * time.Millisecond, false, false, true},
+		{"explicit-cancel", 5000, 5 * time.Second, false, true, true},
+		{"explicit-cancel-stream", 5000, 5 * time.Second, true, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			started := make(chan struct{})
 			stopped := make(chan struct{})
+			var activeAtStart atomic.Bool
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				io.Copy(io.Discard, r.Body)
 				if tc.stream {
@@ -94,6 +98,7 @@ func TestAssistantToolProviderTimeoutAndCancellation(t *testing.T) {
 					io.WriteString(w, "data: {\"choices\":[]}\n\n")
 					w.(http.Flusher).Flush()
 				}
+				activeAtStart.Store(r.Context().Err() == nil)
 				close(started)
 				<-r.Context().Done()
 				close(stopped)
@@ -103,7 +108,13 @@ func TestAssistantToolProviderTimeoutAndCancellation(t *testing.T) {
 			parent, cancel := context.WithTimeout(context.Background(), tc.runTimeout)
 			defer cancel()
 			if tc.cancel {
-				go func() { <-started; cancel() }()
+				go func() {
+					select {
+					case <-started:
+						cancel()
+					case <-parent.Done():
+					}
+				}()
 			}
 			turn, err := p.RunToolTurn(core.NewAssistantContext(parent, "request", "en", "127.0.0.1"), 1, assistantTestInput(), nil)
 			require.Error(t, err)
@@ -113,13 +124,58 @@ func TestAssistantToolProviderTimeoutAndCancellation(t *testing.T) {
 			} else {
 				require.ErrorIs(t, err, context.DeadlineExceeded)
 			}
+			// A short deadline may expire before the server accepts a request under
+			// race instrumentation. Closing the server is a barrier: after it
+			// returns there can be no late handler that escaped cancellation.
+			closed := make(chan struct{})
+			go func() { server.Close(); close(closed) }()
 			select {
-			case <-stopped:
-			case <-time.After(time.Second):
+			case <-closed:
+			case <-time.After(2 * time.Second):
+				server.CloseClientConnections()
+				<-closed
 				t.Fatal("upstream did not stop after cancellation")
+			}
+			select {
+			case <-started:
+				if tc.requireStarted {
+					require.True(t, activeAtStart.Load(), "request must be active before deadline/cancel fires")
+				}
+				select {
+				case <-stopped:
+				default:
+					t.Fatal("accepted upstream request did not observe cancellation")
+				}
+			default:
+				require.False(t, tc.requireStarted, "the active-request cancellation scenario must reach its server barrier")
 			}
 		})
 	}
+}
+
+func TestAssistantToolCanceledBeforeStartDoesNotCallUpstream(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	for _, deadline := range []bool{false, true} {
+		var parent context.Context
+		var cancel context.CancelFunc
+		if deadline {
+			parent, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		} else {
+			parent, cancel = context.WithCancel(context.Background())
+			cancel()
+		}
+		p := assistantTestProvider(server.URL, false, false, 2000)
+		_, err := p.RunToolTurn(core.NewAssistantContext(parent, "request", "en", "127.0.0.1"), 1, assistantTestInput(), nil)
+		require.ErrorIs(t, err, parent.Err())
+		cancel()
+	}
+	server.Close()
+	require.Zero(t, calls.Load())
 }
 
 func TestAssistantToolSinkFailureStopsHTTP(t *testing.T) {
@@ -238,4 +294,38 @@ func TestAssistantResponsesStateCannotMoveAdaptersOrPrefixes(t *testing.T) {
 	require.Contains(t, string(wire), `"type":"function_call_output"`)
 	require.Contains(t, string(wire), `"call_id":"x"`)
 	require.Contains(t, string(wire), `"role":"assistant"`)
+}
+
+func TestAssistantOutputLimitPreservesOnlyDisplayableText(t *testing.T) {
+	chat := `{"choices":[{"index":0,"finish_reason":"length","message":{"role":"assistant","content":"partial 金额"}}]}`
+	response := `{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output":[{"type":"message","role":"assistant","status":"incomplete","content":[{"type":"output_text","text":"partial 金额"}]}]}`
+	for _, tc := range []struct {
+		name, body        string
+		responses, stream bool
+	}{
+		{"chat", chat, false, false}, {"responses", response, true, false},
+		{"chat-stream", assistantSSE(`{"choices":[{"index":0,"delta":{"content":"partial 金额"},"finish_reason":"length"}]}`), false, true},
+		{"responses-stream", assistantSSE(`{"type":"response.incomplete","response":` + response + `}`), true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tc.stream {
+					w.Header().Set("Content-Type", "text/event-stream")
+				}
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			defer server.Close()
+			p := assistantTestProvider(server.URL, tc.responses, tc.stream, 2000)
+			turn, e := p.RunToolTurn(core.NewNullContext(), 1, assistantTestInput(), nil)
+			requireAssistantCode(t, e, data.ToolErrorBudgetExhausted)
+			require.True(t, turn.OutputLimited)
+			require.False(t, turn.Completed)
+			require.Equal(t, "partial 金额", turn.Content)
+			require.Empty(t, turn.ToolCalls)
+		})
+	}
+	turn, e := parseChatToolTurn([]byte(chatFixture(`{"broken":`, "length")))
+	requireAssistantCode(t, e, data.ToolErrorBudgetExhausted)
+	require.Empty(t, turn.Content)
+	require.Empty(t, turn.ToolCalls)
 }
