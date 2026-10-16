@@ -45,27 +45,23 @@ describe('workspace mount ownership', () => {
     });
 });
 
-it('discards the old owner memory editor before reopening for the new owner', async () => {
-    mocks.store['capabilities'] = { ownerScope: 'owner-a', deletionEpoch: 1, limits: { memoryBytes: 1000 } };
+it('keeps memory and bulk export controls out of the workspace across owner changes', async () => {
+    mocks.store['capabilities'] = { ownerScope: 'owner-a', deletionEpoch: 1, limits: { titleCharacters: 100 } };
     wrapper = shallowMount(Workspace, {
         props: { variant: 'desktop', conversationId: '' },
-        global: { stubs: { AssistantMemoryManager: false, AssistantWorkspaceToolbar: false, AssistantExperienceMessageList: messageListStub } }
+        global: { stubs: { AssistantWorkspaceToolbar: false, AssistantExperienceMessageList: messageListStub } }
     });
     await flushPromises();
-    const button = (label: string) => wrapper!.findAll('button').find(item => item.text() === label)!;
-    await wrapper.get('.toolbar-more summary').trigger('click');
-    await button('Long-term memory').trigger('click');
-    await flushPromises();
-    await button('Add memory').trigger('click');
-    await wrapper.get('textarea').setValue('Old owner private memory');
-    (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = 'owner-b';
-    await flushPromises();
-    expect(wrapper.find('textarea').exists()).toBe(false);
-    await wrapper.get('.toolbar-more summary').trigger('click');
-    await button('Long-term memory').trigger('click');
-    await flushPromises();
-    await button('Add memory').trigger('click');
-    expect(wrapper.get('textarea').element.value).toBe('');
+    for (const owner of ['owner-a', 'owner-b']) {
+        (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = owner;
+        await flushPromises();
+        expect(wrapper.findAll('.cloud-toolbar button').map(button => button.attributes('aria-label')))
+            .toEqual(['Conversation history', 'New conversation']);
+        expect(wrapper.find('.toolbar-more').exists()).toBe(false);
+        expect(wrapper.find('assistant-memory-manager-stub').exists()).toBe(false);
+        expect(wrapper.text()).not.toMatch(/Long-term memory|Export all assistant data|Clear all assistant data/);
+    }
+    expect(mocks.store['loadMemories']).not.toHaveBeenCalled();
 });
 
 it('does not restore an old route anchor when its delayed open finishes', async () => {
@@ -121,7 +117,7 @@ it.each([false, true])('keeps search filters and pagination after remount (close
             global: { stubs: { AssistantConversationHistory: false, AssistantWorkspaceToolbar: false, AssistantExperienceMessageList: messageListStub } }
         });
         await flushPromises();
-        const button = (label: string) => wrapper!.findAll('button').find(item => item.text() === label)!;
+        const button = (label: string) => wrapper!.findAll('button').find(item => (item.attributes('aria-label') || item.text()) === label)!;
         await button('Conversation history').trigger('click');
         await wrapper.get('input[type="search"]').setValue('budget');
         await wrapper.findAll('input[type="checkbox"]').at(-1)!.setValue(true);
@@ -150,7 +146,7 @@ it.each(['owner', 'epoch', 'unmount'])('discards a debounced search on %s invali
             global: { stubs: { AssistantConversationHistory: false, AssistantWorkspaceToolbar: false, AssistantExperienceMessageList: messageListStub } }
         });
         await flushPromises();
-        const button = (label: string) => wrapper!.findAll('button').find(item => item.text() === label)!;
+        const button = (label: string) => wrapper!.findAll('button').find(item => (item.attributes('aria-label') || item.text()) === label)!;
         await button('Conversation history').trigger('click');
         await wrapper.get('input[type="search"]').setValue('old private query');
         if (boundary === 'unmount') {
@@ -180,7 +176,7 @@ it('cancels history title editing with Escape before closing the history panel',
         global: { stubs: { AssistantConversationHistory: false, AssistantWorkspaceToolbar: false, AssistantExperienceMessageList: messageListStub } }
     });
     await flushPromises();
-    const button = (label: string) => wrapper!.findAll('button').find(item => item.text() === label)!;
+    const button = (label: string) => wrapper!.findAll('button').find(item => (item.attributes('aria-label') || item.text()) === label)!;
     await button('Conversation history').trigger('click');
     await button('Rename').trigger('click');
     await wrapper.get('form input').trigger('keydown', { key: 'Escape' });
@@ -203,7 +199,7 @@ it.each([true, false])('refreshes a pending filter after navigation (explicit cl
             global: { stubs: { AssistantConversationHistory: false, AssistantWorkspaceToolbar: false, AssistantExperienceMessageList: messageListStub } }
         });
         await flushPromises();
-        const button = (label: string) => wrapper!.findAll('button').find(item => item.text() === label)!;
+        const button = (label: string) => wrapper!.findAll('button').find(item => (item.attributes('aria-label') || item.text()) === label)!;
         await button('Conversation history').trigger('click');
         await wrapper.get('input[type="search"]').setValue('B');
         if (closeFirst) await button('Close').trigger('click');

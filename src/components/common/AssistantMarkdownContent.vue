@@ -81,7 +81,7 @@ const customComponents: MarkdownComponents = { a: SafeLink, img: SafeImage, code
 }
 .assistant-markdown :deep(th),
 .assistant-markdown :deep(pre) {
-    background: rgb(127 127 127 / 12%) !important;
+    background: var(--assistant-tint, #e8f3e9) !important;
     color: inherit !important;
 }
 .assistant-markdown :deep(blockquote),
@@ -89,10 +89,14 @@ const customComponents: MarkdownComponents = { a: SafeLink, img: SafeImage, code
     color: inherit !important;
 }
 .assistant-markdown :deep(a) {
-    color: inherit;
+    color: var(--assistant-action, #278c62);
     text-decoration: underline;
 }
 .assistant-markdown :deep(table) {
+    border-radius: 14px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--assistant-card, #fff);
     display: block;
     overflow-x: auto;
     max-width: 100%;
@@ -104,6 +108,7 @@ const customComponents: MarkdownComponents = { a: SafeLink, img: SafeImage, code
 }
 .assistant-process summary {
     cursor: pointer;
+    transition: background 180ms ease, transform 180ms ease;
     min-height: 44px;
     padding-block: 10px;
 }
@@ -135,15 +140,15 @@ const customComponents: MarkdownComponents = { a: SafeLink, img: SafeImage, code
     padding: 1px 4px;
     border-radius: 4px;
     font-size: 0.9em;
-    background: rgba(127, 127, 127, 0.14);
+    background: var(--assistant-tint, #e8f3e9);
 }
 
 .assistant-markdown :deep(pre) {
     margin: 0 0 10px;
-    padding: 10px;
-    border-radius: 8px;
+    padding: 14px;
+    border-radius: 16px;
     overflow-x: auto;
-    background: rgba(127, 127, 127, 0.12);
+    background: var(--assistant-tint, #e8f3e9);
 }
 
 .assistant-markdown :deep(pre code) {
@@ -154,9 +159,9 @@ const customComponents: MarkdownComponents = { a: SafeLink, img: SafeImage, code
 .assistant-markdown :deep(.assistant-think-block) {
     margin: 0 0 12px;
     padding: 10px 12px;
-    border-left: 3px solid rgba(127, 127, 127, 0.58);
+    border-inline-start: 3px solid var(--assistant-border, #e5ece4);
     border-radius: 4px;
-    background: rgba(127, 127, 127, 0.12);
+    background: var(--assistant-tint, #e8f3e9);
     color: inherit;
     opacity: 0.85;
 }
@@ -164,4 +169,11 @@ const customComponents: MarkdownComponents = { a: SafeLink, img: SafeImage, code
 .assistant-markdown :deep(.assistant-think-block p:last-child) {
     margin-bottom: 0;
 }
+.assistant-markdown :deep(th), .assistant-markdown :deep(td), .assistant-markdown :deep(table), .assistant-markdown :deep(pre) { border-color: var(--assistant-border, #e5ece4) !important; }
+.assistant-markdown :deep(blockquote) { border-inline-start: 3px solid var(--assistant-border, #e5ece4); }
+.assistant-process { color: var(--assistant-muted, #718277); }
+.assistant-process summary:focus-visible { outline: 2px solid var(--assistant-action, #278c62); outline-offset: 2px; border-radius: 10px; }
+.assistant-process[open] p { animation: process-enter 180ms ease; }
+@keyframes process-enter { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .assistant-process summary { transition: none; } .assistant-process[open] p { animation: none; } }
 </style>

@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed, watch, useTemplateRef, nextTick } from 'vue';
 import AssistantConfirmationDialog from './AssistantConfirmationDialog.vue';
-import AssistantExportDialog from './AssistantExportDialog.vue';
 import { useAssistantWorkspacePanels } from '@/views/base/assistant/useAssistantWorkspacePanels.ts';
 import { useAssistantWorkspaceLifecycle } from '@/views/base/assistant/useAssistantWorkspaceLifecycle.ts';
 import AssistantConversationHistory from './AssistantConversationHistory.vue';
-import AssistantMemoryManager from './AssistantMemoryManager.vue';
 import AssistantExperienceMessageList from './AssistantExperienceMessageList.vue';
 import AssistantExperienceComposer from './AssistantExperienceComposer.vue';
 import AssistantWorkspaceToolbar from './AssistantWorkspaceToolbar.vue';
@@ -14,7 +12,7 @@ import AssistantRecoveryPanel from './AssistantRecoveryPanel.vue';
 import AssistantCapacityNotice from './AssistantCapacityNotice.vue';
 import AssistantReferenceDialog from './AssistantReferenceDialog.vue';
 import { useAssistantCloudWorkspace } from '@/views/base/assistant/useAssistantCloudWorkspace.ts';
-import type { AssistantConversationDTO, AssistantMemoryDTO } from '@/models/ai_assistant_conversation.ts';
+import type { AssistantConversationDTO } from '@/models/ai_assistant_conversation.ts';
 const props = defineProps<{
     variant: 'desktop' | 'mobile';
     conversationId?: string;
@@ -36,15 +34,12 @@ const {
     error,
     working,
     historyOpen,
-    memoryOpen,
     archived,
     query,
     historySearching,
     includeVersions,
     editing,
     input,
-    summaryOpen,
-    summaryPeriod,
     retryQuerySource,
     restartQuery,
     messages,
@@ -54,27 +49,16 @@ const {
     rename,
     archive,
     remove,
-    clear,
     edit,
     send,
     branch,
     continueConversation,
     retry,
     nextPage,
-    version,
-    summary,
-    showMemories,
-    saveMemory,
-    forget
+    version
 } = useAssistantCloudWorkspace(confirm, () => routeKey.value);
 const toolbar = useTemplateRef<InstanceType<typeof AssistantWorkspaceToolbar>>('toolbar');
-const memoryManager = useTemplateRef<InstanceType<typeof AssistantMemoryManager>>('memoryManager');
 const historyManager = useTemplateRef<InstanceType<typeof AssistantConversationHistory>>('historyManager');
-async function saveMemoryAndClose(item: AssistantMemoryDTO | undefined, text: string) {
-    const current = captureScope();
-    const receipt = await saveMemory(item, text);
-    if (receipt && current()) memoryManager.value?.finishEdit();
-}
 async function renameAndClose(item: AssistantConversationDTO, title: string) {
     const current = captureScope();
     const receipt = await rename(item, title);
@@ -82,7 +66,6 @@ async function renameAndClose(item: AssistantConversationDTO, title: string) {
 }
 const referenceDialog = useTemplateRef<InstanceType<typeof AssistantReferenceDialog>>('referenceDialog');
 const messageList = useTemplateRef<InstanceType<typeof AssistantExperienceMessageList>>('messageList');
-const exportDialog = useTemplateRef<InstanceType<typeof AssistantExportDialog>>('exportDialog');
 const versionCursors = new Map<string, string | undefined>();
 async function loadVersions(id: string) {
     await run(async (current) => {
@@ -93,26 +76,16 @@ async function loadVersions(id: string) {
 const ownerKey = computed(() => JSON.stringify([store.capabilities?.ownerScope, store.capabilities?.deletionEpoch]));
 const context = computed(() => JSON.stringify([ownerKey.value, store.conversationId, routeKey.value]));
 watch(context, () => versionCursors.clear(), { flush: 'sync' });
-const { narrow, shellStyle, historyPanel, openMemories, historyKey } = useAssistantWorkspacePanels({
+const { narrow, shellStyle, historyPanel, historyKey } = useAssistantWorkspacePanels({
     variant: () => props.variant,
     historyOpen,
-    memoryOpen,
-    showMemories,
     captureScope
 });
-const memoryBusy = computed(
-    () =>
-        working.value ||
-        store.local.pending.some(
-            (item) => !item.rejected && (item.action.includes('Memory') || item.action === 'memorySettings')
-        )
-);
 const latestMessageId = computed(() => messages.value.find((message) => store.isLatestMessage(message.id))?.id ?? '');
 const conversation = computed(() => store.detail?.conversation);
 function navigate(id: string, messageId?: string, versionId?: string) {
     editing.value = undefined;
     historyOpen.value = false;
-    memoryOpen.value = false;
     emit('navigate', id, messageId, versionId);
 }
 const { anchor } = useAssistantWorkspaceLifecycle(store, {
@@ -122,36 +95,12 @@ const { anchor } = useAssistantWorkspaceLifecycle(store, {
     run
 });
 watch(historyOpen, (value) => store.setHistoryVisible(value));
-watch(
-    () => [store.capabilities?.memoryUseEpoch, store.capabilities?.settingsVersion],
-    () => {
-        if (
-            memoryOpen.value &&
-            store.memories &&
-            (store.memories.memoryUseEpoch !== store.capabilities?.memoryUseEpoch ||
-                store.memories.settingsVersion !== store.capabilities?.settingsVersion)
-        )
-            void run(() => store.loadMemories());
-    }
-);
 async function removeConversation(item: AssistantConversationDTO) {
     const current = captureScope();
     await remove(item);
     await nextTick();
     if (current() && document.activeElement === document.body)
         historyPanel.value?.querySelector<HTMLButtonElement>('button')?.focus();
-}
-function setMemoryMode(enabled: boolean) {
-    const value = conversation.value;
-    if (value)
-        void run(() =>
-            store.execute('update', {
-                id: value.id,
-                expectedMetadataVersion: value.metadataVersion,
-                expectedContextVersion: value.contextVersion,
-                memoryMode: enabled ? 'inherit' : 'off'
-            })
-        );
 }
 function continueQuery() {
     const id = conversation.value?.pendingQuerySourceMessageId;
@@ -181,9 +130,6 @@ async function loadOlder() {
     await nextTick();
     if (current()) messageList.value?.restoreAnchor(saved);
 }
-function openExport(item?: AssistantConversationDTO, all = false) {
-    exportDialog.value?.open(item, all);
-}
 function fallbackFocus() {
     const button = historyPanel.value?.querySelector<HTMLButtonElement>('button');
     if (button) button.focus();
@@ -192,60 +138,55 @@ function fallbackFocus() {
 </script>
 <template>
     <section class="cloud-workspace" :class="variant" :style="shellStyle">
-        <component
-            :is="narrow ? 'dialog' : 'aside'"
-            v-if="historyOpen"
-            ref="historyPanel"
-            class="cloud-history"
-            :role="narrow ? 'dialog' : undefined"
-            :aria-modal="narrow ? true : undefined"
-            :aria-label="tt('Conversation history')"
-            @keydown="historyKey"
-            @cancel.prevent="historyOpen = false"
-        >
-            <AssistantConversationHistory
-                ref="historyManager"
-                :key="ownerKey"
-                v-if="store.capabilities"
-                :items="store.history.items"
-                :matches="working || historySearching ? [] : store.searchResults.items"
-                :selected-id="store.conversationId"
-                :loading="working || historySearching"
-                :error="error"
-                :archived="archived"
-                :title-limit="store.capabilities.limits.titleCharacters"
-                :has-more="!!(query ? store.searchResults.nextCursor : store.history.nextCursor)"
-                @select="navigate"
-                @new="navigate('')"
-                @close="historyOpen = false"
-                v-model:query="query"
-                v-model:include-versions="includeVersions"
-                @archived="
-                    archived = $event;
-                    refreshHistory();
-                "
-                @rename="renameAndClose"
-                @archive="archive"
-                @delete="removeConversation"
-                @export="openExport"
-                @retry="refreshHistory()"
-                @load-more="refreshHistory(query ? store.searchResults.nextCursor : store.history.nextCursor)"
-            />
-        </component>
+        <!-- Identity changes discard the old history immediately, including its leave animation. -->
+        <Transition :key="ownerKey" name="history-panel">
+            <component
+                :is="narrow ? 'dialog' : 'aside'"
+                v-if="historyOpen"
+                ref="historyPanel"
+                class="cloud-history"
+                :role="narrow ? 'dialog' : undefined"
+                :aria-modal="narrow ? true : undefined"
+                :aria-label="tt('Conversation history')"
+                @keydown="historyKey"
+                @cancel.prevent="historyOpen = false"
+            >
+                <AssistantConversationHistory
+                    ref="historyManager"
+                    :key="ownerKey"
+                    v-if="store.capabilities"
+                    :items="store.history.items"
+                    :matches="working || historySearching ? [] : store.searchResults.items"
+                    :selected-id="store.conversationId"
+                    :loading="working || historySearching"
+                    :error="error"
+                    :archived="archived"
+                    :title-limit="store.capabilities.limits.titleCharacters"
+                    :has-more="!!(query ? store.searchResults.nextCursor : store.history.nextCursor)"
+                    @select="navigate"
+                    @new="navigate('')"
+                    @close="historyOpen = false"
+                    v-model:query="query"
+                    v-model:include-versions="includeVersions"
+                    @archived="
+                        archived = $event;
+                        refreshHistory();
+                    "
+                    @rename="renameAndClose"
+                    @archive="archive"
+                    @delete="removeConversation"
+                    @retry="refreshHistory()"
+                    @load-more="refreshHistory(query ? store.searchResults.nextCursor : store.history.nextCursor)"
+                />
+            </component>
+        </Transition>
         <section class="cloud-main" :inert="historyOpen && narrow">
             <AssistantWorkspaceToolbar
                 ref="toolbar"
                 :variant="variant"
                 :conversation="conversation"
-                :memory-enabled="store.capabilities?.memoryEnabled"
                 @history="historyOpen = !historyOpen"
                 @new="navigate('')"
-                @memories="openMemories"
-                @summary="summaryOpen = !summaryOpen"
-                @export="openExport()"
-                @export-all="openExport(undefined, true)"
-                @clear="clear"
-                @memory-mode="setMemoryMode"
             />
             <AssistantReferenceDialog
                 ref="referenceDialog"
@@ -283,116 +224,69 @@ function fallbackFocus() {
                 @restore="run(() => store.restorePending($event))"
                 @remove-draft="removeLocalDraft"
             />
-            <template v-if="memoryOpen">
-                <div ref="memoryRegion" class="cloud-memory">
-                    <AssistantMemoryManager
-                        ref="memoryManager"
-                        :key="ownerKey"
-                        v-if="store.capabilities"
-                        :items="store.memories?.items ?? []"
-                        :enabled="store.memories?.enabled ?? false"
-                        :busy="memoryBusy"
-                        :error="error"
-                        :byte-limit="store.capabilities.limits.memoryBytes"
-                        @close="memoryOpen = false"
-                        @retry="showMemories"
-                        @enabled="
-                            run(() =>
-                                store.execute('memorySettings', {
-                                    enabled: $event,
-                                    expectedSettingsVersion: store.memories?.settingsVersion ?? 0
-                                })
-                            )
-                        "
-                        @save="saveMemoryAndClose"
-                        @forget="forget"
-                        @forget-all="forget()"
-                        @source="navigate"
-                    />
-                </div>
-            </template>
-            <template v-else>
-                <AssistantConversationNotices
-                    :disabled-reason="disabledReason"
-                    @navigate="navigate"
-                    @continue-query="continueQuery"
-                    @restart-query="restartFromSource"
-                    @unarchive="archive"
-                />
-                <AssistantExperienceMessageList
-                    ref="messageList"
-                    :messages="messages"
-                    :latest-message-id="latestMessageId"
-                    :has-older="store.detail?.hasMore"
-                    :loading-older="working"
-                    :busy="store.busy"
-                    :anchor="anchor"
-                    :examples="[
-                        tt('Compare this month with last month'),
-                        tt('How much did I spend on dining?'),
-                        tt('Show my account balances')
-                    ]"
-                    @example="store.setDraft"
-                    @load-older="loadOlder"
-                    @latest="latest"
-                    @anchor-change="store.savePosition"
-                    @open-reference="referenceDialog?.check"
-                    @edit="edit"
-                    @retry="retry"
-                    @regenerate="retry($event, 'regenerate')"
-                    @branch="branch"
-                    @select-version="version"
-                    @load-versions="loadVersions($event.id)"
-                    @next-page="nextPage"
-                />
-                <AssistantCapacityNotice
-                    v-if="conversation && store.capabilities"
-                    :used="conversation.usedBytes"
-                    :reserved="conversation.reservedBytes"
-                    :limit="store.capabilities.limits.conversationBytes"
-                    :reason="
-                        conversation.turnCount >= store.capabilities.limits.conversationTurns * 0.8
-                            ? 'Approaching conversation turn capacity'
-                            : undefined
-                    "
-                    :can-continue="!store.busy && !!messages.length"
-                    @continue="continueConversation"
-                    @export="openExport()"
-                    @manage="historyOpen = true"
-                />
-                <form v-if="summaryOpen" class="notice" @submit.prevent="summary">
-                    <label class="summary-label">
-                        {{ tt('Summary period') }}
-                        <input class="workspace-input" v-model="summaryPeriod" name="summary-period" autocomplete="off" />
-                    </label>
-                    <button
-                        class="workspace-action"
-                        type="submit"
-                        :disabled="!!disabledReason || store.busy || !summaryPeriod.trim()"
-                    >
-                        {{ tt('Generate AI Summary') }}
-                    </button>
-                    <button class="workspace-action" type="button" @click="summaryOpen = false">
-                        {{ tt('Cancel') }}
-                    </button>
-                </form>
-                <AssistantExperienceComposer
-                    v-if="store.capabilities"
-                    v-model="input"
-                    :variant="variant"
-                    :limits="store.capabilities.limits"
-                    :generation-state="store.detail?.activeRun?.state"
-                    :sending="store.submitting"
-                    :disabled-reason="disabledReason"
-                    :editing-label="editing ? tt('Edit and create branch') : undefined"
-                    @send="send"
-                    @stop="run(() => store.stop())"
-                    @cancel-edit="editing = undefined"
-                />
-            </template>
+            <AssistantConversationNotices
+                :disabled-reason="disabledReason"
+                @navigate="navigate"
+                @continue-query="continueQuery"
+                @restart-query="restartFromSource"
+                @unarchive="archive"
+            />
+            <AssistantExperienceMessageList
+                ref="messageList"
+                :messages="messages"
+                :latest-message-id="latestMessageId"
+                :has-older="store.detail?.hasMore"
+                :loading-older="working"
+                :busy="store.busy"
+                :anchor="anchor"
+                :examples="[
+                    tt('Compare this month with last month'),
+                    tt('How much did I spend on dining?'),
+                    tt('Show my account balances'),
+                    tt('Help me find ways to save')
+                ]"
+                @example="store.setDraft"
+                @load-older="loadOlder"
+                @latest="latest"
+                @anchor-change="store.savePosition"
+                @open-reference="referenceDialog?.check"
+                @edit="edit"
+                @retry="retry"
+                @regenerate="retry($event, 'regenerate')"
+                @branch="branch"
+                @select-version="version"
+                @load-versions="loadVersions($event.id)"
+                @next-page="nextPage"
+            />
+            <AssistantCapacityNotice
+                v-if="conversation && store.capabilities"
+                :used="conversation.usedBytes"
+                :reserved="conversation.reservedBytes"
+                :limit="store.capabilities.limits.conversationBytes"
+                :reason="
+                    conversation.turnCount >= store.capabilities.limits.conversationTurns * 0.8
+                        ? 'Approaching conversation turn capacity'
+                        : undefined
+                "
+                :can-continue="!store.busy && !!messages.length"
+                @continue="continueConversation"
+                @manage="historyOpen = true"
+            />
+            <AssistantExperienceComposer
+                v-if="store.capabilities"
+                v-model="input"
+                :variant="variant"
+                :limits="store.capabilities.limits"
+                :generation-state="store.detail?.activeRun?.state"
+                :sending="store.submitting"
+                :disabled-reason="disabledReason"
+                :editing-label="editing ? tt('Edit and create branch') : undefined"
+                @send="send"
+                @stop="run(() => store.stop())"
+                @cancel-edit="editing = undefined"
+            />
         </section>
         <AssistantConfirmationDialog ref="confirmationDialog" :context="context" :fallback-focus="fallbackFocus" />
-        <AssistantExportDialog ref="exportDialog" :context="context" />
     </section>
 </template>
 <style scoped src="./assistant-workspace.css" />

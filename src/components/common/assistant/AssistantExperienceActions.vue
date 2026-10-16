@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mdiRefresh, mdiPencilOutline, mdiSourceBranch, mdiHistory } from '@mdi/js';
 import { useI18n } from '@/locales/helpers.ts';
 import type { AssistantVersionDTO } from '@/models/ai_assistant_conversation.ts';
 import { assistantStateLabels } from './assistantPresentation.ts';
@@ -25,20 +26,15 @@ const emit = defineEmits<{
     loadVersions: [];
 }>();
 const { tt } = useI18n();
-function closeMenu(event: KeyboardEvent): void {
-    const menu = event.currentTarget as HTMLDetailsElement;
-    menu.open = false;
-    menu.querySelector('summary')?.focus();
-}
 </script>
 <template>
     <div class="experience-actions">
         <AssistantCopyButton v-if="content" :text="content" :streaming="streaming" />
-        <button v-if="retry" type="button" :disabled="!!disabledReason" @click="emit('retry')">
-            {{ tt('Retry') }}
+        <button v-if="retry" class="icon-action" type="button" :aria-label="tt('Retry')" :title="tt('Retry')" :disabled="!!disabledReason" @click="emit('retry')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiRefresh" /></svg>
         </button>
-        <button v-if="regenerate" type="button" :disabled="!!disabledReason" @click="emit('regenerate')">
-            {{ tt('Regenerate') }}
+        <button v-if="regenerate" class="icon-action" type="button" :aria-label="tt('Regenerate')" :title="tt('Regenerate')" :disabled="!!disabledReason" @click="emit('regenerate')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiRefresh" /></svg>
         </button>
         <label v-if="versions && versions.length > 1"
             >{{ tt('Version') }}
@@ -54,20 +50,15 @@ function closeMenu(event: KeyboardEvent): void {
                 </option>
             </select>
         </label>
-        <button v-if="hasMoreVersions" type="button" @click="emit('loadVersions')">
-            {{ tt('Older versions') }}
+        <button v-if="hasMoreVersions" class="icon-action" :aria-label="tt('Older versions')" :title="tt('Older versions')" type="button" @click="emit('loadVersions')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiHistory" /></svg>
         </button>
-        <details v-if="edit || branch" class="more" @keydown.esc="closeMenu">
-            <summary>{{ tt('More') }}</summary>
-            <div>
-                <button v-if="edit" type="button" :disabled="!!disabledReason" @click="emit('edit')">
-                    {{ tt('Edit and create branch') }}</button
-                ><button v-if="branch" type="button" :disabled="!!disabledReason" @click="emit('branch')">
-                    {{ tt('Create branch from here') }}
-                </button>
-            </div>
-        </details>
-        <span v-if="disabledReason" class="reason">{{ tt(disabledReason) }}</span>
+        <button v-if="edit" class="icon-action" type="button" :aria-label="tt('Edit and create branch')" :title="tt('Edit and create branch')" :disabled="!!disabledReason" @click="emit('edit')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiPencilOutline" /></svg>
+        </button>
+        <button v-if="branch" class="icon-action" type="button" :aria-label="tt('Create branch from here')" :title="tt('Create branch from here')" :disabled="!!disabledReason" @click="emit('branch')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiSourceBranch" /></svg>
+        </button>
     </div>
 </template>
 <style scoped>
@@ -75,7 +66,8 @@ function closeMenu(event: KeyboardEvent): void {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 2px 8px;
+    gap: 2px;
+    color: var(--assistant-muted, #6b8074);
     font-size: 0.85em;
     margin-top: 8px;
 }
@@ -85,17 +77,18 @@ select {
     width: auto;
     min-height: 44px;
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: 14px;
     border: 1px solid transparent;
     background: transparent;
     color: inherit;
     font: inherit;
     cursor: pointer;
+    transition: background 180ms ease, color 180ms ease, transform 180ms ease;
 }
 select {
-    border-color: rgb(127 127 127 / 90%);
+    border-color: var(--assistant-border, #e5ece3);
     max-width: 100%;
-    background: var(--assistant-surface, Canvas);
+    background: var(--assistant-card, #fff);
 }
 option {
     color: CanvasText;
@@ -103,37 +96,22 @@ option {
 }
 button:hover,
 summary:hover {
-    background: rgb(127 127 127 / 12%);
+    background: var(--assistant-tint, #e8f3e9);
+    color: var(--assistant-action, #278c62);
 }
 button:focus-visible,
 summary:focus-visible,
 select:focus-visible {
-    outline: 2px solid currentColor;
+    outline: 2px solid var(--assistant-action, #278c62);
     outline-offset: 2px;
 }
 button:disabled {
     opacity: 0.55;
     cursor: default;
 }
-.more {
-    position: relative;
-}
-.more[open] > div {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    z-index: 3;
-    inset-inline-end: 0;
-    min-width: 210px;
-    max-width: 80vw;
-    background: Canvas;
-    color: CanvasText;
-    border: 1px solid;
-    border-radius: 8px;
-    padding: 4px;
-    box-shadow: 0 5px 16px #0002;
-}
-.reason {
-    width: 100%;
-}
+.icon-action { width: 44px; display: inline-grid; place-items: center; padding: 10px; }
+svg { width: 20px; height: 20px; fill: currentColor; }
+button:active:not(:disabled) { transform: scale(.94); }
+label { min-width: 0; display: flex; align-items: center; gap: 8px; margin-inline-start: auto; max-width: 100%; }
+@media (prefers-reduced-motion: reduce) { button, select { transition: none; } }
 </style>

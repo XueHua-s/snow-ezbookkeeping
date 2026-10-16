@@ -38,7 +38,7 @@ describe('assistant authoritative state', () => {
     it('prevents double-click before the asynchronous persistence finishes', async () => {
         await store.initialize(); await store.setDraft('question');
         const held = deferred<AssistantLocalSnapshot>(); mocks.save.mockReturnValueOnce(held.promise);
-        const first = store.send(); await expect(store.send()).rejects.toThrow('already_running');
+        const first = store.send(); await expect(store.send()).resolves.toBeUndefined();
         held.resolve(local); await expect(first).rejects.toThrow(); expect(mocks.save).toHaveBeenCalledTimes(1);
     });
     it('keeps the next draft when a send fails and offers original recovery without overwriting it', async () => {

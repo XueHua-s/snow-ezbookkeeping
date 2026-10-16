@@ -17,6 +17,7 @@ export function useAssistantSession() {
     const generation = ref(0);
     let storage: ReturnType<typeof createAssistantLocalStorage> | undefined;
     let unsubscribe: (() => void) | undefined;
+    let editedDraftConversationId: string | undefined;
     let draftId: string | undefined;
     let draftRevision: number | undefined;
     let identityTicket = 0;
@@ -65,6 +66,7 @@ export function useAssistantSession() {
         recentConversationId.value = '';
         local.value = { drafts: [], pending: [], scope: 'page', version: 0 };
         draft.value = '';
+        editedDraftConversationId = undefined;
         draftId = undefined;
         draftRevision = undefined;
         clockOffset = 0;
@@ -113,6 +115,7 @@ export function useAssistantSession() {
         if (changed) {
             conversationId.value = '';
             draft.value = '';
+            editedDraftConversationId = undefined;
             generation.value++;
         }
         const serverTime = Date.parse(next.serverTime);
@@ -140,6 +143,10 @@ export function useAssistantSession() {
         }
     }
     function restoreDraft() {
+        // Refreshing the same conversation must not replace current input with an
+        // older disk snapshot while its asynchronous save is still in flight.
+        if (editedDraftConversationId === conversationId.value) return;
+        editedDraftConversationId = undefined;
         const choices = local.value.drafts.filter((item) => item.conversationId === conversationId.value);
         const found = choices.find((item) => item.editorId === storage?.editorId) ?? choices[0];
         draft.value = found?.text ?? '';
@@ -149,6 +156,7 @@ export function useAssistantSession() {
     async function setDraft(text: string) {
         if (disposed) return;
         draft.value = text;
+        editedDraftConversationId = conversationId.value;
         const owner = storage;
         const valid = capture();
         const id = conversationId.value;
@@ -193,6 +201,7 @@ export function useAssistantSession() {
             (item) => item.id === id && item.conversationId === conversationId.value,
         );
         if (!selected || disposed) return;
+        editedDraftConversationId = conversationId.value;
         draftId = selected.id;
         draftRevision = selected.revision;
         draft.value = selected.text;

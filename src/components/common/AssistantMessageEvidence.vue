@@ -99,10 +99,10 @@ function scopeDetails(scope: DeepReadonly<AIAssistantQueryScope>): string[] {
 .assistant-coverage { padding: 1px 6px; border-radius: 4px; background: rgba(127, 127, 127, 0.1); }
 .assistant-query-time, .assistant-reference-notice { opacity: 0.7; }
 .assistant-reference-notice { margin: 0 0 7px; }
-.assistant-reference-item { display: flex; width: 100%; flex-direction: column; align-items: flex-start; gap: 2px; text-align: start; font: inherit; color: inherit; cursor: pointer; background: transparent; border: 1px solid rgba(127, 127, 127, 0.2); border-radius: 8px; padding: 8px 10px; margin-top: 6px; }
-.assistant-reference-item:hover { background: rgba(127, 127, 127, 0.06); }
-.assistant-reference-item:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.assistant-reference-open { opacity: 0.7; text-decoration: underline; }
+.assistant-reference-item { display: flex; width: 100%; flex-direction: column; align-items: flex-start; gap: 2px; text-align: start; font: inherit; color: inherit; cursor: pointer; background: var(--assistant-card, #fff); border: 1px solid var(--assistant-border, #e5ece4); border-radius: 16px; transition: background 180ms ease, transform 180ms ease; padding: 8px 10px; margin-top: 6px; }
+.assistant-reference-item:hover { background: var(--assistant-tint, #e8f3e9); }
+.assistant-reference-item:focus-visible { outline: 2px solid var(--assistant-action, #278c62); outline-offset: 2px; }
+.assistant-reference-open { color: var(--assistant-action, #278c62); }
 @keyframes assistant-pulse { 50% { opacity: 0.3; } }
-@media (prefers-reduced-motion: reduce) { .assistant-run-requesting .assistant-status-dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .assistant-reference-item { transition: none; } .assistant-run-requesting .assistant-status-dot { animation: none; } }
 </style>

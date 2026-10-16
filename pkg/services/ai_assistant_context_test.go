@@ -216,7 +216,7 @@ func TestAssistantPrepareActualWireFitsDefaultBudget(t *testing.T) {
 	if e != nil || result.State != llm.AssistantStateCompleted {
 		t.Fatal(result, e)
 	}
-	if wireBytes <= 0 || wireBytes > 16000 {
+	if wireBytes <= 0 || wireBytes > prepared.Input.MaxInputTokens {
 		t.Fatal("default request unavailable", wireBytes)
 	}
 	t.Log("actual request UTF8 bytes", wireBytes)

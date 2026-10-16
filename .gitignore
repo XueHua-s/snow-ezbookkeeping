@@ -44,6 +44,8 @@ $RECYCLE.BIN/
 
 # Icon must end with two \r
 Icon
+!src/consts/icon/
+!src/consts/icon/*.ts
 
 # Thumbnails
 ._*

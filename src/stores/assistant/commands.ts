@@ -91,6 +91,7 @@ export function useAssistantCommands(
                 applyLocal(saved);
             }
             if (currentRoute() && conversationId.value === receipt.conversationId) await open();
+            if (valid()) await loadHistory();
             return;
         }
         if (currentRoute() && receipt.conversationId && conversationId.value === (item.conversationId ?? '')) {
@@ -337,8 +338,11 @@ export function useAssistantCommands(
             new TextEncoder().encode(content).byteLength > (limits?.inputBytes ?? 16384)
         )
             throw new Error('input_too_long');
-        if (submitting.value || busy.value || activePending.value.length || !capabilities.value?.generationAvailable)
-            throw new Error('already_running');
+        if (!capabilities.value?.generationAvailable) throw new Error('generation_unavailable');
+        // Repeated clicks and a delivery receipt still in flight are not active model runs.
+        // Keep the draft and let reconciliation finish without dispatching a duplicate command.
+        if (submitting.value || activePending.value.length) return undefined;
+        if (busy.value) throw new Error('already_running');
         const valid = session.capture();
         submitting.value = true;
         try {

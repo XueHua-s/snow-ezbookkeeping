@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mdiClose, mdiRefresh } from '@mdi/js';
 import { nextTick, onBeforeUnmount, useTemplateRef, watch } from 'vue';
 import { useAssistantStore } from '@/stores/assistant.ts';
 import { useI18n } from '@/locales/helpers.ts';
@@ -63,7 +64,7 @@ defineExpose({ check: checkReference });
 <template>
     <dialog
         ref="referenceNotice"
-        class="export-dialog reference-notice"
+        class="reference-notice"
         :aria-label="tt('View Details')"
         @cancel.prevent="dismissReference"
     >
@@ -83,43 +84,77 @@ defineExpose({ check: checkReference });
             v-if="reference.state.value === 'changed' && !store.busy && store.capabilities?.generationAvailable"
             type="button"
             @click="queryReferenceAgain"
-        >
-            {{ tt('Ask this question again') }}
+         :aria-label="tt('Ask this question again')" :title="tt('Ask this question again')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiRefresh" /></svg>
         </button>
         <button
             class="reference-action"
             v-if="reference.state.value === 'unavailable' || reference.state.value === 'failed'"
             type="button"
             @click="reference.retry"
-        >
-            {{ tt('Retry') }}
+         :aria-label="tt('Retry')" :title="tt('Retry')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiRefresh" /></svg>
         </button>
-        <button class="reference-action" type="button" @click="dismissReference">{{ tt('Close') }}</button>
+        <button class="reference-action" type="button" @click="dismissReference" :aria-label="tt('Close')" :title="tt('Close')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiClose" /></svg>
+        </button>
     </dialog>
 </template>
 <style scoped>
 .reference-notice {
-    max-height: 80dvh;
+    width: min(90vw, 440px);
+    max-height: 85dvh;
     overflow-y: auto;
     overscroll-behavior: contain;
-    max-width: min(90vw, 500px);
-    border-radius: 16px;
+    overflow-wrap: anywhere;
+    border: 1px solid var(--assistant-border, #e5ece4);
+    border-radius: 24px;
     padding: 24px;
-    background: var(--assistant-surface, Canvas);
-    color: inherit;
+    background: var(--assistant-surface, #fbfcf9);
+    color: var(--assistant-text, #233e30);
+    box-shadow: 0 20px 70px rgb(35 62 48 / 15%);
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    transition: opacity 180ms ease, transform 180ms ease, display 180ms allow-discrete, overlay 180ms allow-discrete;
 }
+.reference-notice[open] { opacity: 1; transform: translateY(0) scale(1); }
+.reference-notice::backdrop {
+    background: rgb(25 49 35 / 22%);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    transition: opacity 180ms ease, display 180ms allow-discrete, overlay 180ms allow-discrete;
+}
+.reference-notice[open]::backdrop { opacity: 1; }
+@starting-style {
+    .reference-notice[open] { opacity: 0; transform: translateY(8px) scale(0.98); }
+    .reference-notice[open]::backdrop { opacity: 0; }
+}
+.reference-notice p { margin: 0 0 16px; line-height: 1.7; }
+
 .reference-action {
-    color: inherit;
-    font: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 44px;
     min-height: 44px;
-    padding: 8px;
-    border: 1px solid rgb(127 127 127 / 90%);
-    border-radius: 8px;
-    background: transparent;
+    margin: 4px 6px 0 0;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 14px;
+    color: var(--assistant-action, #278c62);
+    background: var(--assistant-tint, #e8f3e9);
+    font: inherit;
     cursor: pointer;
+    transition: background 160ms ease, transform 160ms ease, opacity 160ms ease;
 }
-.reference-action:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+.reference-action:hover:not(:disabled) { background: color-mix(in srgb, var(--assistant-action, #278c62) 16%, var(--assistant-card, #fff)); }
+.reference-action:active:not(:disabled) { transform: scale(0.96); }
+.reference-action:disabled { opacity: 0.5; cursor: default; }
+.reference-action:focus-visible { outline: 2px solid var(--assistant-action, #278c62); outline-offset: 3px; }
+.reference-action svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::backdrop { animation: none !important; transition: none !important; }
 }
 </style>

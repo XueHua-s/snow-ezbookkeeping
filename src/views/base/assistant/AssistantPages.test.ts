@@ -52,7 +52,7 @@ describe('cloud assistant route lifecycle', () => {
         const { root } = await openPage();
         await root.get('textarea').setValue('Keep this question');
         expect(root.text()).toContain('AI assistant is disabled'); await vi.waitFor(() => expect(root.text()).toContain('October dining'));
-        expect(root.findAll('button').find(button => button.text() === 'Send')?.attributes('disabled')).toBeDefined();
+        expect(root.findAll('button').find(button => button.attributes('aria-label') === 'Send')?.attributes('disabled')).toBeDefined();
         expect(api['send']).not.toHaveBeenCalled();
     });
     it('submits Unicode text intact only after IME confirmation and does not send client history', async () => {

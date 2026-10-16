@@ -106,9 +106,10 @@ summary {
     min-height: 44px;
     padding: 10px 0;
     cursor: pointer;
+    transition: background 180ms ease, transform 180ms ease;
 }
 .query {
-    border-inline-start: 2px solid rgb(127 127 127 / 50%);
+    border-inline-start: 2px solid var(--assistant-border, #e5ece4);
     padding-inline-start: 12px;
 }
 .bills {
@@ -119,13 +120,14 @@ summary {
 button {
     min-height: 44px;
     padding: 12px;
-    border: 1px solid rgb(127 127 127 / 90%);
-    border-radius: 10px;
-    background: transparent;
+    border: 1px solid var(--assistant-border, #e5ece4);
+    border-radius: 17px;
+    background: var(--assistant-card, #fff);
     color: inherit;
     font: inherit;
     text-align: start;
     cursor: pointer;
+    transition: background 180ms ease, transform 180ms ease;
 }
 .bills button {
     display: flex;
@@ -136,11 +138,15 @@ strong {
     font-variant-numeric: tabular-nums;
 }
 button:hover {
-    background: rgb(127 127 127 / 10%);
+    background: var(--assistant-tint, #e8f3e9);
 }
 button:focus-visible,
 summary:focus-visible {
-    outline: 2px solid currentColor;
+    outline: 2px solid var(--assistant-action, #278c62);
     outline-offset: 2px;
 }
+button:active { transform: scale(.99); }
+details[open] .query { animation: evidence-enter 180ms ease; }
+@keyframes evidence-enter { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { button, summary { transition: none; } details[open] .query { animation: none; } }
 </style>
