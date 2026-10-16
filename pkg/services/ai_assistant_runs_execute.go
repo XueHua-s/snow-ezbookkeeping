@@ -167,6 +167,8 @@ func (s *AssistantRunService) execute(parent context.Context, claimed *models.As
 					reason = models.AssistantReasonExecutionLimit
 				case data.ToolErrorQueryTimeout:
 					reason = models.AssistantReasonExecutionLimit
+				case data.ToolErrorNotFoundOrNotAccessible:
+					reason = models.AssistantReasonNotAccessible
 				case data.ToolErrorInvalidCursor:
 					reason = models.AssistantReasonCursorExpired
 				}

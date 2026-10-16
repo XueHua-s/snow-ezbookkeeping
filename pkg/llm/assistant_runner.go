@@ -63,7 +63,8 @@ type assistantRun struct {
 	visible           bool
 	cache             map[[32]byte]*assistantCachedResult
 	ids               map[string]assistantCallIdentity
-	unresolved        map[data.ToolName]*data.ToolError
+	unresolved        map[[32]byte]assistantUnresolvedCall
+	toolRound         int
 	queryIDs          map[string]bool
 	referenceIDs      map[string]bool
 	lastFailure       string
@@ -92,7 +93,7 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 	run := &assistantRun{runner: r, input: input, started: r.now(), c: core.NewAssistantContext(parent, c.GetContextId(), c.GetClientLocale(), c.ClientIP()), cancel: cancel, sink: sink,
 		result:      AssistantRunResult{Mode: input.Mode, State: AssistantStateRequesting},
 		observation: AssistantObservation{Kind: AssistantObservationRun, RequestID: c.GetContextId(), Rounds: input.PriorModelCalls},
-		cache:       map[[32]byte]*assistantCachedResult{}, ids: map[string]assistantCallIdentity{}, unresolved: map[data.ToolName]*data.ToolError{}, queryIDs: map[string]bool{}, referenceIDs: map[string]bool{}}
+		cache:       map[[32]byte]*assistantCachedResult{}, ids: map[string]assistantCallIdentity{}, unresolved: map[[32]byte]assistantUnresolvedCall{}, queryIDs: map[string]bool{}, referenceIDs: map[string]bool{}}
 	defer func() {
 		if input.Finalize != nil {
 			if writeErr := input.Finalize(run.result, err); writeErr != nil {
@@ -256,11 +257,11 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		}
 		if len(turn.ToolCalls) == 0 {
 			// A model's completed text cannot turn a failed financial query into an
-			// empty ledger or a verified answer. A corrected success of that tool must
+			// empty ledger or a verified answer. A successful retry of that query must
 			// resolve the error before this request can complete.
 			if len(run.unresolved) > 0 {
 				for _, failure := range run.unresolved {
-					return run.result, run.stop(failure.Code, assistantReason(failure.Code))
+					return run.result, run.stop(failure.failure.Code, assistantReason(failure.failure.Code))
 				}
 			}
 			if err = run.emit(AssistantEvent{Type: AssistantEventStatus, Status: AssistantStatusAnswering}); err != nil {
@@ -302,6 +303,7 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		// Preserve this exact assistant prefix for same-adapter opaque state replay.
 		messages = append(messages, data.ConversationMessage{Role: data.ConversationRoleAssistant, Content: turn.Content, ToolCalls: turn.ToolCalls})
 		turnInput.Messages, turnInput.State = messages, turn.State
+		run.toolRound++
 		messages, err = run.executeTurnTools(current, switched, turn, turnInput, allowed, keys)
 		if err != nil {
 			return run.result, err

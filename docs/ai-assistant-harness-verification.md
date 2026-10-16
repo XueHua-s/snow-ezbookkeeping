@@ -303,3 +303,15 @@ worker 仅在自己的 run deadline 真正耗尽时标记 `run_timeout`；查询
 本轮后端定向测试（summary、Prepare、compaction、历史、超时层级、授权变化、continuation 及 models contract）通过。为兼容旧缓存前端的严格白名单，没有新增 reason 或 HTTP 错误索引；局部查询超时使用旧版本已认识的 execution_limit，新的中性文案说明执行限制并保留同会话重试。内部保留 ToolErrorQueryTimeout 分类；准备阶段失败维持 failed，运行器返回 incomplete 时仍保留 incomplete，不为 execution_limit 引入新的终态语义。
 
 最终两位独立 agent 串行复审均无阻断项。`BUILD_PIPELINE=1 go test ./...`、`go vet ./...`、相关 race、lint 通过；前端 51 文件 / 38,954 单元测试、12 文件 / 82 浏览器测试通过，文案兼容调整后的定向测试亦通过。CI 模式按现有规则跳过实时第三方汇率；一次非 CI 全套运行中仅马来西亚央行接口返回 EOF，该单项随后重新执行通过，未将跳过项算作外部集成通过。
+
+### 查询失败身份与订阅断流恢复（2026-10-17，本地确定性验证）
+
+Runner 的未解决失败现在按 canonical tool-call key 保存，工具名相同但交易 ID 或查询范围不同的成功不能冲销失败。精确 key 的成功只解除该 key；输入校验失败只有在后续工具轮次中存在唯一明确纠错候选时，才可沿纠错链推进。纠错依据使用已有 ToolError.Field，支持去掉 `arguments.` 前缀后的对象节点路径，只允许修改该节点，其他参数必须在保留数字精度、拒绝重复 JSON key 的规范化后相同。不推断未标注字段、泛化 `arguments`/`duplicate_key` 或穿过数组元素的路径，也不将同轮并列调用当成读过错误后的纠错。常见 filter 时间、金额、币种、ID 校验现在回报精确路径。读取/授权/游标失败不能因无关参数成功而解除。
+
+已通过 `go test ./pkg/llm ./pkg/services -run 'TestAssistant(Runner|ArgumentCorrection|QueryValidation|WorkerRetains|Filter)' -count=1`：覆盖同轮/跨轮无关成功、多失败、缓存成功、精确重试、多个模糊纠错候选、连续两字段纠错、真实空结果、未解决失败时抑制流式正文；真实 SQLite AssistantQueryService 验证 filter 币种、时间、类型、金额、ID 的正常纠错以及改变其他范围仍不能完成。Worker 集成用不存在的交易 999 和存在的交易 100 验证最终保存 incomplete/not_accessible，正文不泄露，run snapshot 读取成功；使用既有公开 reason，不新增 wire 合同，也不将终态 reason 转为 HTTP 404。
+
+订阅断开后，当前 controller 的 finally 清除连接并立即重排短轮询，替换原有 14–16 秒 watchdog。仅同 generation/navigation 且未主动 abort 的当前订阅可触发重排。`npx vitest run src/stores/assistant/streamRecovery.test.ts` 的 6 项通过：reject/正常结束后 2 秒启动状态同步；导航、身份切换、detach、dispose 后旧连接结束不会复活轮询。`git diff --check` 与 500 行源文件限制检查通过。本节是隔离本地 provider/SQLite 与 fake-timer 验证，不代表商业模型回答质量或生产部署已验证。
+
+独立复审后补充纠错链边界：唯一明确的校验纠正若随后暴露读取/授权/游标失败，会将旧校验失败转移到新查询身份，并继续保留新失败；相同身份成功才能解除该读取失败。已新增 NOT_FOUND_OR_NOT_ACCESSIBLE / INVALID_CURSOR 各三种回归：修正参数后读取失败再精确重试成功、改其他 ID 成功不能冲销、同 key 后续校验失败不能把原读取失败弱化。上述 runner/service 定向命令再次通过（llm 0.523 秒，services 1.056 秒）；修改未涉及生产数据或新增公开 reason。
+
+补充生产构建故障注入：真实 native 后端、隔离 SQLite、本地 HTTP 模型和 Chromium，先显示部分正文，再断开已建立的 SSE 并阻止重新订阅，让最终回答仅通过 HTTP 补回。旧版桌面在 7 秒内仍未恢复；修复后桌面 2,296ms、手机 2,302ms 内自动显示完整回答，未重复正文、无需用户重试、无 pageerror。记录位于本地 `~/Library/Caches/ebk-recovery-release/disconnect-after/results.json`。全量 Go（CI 模式）、vet、相关 race、lint、生产构建、52 文件 / 38,960 单测及 12 文件 / 82 浏览器测试通过。补修后两位独立 agent 串行复审均无阻断项；上述故障注入使用确定性模型协议，不是商业模型质量或线上供应商可用性认证。

@@ -118,14 +118,14 @@ func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool,
 		if run.cache[key] == nil {
 			run.cache[key] = &assistantCachedResult{result: result}
 		}
-		delete(run.unresolved, call.Name)
+		run.resolveFailure(call, key)
 		run.lastFailure = ""
 	} else {
 		code := assistantErrorCode(result.Error)
 		if code == data.ToolErrorBudgetExhausted || code == data.ToolErrorResultTooLarge {
 			run.observation.ContextFailureSource = "tool_result"
 		}
-		run.unresolved[call.Name] = assistantRunnerError(code)
+		run.recordFailure(call, key, *result.Error)
 		failure := string(key[:]) + string(code)
 		if failure == run.lastFailure {
 			return result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonRepeatedError)

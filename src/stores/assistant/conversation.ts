@@ -284,6 +284,9 @@ export function useAssistantConversation(session: AssistantSession, synchronize:
                 if (subscription === controller) {
                     subscription = undefined;
                     subscriptionRun = '';
+                    if (!controller.signal.aborted && generation === session.generation.value && ticket === navigation) {
+                        schedule();
+                    }
                 }
             });
     }

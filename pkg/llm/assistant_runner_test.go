@@ -134,7 +134,7 @@ func TestAssistantRunnerCorrectsErrorsWithoutEmptySuccess(t *testing.T) {
 		t.Run(fmt.Sprint(correct), func(t *testing.T) {
 			e := &runnerExecutor{execute: func(_ core.Context, call data.ToolCall) data.ToolResult {
 				if call.ID == "bad" {
-					return data.ToolResult{Error: &data.ToolError{Code: data.ToolErrorInvalidArgument}, QueryID: "fake", Scope: &data.QueryScope{}, References: []data.TransactionReference{{ID: "fake"}}, HasMore: true, NextCursor: "fake"}
+					return data.ToolResult{Error: &data.ToolError{Code: data.ToolErrorInvalidArgument, Field: "date"}, QueryID: "fake", Scope: &data.QueryScope{}, References: []data.TransactionReference{{ID: "fake"}}, HasMore: true, NextCursor: "fake"}
 				}
 				return runnerSuccess(call.ID)
 			}}
