@@ -48,6 +48,8 @@ type AssistantQueryService struct {
 }
 type assistantToolHandler func(*assistantQueryExecution) (data.ToolResult, error)
 type assistantQueryExecution struct {
+	QueryID         string
+	QueriedAt       string
 	Service         *AssistantQueryService
 	Context         core.Context
 	View            datastore.AssistantReadView
@@ -192,9 +194,14 @@ func (s *AssistantQueryService) Execute(c core.Context, call data.ToolCall) (res
 	defer cancel()
 	qc := core.NewAssistantContext(ctx, c.GetContextId(), c.GetClientLocale(), c.ClientIP())
 	queriedAt := s.now().UTC().Format(time.RFC3339)
+	queryID := make([]byte, 16)
+	if _, err := rand.Read(queryID); err != nil {
+		return assistantFailure(err)
+	}
+	queryIDText := hex.EncodeToString(queryID)
 	err = s.database.WithAssistantReadView(qc, func(view datastore.AssistantReadView) error {
 		defer func() { read = view.Observations().RowsRead }()
-		execution := &assistantQueryExecution{Service: s, Context: qc, View: view, Tool: call.Name, Args: args, Cursor: cursor}
+		execution := &assistantQueryExecution{Service: s, Context: qc, View: view, Tool: call.Name, Args: args, Cursor: cursor, QueryID: queryIDText, QueriedAt: queriedAt}
 		if err := execution.prepare(); err != nil {
 			return err
 		}
@@ -228,11 +235,7 @@ func (s *AssistantQueryService) Execute(c core.Context, call data.ToolCall) (res
 		result.Scope = execution.Scope
 		result.QueriedAt = queriedAt
 		if result.QueryID == "" {
-			id := make([]byte, 16)
-			if _, err = rand.Read(id); err != nil {
-				return err
-			}
-			result.QueryID = hex.EncodeToString(id)
+			result.QueryID = queryIDText
 		}
 		if result.Warnings == nil {
 			result.Warnings = []string{}

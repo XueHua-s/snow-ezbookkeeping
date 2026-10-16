@@ -24,6 +24,7 @@ export async function environment(options = {}) {
     await mkdir(artifacts, { recursive: true });
     await mkdir(resolve(directory, 'storage'));
     let calls = 0;
+    let providerError;
     const failedOnce = new Set();
     const provider = httpServer(async (req, res) => {
         if (req.method !== 'POST') { res.end(JSON.stringify({ calls })); return; }
@@ -38,6 +39,12 @@ export async function environment(options = {}) {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ id: 'isolated-compaction', object: 'chat.completion', model: 'isolated-protocol', choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify({ topic: 'Isolated synthetic ledger verification', confirmedConstraints: [], resolvedReferences: [], openQuestions: [] }) }, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 30, total_tokens: 130 } }));
             return;
+        }
+        try {
+            if (await options.respondToProvider?.({ request, res })) return;
+        } catch (error) {
+            providerError = error;
+            res.writeHead(500); res.end('Isolated provider assertion failed'); return;
         }
 
         if (latest.includes('E2E_FAIL_ONCE') && !failedOnce.has(latest)) { failedOnce.add(latest); res.writeHead(503); res.end(); return; }
@@ -199,7 +206,7 @@ export async function environment(options = {}) {
             return { ...login, fixtureIds: { accountId: account.id, categoryId: category.id, transactionId: transaction.id } };
         }
         return { url, base, api, user, artifacts, directory, setGeneration, invalidate: () => vite?.moduleGraph.invalidateAll(), calls: () => calls,
-            close, runtime: container };
+            close, runtime: container, providerError: () => providerError };
     } catch (error) {
         try { await close(); } catch (cleanupError) {
             throw new AggregateError([error, cleanupError], 'Isolated startup and cleanup failed');

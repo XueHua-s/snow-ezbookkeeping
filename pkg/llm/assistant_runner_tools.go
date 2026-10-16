@@ -103,6 +103,9 @@ func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool,
 		run.lastFailure = ""
 	} else {
 		code := assistantErrorCode(result.Error)
+		if code == data.ToolErrorBudgetExhausted || code == data.ToolErrorResultTooLarge {
+			run.observation.ContextFailureSource = "tool_result"
+		}
 		run.unresolved[call.Name] = assistantRunnerError(code)
 		failure := string(key[:]) + string(code)
 		if failure == run.lastFailure {

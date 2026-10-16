@@ -32,3 +32,12 @@ it.each(['canceled', 'incomplete'] as const)('keeps partial text and removes act
     await vi.waitFor(() => expect(document.querySelector('.assistant-markdown')?.textContent).toContain('Saved partial answer'));
     screen.unmount();
 });
+
+it('keeps an empty failed attempt actionable without claiming partial text was shown', async () => {
+    const answer: AssistantRunSnapshot = { ...fixtureMessage.selectedAnswer!, content: '', processSummary: '', state: 'incomplete', reasonCode: 'context_limit', references: [] };
+    const screen = await render(Messages, { props: { messages: [{ ...fixtureMessage, selectedAnswer: answer }] } });
+    expect(document.body.textContent).toContain('Your question is saved; you can retry here.');
+    expect(document.body.textContent).not.toContain('Partial text may be unreliable.');
+    expect(document.querySelector('.generation-indicator')).toBeNull();
+    screen.unmount();
+});

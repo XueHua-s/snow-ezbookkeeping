@@ -135,6 +135,7 @@ defineExpose({
                         </p>
                         <p
                             v-if="
+                                message.selectedAnswer.content &&
                                 ['failed', 'incomplete', 'interrupted', 'canceled'].includes(
                                     message.selectedAnswer.state
                                 )

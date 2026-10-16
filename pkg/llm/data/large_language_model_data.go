@@ -103,10 +103,12 @@ const (
 // ToolError contains controlled, safe-to-display descriptions, never raw SQL,
 // driver/provider errors, credentials or information about another user's IDs.
 type ToolError struct {
-	Code      ToolErrorCode `json:"code"`
-	Message   string        `json:"message"`
-	Retryable bool          `json:"retryable"`
-	Field     string        `json:"field,omitempty"`
+	// UpstreamContext distinguishes a provider rejection from local budgeting.
+	UpstreamContext bool          `json:"-"`
+	Code            ToolErrorCode `json:"code"`
+	Message         string        `json:"message"`
+	Retryable       bool          `json:"retryable"`
+	Field           string        `json:"field,omitempty"`
 }
 
 // Error allows provider failures to carry the same controlled error code to

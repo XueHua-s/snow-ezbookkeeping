@@ -33,7 +33,7 @@ func parseResponsesToolTurn(b []byte) (data.TurnResponse, []json.RawMessage, err
 		IncompleteDetails json.RawMessage   `json:"incomplete_details"`
 	}
 	if isContextLimit(b) {
-		return zero, nil, assistantError(data.ToolErrorBudgetExhausted)
+		return zero, nil, assistantContextError()
 	}
 	if json.Unmarshal(b, &envelope) == nil && envelope.Status == "incomplete" {
 		var details struct {
@@ -106,7 +106,7 @@ func readResponsesToolStream(r io.Reader, emit data.DisplayEventSink) (data.Turn
 	toolSeen := false
 	err := readAssistantSSE(r, func(b []byte) (bool, error) {
 		if isContextLimit(b) {
-			return false, assistantError(data.ToolErrorBudgetExhausted)
+			return false, assistantContextError()
 		}
 		var event struct {
 			Type        string          `json:"type"`

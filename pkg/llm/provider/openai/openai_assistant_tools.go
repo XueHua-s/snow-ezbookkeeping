@@ -60,6 +60,12 @@ func assistantError(code data.ToolErrorCode) error {
 	return &data.ToolError{Code: code, Message: messages[code], Retryable: code == data.ToolErrorUpstreamFailed || code == data.ToolErrorProtocol}
 }
 
+func assistantContextError() error {
+	e := assistantError(data.ToolErrorBudgetExhausted).(*data.ToolError)
+	e.UpstreamContext = true
+	return e
+}
+
 func (p *assistantToolProvider) RunToolTurn(c core.Context, uid int64, input data.ToolTurnInput, emit data.DisplayEventSink) (data.TurnResponse, error) {
 	var zero data.TurnResponse
 	if err := c.Err(); err != nil {
@@ -88,7 +94,7 @@ func (p *assistantToolProvider) RunToolTurn(c core.Context, uid int64, input dat
 			return zero, assistantTransportError(c, readErr)
 		}
 		if isContextLimit(b) {
-			return zero, assistantError(data.ToolErrorBudgetExhausted)
+			return zero, assistantContextError()
 		}
 		return zero, assistantError(data.ToolErrorUpstreamFailed)
 	}
@@ -105,7 +111,7 @@ func (p *assistantToolProvider) RunToolTurn(c core.Context, uid int64, input dat
 		b, err = readAssistantBody(resp.Body)
 		if err == nil {
 			if isContextLimit(b) {
-				err = assistantError(data.ToolErrorBudgetExhausted)
+				err = assistantContextError()
 			} else if p.responses {
 				turn, outputs, err = parseResponsesToolTurn(b)
 			} else {

@@ -43,6 +43,8 @@ request_timeout = 180000
 
 浏览器 JSON 与 SSE 使用同一执行器，上游协议由 provider 配置选择：`llm_provider = openai` 使用 Chat Completions，交互式助手生成在存在事件接收端时自动请求流式正文；`chat_completions_stream = true` 还可强制其他 Chat Completions 调用使用流式传输；`llm_provider = openai_responses_compatible` 使用 Responses。Responses 配置填写 `openai_compatible_base_url`、`openai_compatible_api_key` 和 `openai_compatible_model_id`，对应密钥文件变量为 `EBKCFP_LLM_ASSISTANT_OPENAI_COMPATIBLE_API_KEY`（备用段同理）。主备模型均须支持其配置协议的完整工具调用和可靠结束标志；其他不具备工具能力的 provider 会明确失败。
 
+工具轮之间会将重复字段的结果无损编码为 `column_rows` 表格，为后续分析预留上下文；模型需要遵循随请求提供的列与行映射说明。金额、完整汇总和分页语义保持不变。供应商明确拒绝上下文时，尚未输出正文的请求最多自动重试一次，并减少输出预留；这不能保证任意供应商的纯输入上限都可恢复。日志中的 `contextFailureSource` 区分本地输入、工具结果及上游拒绝，`contextRecoveryAttempts` 记录恢复次数，不记录问题或账本正文。
+
 模型工具轮完整结束后才执行查询；带工具的轮次正文不作为最终答案。SSE 实时输出状态及允许展示的思考，最终正文可能在完整轮次结束后才出现。一次请求最多切换备用模型一次，已经发送正文或思考后不再切换。识图备用接口只接管识图请求。
 
 `run_timeout`（整体）和 `query_timeout`（单次查询）单位为毫秒，`max_rounds` 为轮数，均须为 1–4294967295 的整数。仅在 `[llm_assistant]` 配置这些预算；主备共用。供应商 `request_timeout` 与整体截止时间取较早者。浏览器 JSON/SSE 超时均为服务端 `run_timeout` 加 10 秒，反向代理读取超时应至少覆盖该值，例如默认预算配置 `proxy_read_timeout 190s`；SSE 每 15 秒心跳，并须关闭代理缓冲。预算耗尽、取消、查询错误和供应商断流会显示明确终态，不能当作成功空账本。

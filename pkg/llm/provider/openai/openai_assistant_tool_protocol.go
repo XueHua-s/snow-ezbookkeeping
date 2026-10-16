@@ -47,7 +47,7 @@ func selectedChatChoice(b []byte) (*assistantChatChoice, error) {
 	}
 	if len(envelope.Error) > 0 && string(envelope.Error) != "null" {
 		if isContextLimit(b) {
-			return nil, assistantError(data.ToolErrorBudgetExhausted)
+			return nil, assistantContextError()
 		}
 		return nil, assistantError(data.ToolErrorUpstreamFailed)
 	}

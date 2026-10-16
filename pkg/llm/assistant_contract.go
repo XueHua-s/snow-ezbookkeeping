@@ -145,17 +145,20 @@ const (
 // supply only their measurement via ToolResult.Metrics. No SQL, arguments,
 // financial text, cursors, provider state or arbitrary error string belongs here.
 type AssistantObservation struct {
-	Kind                 AssistantObservationKind `json:"kind"`
-	RequestID            string                   `json:"requestId"`
-	Tool                 data.ToolName            `json:"tool,omitempty"`
-	RowsRead             int64                    `json:"rowsRead"`
-	ResultRecords        int64                    `json:"resultRecords"`
-	SerializedBytes      int64                    `json:"serializedBytes"`
-	DurationMilliseconds int64                    `json:"durationMilliseconds"`
-	Rounds               uint32                   `json:"rounds"`
-	Executions           int                      `json:"executions"`
-	CacheHits            int                      `json:"cacheHits"`
-	Reason               AssistantStopReason      `json:"reason"`
+	// Controlled labels only: local_input, tool_result, upstream_input.
+	ContextFailureSource    string                   `json:"contextFailureSource,omitempty"`
+	ContextRecoveryAttempts int                      `json:"contextRecoveryAttempts,omitempty"`
+	Kind                    AssistantObservationKind `json:"kind"`
+	RequestID               string                   `json:"requestId"`
+	Tool                    data.ToolName            `json:"tool,omitempty"`
+	RowsRead                int64                    `json:"rowsRead"`
+	ResultRecords           int64                    `json:"resultRecords"`
+	SerializedBytes         int64                    `json:"serializedBytes"`
+	DurationMilliseconds    int64                    `json:"durationMilliseconds"`
+	Rounds                  uint32                   `json:"rounds"`
+	Executions              int                      `json:"executions"`
+	CacheHits               int                      `json:"cacheHits"`
+	Reason                  AssistantStopReason      `json:"reason"`
 	// nil is "not applicable/no status written", including every JSON run;
 	// zero is an actual first status written in less than one millisecond.
 	FirstStatusMilliseconds *int64 `json:"firstStatusMilliseconds"`
