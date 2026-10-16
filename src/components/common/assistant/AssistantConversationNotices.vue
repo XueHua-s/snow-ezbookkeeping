@@ -16,7 +16,6 @@ const { tt } = useI18n();
 const conversation = computed(() => store.detail?.conversation);
 </script>
 <template>
-    <TransitionGroup name="notice">
     <p key="notice-1" v-if="store.conversationId && !store.detail && !store.loading" class="notice" role="status">
         {{ tt('This conversation does not exist or is not accessible.') }}
         <button class="workspace-action" type="button" @click="emit('navigate', '')" :aria-label="tt('New conversation')" :title="tt('New conversation')">
@@ -75,7 +74,6 @@ const conversation = computed(() => store.detail?.conversation);
             {{ tt('Unarchive and continue') }}
         </button>
     </p>
-    </TransitionGroup>
 </template>
 <style scoped>
 .notice {
@@ -89,8 +87,9 @@ const conversation = computed(() => store.detail?.conversation);
     max-height: 180px;
     overflow-y: auto;
 }
-.notice-enter-active, .notice-leave-active, .notice-move { transition: opacity 180ms ease, transform 180ms ease; }
-.notice-enter-from, .notice-leave-to { opacity: 0; transform: translateY(4px); }
+/* Remove obsolete content immediately; only its arrival is animated. */
+.notice { animation: notice-enter 180ms ease; }
+@keyframes notice-enter { from { opacity: 0; transform: translateY(4px); } }
 
 .workspace-action {
     display: inline-flex;

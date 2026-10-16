@@ -14,7 +14,6 @@ const { tt } = useI18n();
 const visible = computed(() => !!props.reason || props.used + props.reserved >= props.limit * 0.8);
 </script>
 <template>
-    <Transition name="capacity">
     <aside v-if="visible" class="capacity" role="status">
         <strong>{{ tt(reason || 'Approaching conversation capacity') }}</strong>
         <div>
@@ -23,7 +22,6 @@ const visible = computed(() => !!props.reason || props.used + props.reserved >= 
             ><button type="button" :aria-label="tt('Conversation history')" :title="tt('Conversation history')" @click="emit('manage')"><svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiHistory" /></svg></button>
         </div>
     </aside>
-    </Transition>
 </template>
 <style scoped>
 .capacity {
@@ -36,8 +34,9 @@ const visible = computed(() => !!props.reason || props.used + props.reserved >= 
     line-height: 1.6;
 }
 .capacity p { color: var(--assistant-muted, #718277); font-size: 0.8125rem; margin: 6px 0; }
-.capacity-enter-active, .capacity-leave-active { transition: opacity 180ms ease, transform 180ms ease; }
-.capacity-enter-from, .capacity-leave-to { opacity: 0; transform: translateY(4px); }
+/* Remove obsolete content immediately; only its arrival is animated. */
+.capacity { animation: capacity-enter 180ms ease; }
+@keyframes capacity-enter { from { opacity: 0; transform: translateY(4px); } }
 
 button {
     display: inline-flex;

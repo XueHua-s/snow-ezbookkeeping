@@ -25,7 +25,7 @@ beforeEach(() => {
 describe.each(['desktop', 'mobile'] as const)('%s workspace native dialogs', variant => {
     it('restores Delete focus after cancellation and dismisses an old owner decision', async () => {
         await page.viewport(variant === 'desktop' ? 1280 : 390, 844);
-        const screen = await render(Workspace, { props: { variant, conversationId: '', messageId: '' } });
+        const screen = await render(Workspace, { global: { stubs: { transition: false, transitionGroup: false } }, props: { variant, conversationId: '', messageId: '' } });
         await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
         await page.getByRole('button', { name: 'Delete', exact: true }).click();
         await expect.element(page.getByRole('button', { name: 'Confirm', exact: true })).toBeVisible();
@@ -42,7 +42,7 @@ describe.each(['desktop', 'mobile'] as const)('%s workspace native dialogs', var
     });
     it('cancels a pending conversation deletion when the route changes', async () => {
         await page.viewport(variant === 'desktop' ? 1280 : 390, 844);
-        const screen = await render(Workspace, { props: { variant, conversationId: '', messageId: '' } });
+        const screen = await render(Workspace, { global: { stubs: { transition: false, transitionGroup: false } }, props: { variant, conversationId: '', messageId: '' } });
         await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
         await page.getByRole('button', { name: 'Delete', exact: true }).click();
         await expect.element(page.getByRole('button', { name: 'Confirm', exact: true })).toBeVisible();
@@ -53,7 +53,7 @@ describe.each(['desktop', 'mobile'] as const)('%s workspace native dialogs', var
     });
     it('omits memory, export and bulk deletion while retaining conversation deletion', async () => {
         await page.viewport(variant === 'desktop' ? 1280 : 390, 844);
-        const screen = await render(Workspace, { props: { variant, conversationId: '', messageId: '' } });
+        const screen = await render(Workspace, { global: { stubs: { transition: false, transitionGroup: false } }, props: { variant, conversationId: '', messageId: '' } });
         await expect.element(page.getByRole('button', { name: 'New conversation', exact: true })).toBeVisible();
         expect(document.querySelector('.toolbar-more')).toBeNull();
         expect(document.body.textContent).not.toMatch(/Long-term memory|Export|Clear all assistant data/);
@@ -71,7 +71,7 @@ it('uses top-layer modality across resize and releases the application on close 
     outside.textContent = 'Application toolbar';
     document.body.append(outside);
     await page.viewport(390, 844);
-    const screen = await render(Workspace, { props: { variant: 'mobile', conversationId: '', messageId: '' } });
+    const screen = await render(Workspace, { global: { stubs: { transition: false, transitionGroup: false } }, props: { variant: 'mobile', conversationId: '', messageId: '' } });
     try {
         await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
         await expect.poll(() => document.querySelector('.cloud-history')?.matches(':modal')).toBe(true);

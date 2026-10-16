@@ -77,7 +77,7 @@ export async function extendedFlows({ env, browser, context, page, identity, var
     await page.route('**/api/v1/llm/assistant/messages/send.json', async route => { interceptedSend = route.request().postDataJSON(); await route.fetch(); await route.abort('failed'); dropped(); });
     await page.getByRole('button', { name: 'Send', exact: true }).click(); await accepted;
     await page.reload(); await page.unroute('**/api/v1/llm/assistant/messages/send.json');
-    await page.getByText('E2E_SLOW uncertain response', { exact: true }).waitFor().catch(async error => {
+    await page.locator('.experience-messages .question').getByText('E2E_SLOW uncertain response', { exact: true }).waitFor().catch(async error => {
         const server = await env.api(`${assistant}conversations/get?id=${id}`, undefined, identity.token);
         console.error('Accepted send recovery mismatch', { variant, interceptedSend, serverMessages: server.messages.map(message => ({ id: message.id, content: message.content })), url: page.url(), body: await page.locator('.cloud-workspace').innerText(), draft: await input.inputValue() });
         throw error;

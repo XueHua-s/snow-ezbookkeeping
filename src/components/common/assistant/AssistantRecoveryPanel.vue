@@ -17,7 +17,6 @@ const { tt } = useI18n();
 const unresolvedPending = computed(() => store.local.pending.filter((item) => !item.resolvedConversationId));
 </script>
 <template>
-    <TransitionGroup name="notice">
     <p key="notice-1" v-if="store.legacyBackend" class="notice" role="status">
         {{ tt('Upgrade the server to use saved assistant conversations.') }}
     </p>
@@ -95,7 +94,6 @@ const unresolvedPending = computed(() => store.local.pending.filter((item) => !i
         </button>
         </article>
     </details>
-    </TransitionGroup>
 </template>
 <style scoped>
 .notice {
@@ -109,8 +107,9 @@ const unresolvedPending = computed(() => store.local.pending.filter((item) => !i
     max-height: 180px;
     overflow-y: auto;
 }
-.notice-enter-active, .notice-leave-active, .notice-move { transition: opacity 180ms ease, transform 180ms ease; }
-.notice-enter-from, .notice-leave-to { opacity: 0; transform: translateY(4px); }
+/* Remove obsolete content immediately; only its arrival is animated. */
+.notice { animation: notice-enter 180ms ease; }
+@keyframes notice-enter { from { opacity: 0; transform: translateY(4px); } }
 
 .recovery-action {
     display: inline-flex;

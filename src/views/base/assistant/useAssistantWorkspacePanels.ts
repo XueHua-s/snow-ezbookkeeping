@@ -15,15 +15,19 @@ export function useAssistantWorkspacePanels(options: PanelOptions) {
         if (panel instanceof HTMLDialogElement && !panel.open) panel.showModal();
     }, { flush: 'post' });
     let historyTrigger: HTMLElement | null = null;
-    watch(options.historyOpen, async (visible) => {
+    watch(options.historyOpen, async (visible, _previous, onCleanup) => {
+        let cancelled = false;
+        onCleanup(() => { cancelled = true; });
         const current = options.captureScope();
         if (visible) {
             historyTrigger = document.activeElement as HTMLElement;
             await nextTick();
-            if (current() && narrow.value) historyPanel.value?.querySelector<HTMLButtonElement>('button')?.focus();
+            if (!cancelled && current() && narrow.value) historyPanel.value?.querySelector<HTMLButtonElement>('button')?.focus();
         } else {
+            // Release native modality before restoring focus; the leave transition retains the DOM.
+            if (historyPanel.value instanceof HTMLDialogElement) historyPanel.value.close();
             await nextTick();
-            if (current() && historyTrigger?.isConnected) historyTrigger.focus();
+            if (!cancelled && current() && historyTrigger?.isConnected) historyTrigger.focus();
         }
     });
     function historyKey(event: KeyboardEvent) {

@@ -68,14 +68,12 @@ watch(
 </script>
 <template>
     <section class="experience-composer" :class="variant">
-        <Transition name="composer-context">
         <div v-if="editingLabel" class="editing">
             <strong>{{ editingLabel }}</strong>
             <button class="composer-action" type="button" :aria-label="tt('Cancel')" :title="tt('Cancel')" @click="emit('cancelEdit')">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiClose" /></svg>
             </button>
         </div>
-        </Transition>
         <div class="composer-row">
             <textarea
                 class="composer-input"
@@ -231,16 +229,16 @@ watch(
 .composer-input::placeholder { color: var(--assistant-muted, #718277); opacity: 0.85; }
 .composer-notes:empty { display: none; }
 .input-count { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
-.composer-context-enter-active, .composer-context-leave-active,
 .composer-icon-enter-active, .composer-icon-leave-active { transition: opacity 150ms ease, transform 150ms ease; }
-.composer-context-enter-from, .composer-context-leave-to { opacity: 0; transform: translateY(5px); }
 .composer-icon-enter-from, .composer-icon-leave-to { opacity: 0; transform: scale(0.7); }
 .spinning { animation: composer-spin 1s linear infinite; }
 @keyframes composer-spin { to { transform: rotate(360deg); } }
+.editing { animation: editing-enter 150ms ease; }
+@keyframes editing-enter { from { opacity: 0; transform: translateY(4px); } }
+
 @media (prefers-reduced-motion: reduce) {
-    .composer-row, .composer-action, .composer-context-enter-active, .composer-context-leave-active,
-    .composer-icon-enter-active, .composer-icon-leave-active { transition: none; }
-    .spinning { animation: none; }
+    .composer-row, .composer-action, .composer-icon-enter-active, .composer-icon-leave-active { transition: none; }
+    .editing, .spinning { animation: none; }
 }
 @media (max-height: 440px) and (orientation: landscape) {
     .mobile.experience-composer {

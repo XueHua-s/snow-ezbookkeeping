@@ -50,7 +50,6 @@ onBeforeUnmount(() => {
             </Transition>
         </button>
         <span class="sr-only" role="status">{{ copied ? label : '' }}</span>
-        <Transition name="copy-feedback">
         <span v-if="fallback !== null" class="assistant-copy-fallback" role="status">
             {{ tt('Copy failed. Select the text below or retry.') }}
             <textarea
@@ -64,7 +63,6 @@ onBeforeUnmount(() => {
             <button type="button" :aria-label="tt('Retry')" :title="tt('Retry')" @click="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiRefresh" /></svg></button>
             <button type="button" :aria-label="tt('Close')" :title="tt('Close')" @click="fallback = null"><svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiClose" /></svg></button>
         </span>
-        </Transition>
     </span>
 </template>
 <style scoped>
@@ -123,5 +121,7 @@ button:active:not(:disabled) { transform: scale(.94); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .copy-feedback-enter-active, .copy-feedback-leave-active { transition: opacity 120ms ease, transform 120ms ease; }
 .copy-feedback-enter-from, .copy-feedback-leave-to { opacity: 0; transform: translateY(3px); }
-@media (prefers-reduced-motion: reduce) { button, .copy-feedback-enter-active, .copy-feedback-leave-active { transition: none; } }
+.assistant-copy-fallback { animation: fallback-enter 120ms ease; }
+@keyframes fallback-enter { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .assistant-copy-fallback { animation: none; } button, .copy-feedback-enter-active, .copy-feedback-leave-active { transition: none; } }
 </style>
