@@ -1,3 +1,29 @@
+<script setup lang="ts">
+import OverviewWidgetHeader from './OverviewWidgetHeader.vue';
+
+import { computed } from 'vue';
+
+import { useI18n } from '@/locales/helpers.ts';
+import { useAssetSummaryWidgetBase } from '@/views/base/overview/AssetSummaryWidgetBase.ts';
+
+import { mdiBankOutline } from '@mdi/js';
+
+defineProps<{
+    loading: boolean;
+    title?: string;
+}>();
+
+const { tt, formatNumberToLocalizedNumerals } = useI18n();
+
+const {
+    allAccounts,
+    totalAssets
+} = useAssetSummaryWidgetBase('overview');
+
+const displayAccountCount = computed<string>(() => formatNumberToLocalizedNumerals(allAccounts.value?.length ?? 0));
+
+</script>
+
 <template>
     <v-card class="overview-widget asset-summary-widget h-100" :class="{ disabled: loading }">
         <template #title>
@@ -11,14 +37,13 @@
             </div>
 
             <div class="asset-summary-widget__metrics mt-5">
-                <div class="asset-summary-widget__metric" :class="{ 'asset-summary-widget__metric--primary': item.color === 'primary' }"
-                     :key="item.title" v-for="item in summaryItems">
-                    <v-avatar rounded="lg" variant="tonal" :color="item.color" size="40">
-                        <v-icon size="24" :icon="item.icon" />
+                <div class="asset-summary-widget__metric asset-summary-widget__metric--primary">
+                    <v-avatar rounded="lg" variant="tonal" color="primary" size="40">
+                        <v-icon size="24" :icon="mdiBankOutline" />
                     </v-avatar>
                     <div class="d-flex flex-column gap-1 text-truncate">
-                        <span class="overview-widget__caption text-body-medium">{{ tt(item.title) }}</span>
-                        <span class="overview-widget__amount text-title-large text-truncate" :class="{ 'text-primary': item.color === 'primary' }" v-if="!loading || (allAccounts && allAccounts.length)">{{ item.value }}</span>
+                        <span class="overview-widget__caption text-body-medium">{{ tt('Total assets') }}</span>
+                        <span class="overview-widget__amount text-title-large text-truncate text-primary" v-if="!loading || (allAccounts && allAccounts.length)">{{ totalAssets }}</span>
                         <v-skeleton-loader class="skeleton-no-margin pb-2" style="margin-top: 6px" width="120px" type="text" :loading="true" v-else-if="loading && (!allAccounts || !allAccounts.length)"></v-skeleton-loader>
                     </div>
                 </div>
@@ -26,62 +51,3 @@
         </v-card-text>
     </v-card>
 </template>
-
-<script setup lang="ts">
-import OverviewWidgetHeader from './OverviewWidgetHeader.vue';
-
-import { computed } from 'vue';
-
-import { useI18n } from '@/locales/helpers.ts';
-import { useAssetSummaryWidgetBase } from '@/views/base/overview/AssetSummaryWidgetBase.ts';
-
-import {
-    mdiBankOutline,
-    mdiCreditCardOutline,
-    mdiPiggyBankOutline
-} from '@mdi/js';
-
-interface SummaryItem {
-    title: string;
-    value: string;
-    icon: string;
-    color: string;
-}
-
-defineProps<{
-    loading: boolean;
-    title?: string;
-}>();
-
-const { tt, formatNumberToLocalizedNumerals } = useI18n();
-
-const {
-    allAccounts,
-    netAssets,
-    totalAssets,
-    totalLiabilities
-} = useAssetSummaryWidgetBase('overview');
-
-const displayAccountCount = computed<string>(() => formatNumberToLocalizedNumerals(allAccounts.value?.length ?? 0));
-
-const summaryItems = computed<SummaryItem[]>(() => [
-    {
-        title: 'Total assets',
-        value: totalAssets.value,
-        icon: mdiBankOutline,
-        color: 'grey'
-    },
-    {
-        title: 'Total liabilities',
-        value: totalLiabilities.value,
-        icon: mdiCreditCardOutline,
-        color: 'expense'
-    },
-    {
-        title: 'Net assets',
-        value: netAssets.value,
-        icon: mdiPiggyBankOutline,
-        color: 'primary'
-    }
-]);
-</script>

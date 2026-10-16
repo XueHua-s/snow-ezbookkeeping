@@ -45,19 +45,9 @@ export function useAccountListPageBase() {
     const allAccountCount = computed<number>(() => accountsStore.allAvailableAccountsCount);
     const maxCategoryAccountCount = computed<number>(() => accountsStore.maxCategoryAccountCount);
 
-    const netAssets = computed<string>(() => {
-        const netAssets: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getNetAssets(showAccountBalance.value, settingsStore.appSettings.totalAmountExcludeAccountIds);
-        return formatAmountToLocalizedNumeralsWithCurrency(netAssets, defaultCurrency.value);
-    });
-
     const totalAssets = computed<string>(() => {
         const totalAssets: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getTotalAssets(showAccountBalance.value, settingsStore.appSettings.totalAmountExcludeAccountIds);
         return formatAmountToLocalizedNumeralsWithCurrency(totalAssets, defaultCurrency.value);
-    });
-
-    const totalLiabilities = computed<string>(() => {
-        const totalLiabilities: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getTotalLiabilities(showAccountBalance.value, settingsStore.appSettings.totalAmountExcludeAccountIds);
-        return formatAmountToLocalizedNumeralsWithCurrency(totalLiabilities, defaultCurrency.value);
     });
 
     function canShowAvailableCredit(account: Account): boolean {
@@ -165,9 +155,7 @@ export function useAccountListPageBase() {
         allCategorizedAccountsMap,
         allAccountCount,
         maxCategoryAccountCount,
-        netAssets,
         totalAssets,
-        totalLiabilities,
         // functions
         canShowAvailableCredit,
         accountCategoryTotalBalance,

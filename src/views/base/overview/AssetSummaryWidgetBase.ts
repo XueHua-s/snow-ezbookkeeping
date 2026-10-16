@@ -30,18 +30,6 @@ export function useAssetSummaryWidgetBase(scene: 'overview' | 'accountList') {
     const defaultCurrency = computed<string>(() => userStore.currentUserDefaultCurrency);
     const allAccounts = computed<Account[]>(() => accountsStore.allAccounts);
 
-    const netAssets = computed<string>(() => {
-        if (scene === 'overview') {
-            const netAssets: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getNetAssets(showAmountInHomePage.value, settingsStore.appSettings.overviewAccountFilterInHomePage);
-            return formatAmountToLocalizedNumeralsWithCurrency(netAssets, defaultCurrency.value);
-        } else if (scene === 'accountList') {
-            const netAssets: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getNetAssets(showAccountBalance.value, settingsStore.appSettings.totalAmountExcludeAccountIds);
-            return formatAmountToLocalizedNumeralsWithCurrency(netAssets, defaultCurrency.value);
-        } else {
-            return '';
-        }
-    });
-
     const totalAssets = computed<string>(() => {
         if (scene === 'overview') {
             const totalAssets: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getTotalAssets(showAmountInHomePage.value, settingsStore.appSettings.overviewAccountFilterInHomePage);
@@ -54,26 +42,12 @@ export function useAssetSummaryWidgetBase(scene: 'overview' | 'accountList') {
         }
     });
 
-    const totalLiabilities = computed<string>(() => {
-        if (scene === 'overview') {
-            const totalLiabilities: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getTotalLiabilities(showAmountInHomePage.value, settingsStore.appSettings.overviewAccountFilterInHomePage);
-            return formatAmountToLocalizedNumeralsWithCurrency(totalLiabilities, defaultCurrency.value);
-        } else if (scene === 'accountList') {
-            const totalLiabilities: BigDecimal | HiddenAmount | BigDecimalWithSuffix = accountsStore.getTotalLiabilities(showAccountBalance.value, settingsStore.appSettings.totalAmountExcludeAccountIds);
-            return formatAmountToLocalizedNumeralsWithCurrency(totalLiabilities, defaultCurrency.value);
-        } else {
-            return '';
-        }
-    });
-
     return {
         // computed states
         showAmountInHomePage,
         showAccountBalance,
         defaultCurrency,
         allAccounts,
-        netAssets,
-        totalAssets,
-        totalLiabilities
+        totalAssets
     };
 }

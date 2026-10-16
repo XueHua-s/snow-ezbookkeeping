@@ -271,22 +271,6 @@ const {
     opacity: 0.6;
 }
 
-.net-assets {
-    font-size: 1.5em;
-}
-
-.account-overview-info {
-    opacity: 0.6;
-}
-
-.account-overview-info > span {
-    margin-inline-end: 4px;
-}
-
-.account-overview-info > span:last-child {
-    margin-inline-end: 0;
-}
-
 .account-list {
     --f7-list-item-footer-font-size: var(--ebk-large-footer-font-size);
 }
