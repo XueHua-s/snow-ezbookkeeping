@@ -8,6 +8,7 @@ export default defineConfig({
     resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
     test: {
         include: ['src/**/*.browser.test.ts'],
+        setupFiles: ['./src/test/browser-theme.ts'],
         clearMocks: true,
         browser: {
             enabled: true,

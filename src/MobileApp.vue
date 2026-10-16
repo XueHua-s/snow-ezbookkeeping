@@ -22,6 +22,7 @@ import logger from '@/lib/logger.ts';
 import { useExchangeRatesStore } from '@/stores/exchangeRates.ts';
 
 import { APPLICATION_LOGO_PATH } from '@/consts/asset.ts';
+import { APP_THEME } from '@/consts/theme.mts';
 import { ThemeType } from '@/core/theme.ts';
 
 import { isFunction } from '@/lib/common.ts';
@@ -46,7 +47,7 @@ const f7params = ref<Framework7Parameters>({
     name: 'ezBookkeeping',
     theme: 'ios',
     colors: {
-        primary: '#c67e48'
+        primary: APP_THEME.light.primary
     },
     routes: routes,
     darkMode: (() => {
@@ -125,13 +126,13 @@ function setThemeColorMeta(darkMode: boolean | undefined): void {
         if (hasBackdrop.value) {
             document.querySelector('meta[name=theme-color]')?.setAttribute('content', '#0b0b0b');
         } else {
-            document.querySelector('meta[name=theme-color]')?.setAttribute('content', '#121212');
+            document.querySelector('meta[name=theme-color]')?.setAttribute('content', APP_THEME.dark.background);
         }
     } else {
         if (hasBackdrop.value) {
             document.querySelector('meta[name=theme-color]')?.setAttribute('content', '#949495');
         } else {
-            document.querySelector('meta[name=theme-color]')?.setAttribute('content', '#f6f6f8');
+            document.querySelector('meta[name=theme-color]')?.setAttribute('content', APP_THEME.light.background);
         }
     }
 }

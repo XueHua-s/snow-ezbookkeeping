@@ -181,7 +181,7 @@ watch(
     flex-shrink: 0;
     --action-color: var(--assistant-action, #278c62);
     background: var(--action-color);
-    color: white;
+    color: var(--assistant-on-action, #fff);
 }
 .composer-action:hover:not(:disabled) {
     background: var(--assistant-border, #e5ece4);

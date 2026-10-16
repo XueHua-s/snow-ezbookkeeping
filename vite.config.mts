@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { APP_THEME, APP_THEME_CSS } from './src/consts/theme.mts';
 import { resolve } from 'node:path';
 
 import { type UserConfig, type Plugin, defineConfig } from 'vite'
@@ -120,6 +121,14 @@ export default defineConfig(() => {
             __EZBOOKKEEPING_THIRD_PARTY_LICENSES__: JSON.stringify(thirdPartyLicenseFile)
         },
         plugins: [
+            {
+                name: 'application-theme',
+                transformIndexHtml(html) {
+                    return { html: html.replace('{{application-theme-color}}', APP_THEME.light.primary), tags: [
+                        { tag: 'style', attrs: { id: 'application-theme' }, children: APP_THEME_CSS, injectTo: 'head-prepend' }
+                    ] };
+                }
+            },
             vue({
                 template: {
                     compilerOptions: {
@@ -160,8 +169,8 @@ export default defineConfig(() => {
                     name: 'ezBookkeeping',
                     short_name: 'ezBookkeeping',
                     description: 'An open source, powerful, self-hosted personal finance app that is easy to use.',
-                    theme_color: '#C67E48',
-                    background_color: '#F6F7F8',
+                    theme_color: APP_THEME.light.primary,
+                    background_color: APP_THEME.light.background,
                     start_url: './',
                     scope: './',
                     display: 'standalone',

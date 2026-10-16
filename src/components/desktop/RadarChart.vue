@@ -4,6 +4,7 @@
 </template>
 
 <script setup lang="ts">
+import { APP_THEME } from '@/consts/theme.mts';
 import { computed } from 'vue';
 import { useTheme } from 'vuetify';
 
@@ -197,7 +198,7 @@ const chartOptions = computed<object>(() => {
             },
             splitArea: {
                 areaStyle: {
-                    color: (!props.skeleton && radarData.value.allSeries.length) ? (isDarkMode.value ? ['#363534', '#1a1a1a'] : ['#faf8f4', '#fff']) : ['#d3d3d3', '#d3d3d3']
+                    color: (!props.skeleton && radarData.value.allSeries.length) ? (isDarkMode.value ? [APP_THEME.dark.tint, APP_THEME.dark.surface] : [APP_THEME.light.background, APP_THEME.light.surface]) : ['#d3d3d3', '#d3d3d3']
                 }
             },
             indicator: radarData.value.indicators

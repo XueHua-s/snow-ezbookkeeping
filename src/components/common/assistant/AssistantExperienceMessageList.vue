@@ -269,7 +269,7 @@ button:focus-visible {
 .welcome-mark { display: grid; place-items: center; }
 .welcome-mark svg { width: 17px; height: 17px; }
 .answer-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-bottom: 16px; font-size: .8rem; font-weight: 600; }
-.answer-avatar { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 11px; color: #fff; background: var(--assistant-action, #278c62); }
+.answer-avatar { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 11px; color: var(--assistant-on-action, #fff); background: var(--assistant-action, #278c62); }
 .answer-avatar svg { width: 18px; height: 18px; }
 .answer-complete { color: var(--assistant-muted, #718277); font-weight: 400; font-size: .7rem; }
 .welcome h2 { font-size: clamp(1.75rem, 4vw, 2.4rem); font-weight: 700; line-height: 1.35; letter-spacing: -.035em; margin: 24px 0 12px; text-wrap: balance; }

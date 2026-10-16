@@ -1,3 +1,4 @@
+import { APP_THEME } from '@/consts/theme.mts';
 import type { ColorValue, ColorStyleValue } from '@/core/color.ts';
 
 const defaultColor: ColorValue = '000000';
@@ -28,9 +29,9 @@ const allAvailableColors: ColorValue[] = [
 export const ALL_ACCOUNT_COLORS: ColorValue[] = allAvailableColors;
 export const ALL_CATEGORY_COLORS: ColorValue[] = allAvailableColors;
 
-export const DEFAULT_MOBILE_OVERVIEW_WIDGET_LIGHT_BACKGROUND_COLOR: ColorValue = 'edddcd';
-export const DEFAULT_MOBILE_OVERVIEW_WIDGET_DARK_BACKGROUND_COLOR: ColorValue = '7f5e4b';
-export const DEFAULT_MOBILE_ADD_TRANSACTION_BUTTON_BACKGROUND_COLOR: ColorValue = 'c67e48';
+export const DEFAULT_MOBILE_OVERVIEW_WIDGET_LIGHT_BACKGROUND_COLOR: ColorValue = APP_THEME.light.tint.slice(1);
+export const DEFAULT_MOBILE_OVERVIEW_WIDGET_DARK_BACKGROUND_COLOR: ColorValue = APP_THEME.dark.tint.slice(1);
+export const DEFAULT_MOBILE_ADD_TRANSACTION_BUTTON_BACKGROUND_COLOR: ColorValue = APP_THEME.light.primary.slice(1);
 
 export const DEFAULT_CHART_COLORS: ColorValue[] = [
     'cc4a66',

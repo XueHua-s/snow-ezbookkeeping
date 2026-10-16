@@ -1,11 +1,12 @@
 .cloud-workspace {
-    --assistant-surface: #fbfcf9;
-    --assistant-card: #fff;
-    --assistant-action: #278c62;
-    --assistant-tint: #e8f3e9;
-    --assistant-border: #e5ece4;
-    --assistant-muted: #718277;
-    --assistant-text: #233e30;
+    --assistant-surface: var(--app-background);
+    --assistant-card: var(--app-surface);
+    --assistant-on-action: var(--app-onPrimary);
+    --assistant-action: var(--app-primary);
+    --assistant-tint: var(--app-tint);
+    --assistant-border: var(--app-border);
+    --assistant-muted: var(--app-muted);
+    --assistant-text: var(--app-text);
     --assistant-background: var(--assistant-surface);
     --assistant-soft-surface: var(--assistant-tint);
     --assistant-accent: var(--assistant-action);
@@ -138,13 +139,6 @@
 }
 :global(.v-theme--dark .cloud-workspace),
 :global(.dark .cloud-workspace) {
-    --assistant-surface: #18251f;
-    --assistant-card: #213229;
-    --assistant-action: #89d8b0;
-    --assistant-tint: #2b4436;
-    --assistant-border: #354a3d;
-    --assistant-muted: #afc1b4;
-    --assistant-text: #e5eee7;
     color-scheme: dark;
 }
 @keyframes assistant-notice-in {

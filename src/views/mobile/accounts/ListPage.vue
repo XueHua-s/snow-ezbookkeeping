@@ -259,11 +259,11 @@ const {
 
 <style>
 .account-overview-card {
-    background-color: var(--f7-color-yellow);
+    background-color: var(--app-tint);
 }
 
 .dark .account-overview-card {
-    background-color: var(--f7-theme-color);
+    background-color: var(--app-tint);
 }
 
 .dark .account-overview-card a {

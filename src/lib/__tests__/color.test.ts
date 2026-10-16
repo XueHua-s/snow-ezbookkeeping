@@ -1,3 +1,4 @@
+import { APP_THEME } from '@/consts/theme.mts';
 import { describe, expect, it } from 'vitest';
 
 import { getContrastTextColor, getContrastIconColor } from '@/lib/color.ts';
@@ -13,11 +14,11 @@ describe('getContrastTextColor', () => {
 });
 
 describe('getContrastIconColor', () => {
-    it('uses the original icon color for the default light background', () => {
-        expect(getContrastIconColor('edddcd')).toBe('7f5e4b');
+    it('uses the theme text color for the default light background', () => {
+        expect(getContrastIconColor(APP_THEME.light.tint)).toBe(APP_THEME.light.text.slice(1));
     });
 
-    it('lightens a dark background with the original default opacity', () => {
-        expect(getContrastIconColor('7f5e4b')).toBe('ffffff99');
+    it('uses the theme text color for the default dark background', () => {
+        expect(getContrastIconColor(APP_THEME.dark.tint)).toBe(APP_THEME.dark.text.slice(1));
     });
 });

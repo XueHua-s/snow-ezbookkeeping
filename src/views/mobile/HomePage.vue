@@ -371,7 +371,7 @@ init();
 
 <style>
 .home-summary-card {
-    background-color: var(--f7-color-yellow);
+    background-color: var(--app-tint);
 }
 
 .home-summary-card .home-summary-month {
@@ -395,7 +395,7 @@ init();
 }
 
 .dark .home-summary-card {
-    background-color: var(--f7-theme-color);
+    background-color: var(--app-tint);
 }
 
 .dark .home-summary-card a {

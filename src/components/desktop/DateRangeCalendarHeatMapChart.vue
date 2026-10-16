@@ -5,6 +5,7 @@
 </template>
 
 <script setup lang="ts">
+import { APP_THEME } from '@/consts/theme.mts';
 import { computed } from 'vue';
 import { useTheme } from 'vuetify';
 
@@ -216,7 +217,7 @@ const chartOptions = computed<object>(() => {
             max: outlierThreshold ?? heatMapData.value.maxValue.toDoubleNumber(),
             unboundedRange: !isNumber(outlierThreshold),
             inRange: {
-                color: isDarkMode.value ? [ '#1a1a1a', '#c67e48' ] : [ '#faf8f4', '#c67e48' ]
+                color: isDarkMode.value ? [ APP_THEME.dark.background, APP_THEME.dark.primary ] : [ APP_THEME.light.background, APP_THEME.light.primary ]
             },
             outOfRange: {
                 color: isDarkMode.value ? '#a0a0a0' : '#8f8f8f'
@@ -231,8 +232,8 @@ const chartOptions = computed<object>(() => {
             bottom: 10,
             cellSize: ['auto', 20],
             itemStyle: {
-                color: isDarkMode.value ? '#060504' : '#ffffff',
-                borderColor: isDarkMode.value ? '#4f4f4f' : '#e1e6f2'
+                color: isDarkMode.value ? APP_THEME.dark.surface : APP_THEME.light.surface,
+                borderColor: isDarkMode.value ? APP_THEME.dark.border : APP_THEME.light.border
             },
             splitLine: {
                 show: false
