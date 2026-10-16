@@ -98,27 +98,9 @@ export async function extendedFlows({ env, browser, context, page, identity, var
     assert.equal(retryDetail.messages.length, 3); assert.equal(retryDetail.messages.at(-1).versions.length, 2);
     note('provider failure stays visible and explicit retry creates another answer attempt without duplicating question');
 
-    await page.locator('.question').first().getByRole('button', { name: 'Edit and create branch', exact: true }).click();
-    await input.fill('Edited branch expense question');
-    const beforeBranch = env.calls();
-    let branchAccepted;
-    const receivedBranch = new Promise(resolve => { branchAccepted = resolve; });
-    await page.route('**/api/v1/llm/assistant/commands/get.json*', route => route.abort('failed'));
-    await page.route('**/api/v1/llm/assistant/conversations/branch.json', async route => { await route.fetch(); await route.abort('failed'); branchAccepted(); });
-    await page.locator('.experience-composer').getByRole('button', { name: 'Edit and create branch', exact: true }).click();
-    await receivedBranch;
-    await page.unroute('**/api/v1/llm/assistant/commands/get.json*');
-    await page.unroute('**/api/v1/llm/assistant/conversations/branch.json');
-    await page.reload(); await input.waitFor();
-    await page.waitForFunction(old => new URLSearchParams(location.hash.split('?')[1]).get('conversationId') !== old, id);
-    assert.equal(await input.inputValue(), 'Edited branch expense question'); assert.equal(env.calls(), beforeBranch);
-    await page.getByText('New branch created. Review your question below and send to start generating.', { exact: true }).waitFor();
-    await page.screenshot({ path: resolve(env.artifacts, `${variant}-branch.png`) });
-    await page.getByRole('button', { name: 'Send', exact: true }).click();
-    await page.getByRole('heading', { name: 'Verified isolated ledger' }).waitFor();
-    const branches = await env.api(assistant + 'conversations/list', undefined, identity.token);
-    assert.equal(branches.items.length, 2);
-    note('lost branch acceptance and refresh recover one target and edited draft; only explicit send calls provider');
+    assert.equal(await page.getByRole('button', { name: 'Edit and create branch', exact: true }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'Create branch from here', exact: true }).count(), 0);
+    note('message editing and branch icons are absent while copy and retry remain available');
 
     await identityBoundary({ env, page, identity, variant, results, attemptBFCache: production });
     await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
@@ -127,8 +109,8 @@ export async function extendedFlows({ env, browser, context, page, identity, var
     const confirmation = page.getByRole('dialog', { name: 'Confirm', exact: true });
     await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
     assert.equal(await deleteButton.evaluate(el => el === document.activeElement), true);
-    assert.equal((await env.api(assistant + 'conversations/list', undefined, identity.token)).items.length, 2);
-    for (let remaining = 2; remaining > 0; remaining--) {
+    assert.equal((await env.api(assistant + 'conversations/list', undefined, identity.token)).items.length, 1);
+    for (let remaining = 1; remaining > 0; remaining--) {
         if (!await history.isVisible()) await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
         await history.getByRole('button', { name: 'Delete', exact: true }).first().click();
         await confirmation.getByRole('button', { name: 'Confirm', exact: true }).click();
@@ -140,7 +122,7 @@ export async function extendedFlows({ env, browser, context, page, identity, var
         if (!await history.isVisible()) await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
         await page.waitForFunction(count => document.querySelectorAll('.history-item').length === count, remaining - 1);
         await page.waitForFunction(() => !document.querySelector('.confirmation-dialog[open]'));
-        if (remaining === 2) await page.waitForFunction(() => !new URLSearchParams(location.hash.split('?')[1]).get('conversationId'));
+        if (remaining === 1) await page.waitForFunction(() => !new URLSearchParams(location.hash.split('?')[1]).get('conversationId'));
     }
     await history.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByText('How can I help with your finances?', { exact: true }).waitFor();

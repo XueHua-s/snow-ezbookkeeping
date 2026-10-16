@@ -21,16 +21,6 @@ beforeEach(() => {
         removeDraft: vi.fn(), setDraft: vi.fn(), viewVersion: vi.fn(), selectVersion: vi.fn(), search: vi.fn(), loadHistory: vi.fn() });
 });
 describe('shared cloud product commands', () => {
-    it('creates an edit branch without sending, preserving the original draft', async () => {
-        const ui = workspace(); ui.edit(message); ui.input.value = 'Edited question'; await ui.send();
-        expect(mocks.store['branch']).toHaveBeenCalledWith('question', 'edit', 'Edited question');
-        expect(mocks.store['send']).not.toHaveBeenCalled(); expect(mocks.store['draft']).toBe('Untouched draft'); expect(ui.editing.value).toBeUndefined();
-    });
-    it('keeps edit text after a branch creation failure', async () => {
-        vi.mocked(mocks.store['branch'] as () => Promise<unknown>).mockRejectedValue(new Error('offline'));
-        const ui = workspace(); ui.edit(message); ui.input.value = 'Edited question'; await ui.send();
-        expect(ui.editing.value?.id).toBe('question'); expect(ui.input.value).toBe('Edited question'); expect(ui.error.value).toBe('Assistant request failed');
-    });
     it('submits next page bound to displayed answer version', async () => {
         const ui = workspace(); await ui.nextPage(message);
         expect(mocks.store['send']).toHaveBeenCalledWith(expect.objectContaining({ mode: 'next_page', sourceMessageId: 'answer' }));
@@ -120,15 +110,13 @@ describe('workspace invalidation boundaries', () => {
         await pending;
         expect(mocks.store['execute']).not.toHaveBeenCalled();
     });
-    it('resets owner input and closes editors but preserves same-owner history when navigating', () => {
+    it('resets owner filters but preserves same-owner history when navigating', () => {
         const route = shallowRef('one');
         const ui = workspace(undefined, () => route.value);
         ui.historyOpen.value = true;
         ui.query.value = 'Private query';
         ui.includeVersions.value = true;
-        ui.edit(message);
         route.value = 'two';
-        expect(ui.editing.value).toBeUndefined();
         expect(ui.query.value).toBe('Private query');
         (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = 'new-owner';
         expect(ui.historyOpen.value).toBe(false);
@@ -157,15 +145,13 @@ it('rechecks authority at the command boundary after the confirmation microtask'
     expect(mocks.store['execute']).not.toHaveBeenCalled();
 });
 
-it('keeps the active command and editor when capabilities refresh without identity changes', async () => {
+it('keeps the active command and history when capabilities refresh without identity changes', async () => {
     const ui = workspace();
-    ui.edit(message);
     ui.historyOpen.value = true;
     let finish!: () => void;
     const pending = ui.run(() => new Promise<void>(resolve => { finish = resolve; }));
     mocks.store['capabilities'] = { ...(mocks.store['capabilities'] as object) };
     expect(ui.working.value).toBe(true);
-    expect(ui.editing.value?.id).toBe(message.id);
     expect(ui.historyOpen.value).toBe(true);
     finish();
     await pending;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, useId, shallowRef, useTemplateRef, watch, nextTick } from 'vue';
-import { mdiArrowUp, mdiStop, mdiLoading, mdiClose } from '@mdi/js';
+import { mdiArrowUp, mdiStop, mdiLoading } from '@mdi/js';
 import { useI18n } from '@/locales/helpers.ts';
 import type { AssistantLimits, AssistantRunState } from '@/models/ai_assistant_conversation.ts';
 const props = defineProps<{
@@ -9,10 +9,9 @@ const props = defineProps<{
     generationState?: AssistantRunState;
     sending?: boolean;
     disabledReason?: string;
-    editingLabel?: string;
 }>();
 const model = defineModel<string>({ required: true });
-const emit = defineEmits<{ send: []; stop: []; cancelEdit: [] }>();
+const emit = defineEmits<{ send: []; stop: [] }>();
 const { tt } = useI18n();
 const input = useTemplateRef<HTMLTextAreaElement>('input');
 const descriptionId = useId();
@@ -27,7 +26,7 @@ const running = computed(
 );
 const actionLabel = computed(() => tt(running.value
     ? props.generationState === 'cancel_requested' ? 'Stopping generation' : 'Stop generating'
-    : props.sending ? 'Confirming delivery' : props.editingLabel ? 'Edit and create branch' : 'Send'));
+    : props.sending ? 'Confirming delivery' : 'Send'));
 const waiting = computed(() => props.sending || props.generationState === 'cancel_requested');
 const canSend = computed(
     () => !!model.value.trim() && !overLimit.value && !props.disabledReason && !props.sending && !running.value
@@ -38,10 +37,6 @@ function send(): void {
     if (props.variant === 'desktop') input.value?.focus();
 }
 function keydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && props.editingLabel) {
-        emit('cancelEdit');
-        return;
-    }
     if (
         event.key !== 'Enter' ||
         event.shiftKey ||
@@ -68,12 +63,6 @@ watch(
 </script>
 <template>
     <section class="experience-composer" :class="variant">
-        <div v-if="editingLabel" class="editing">
-            <strong>{{ editingLabel }}</strong>
-            <button class="composer-action" type="button" :aria-label="tt('Cancel')" :title="tt('Cancel')" @click="emit('cancelEdit')">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiClose" /></svg>
-            </button>
-        </div>
         <div class="composer-row">
             <textarea
                 class="composer-input"
@@ -210,8 +199,7 @@ watch(
     outline: none;
     border: 0 !important;
 }
-.composer-notes,
-.editing {
+.composer-notes {
     max-width: 820px;
     margin: 6px auto 0;
     display: flex;
@@ -221,10 +209,6 @@ watch(
     line-height: 1.5;
     color: var(--assistant-muted, #718277);
 }
-.editing {
-    align-items: center;
-    justify-content: space-between;
-}
 .composer-action svg { width: 24px; height: 24px; fill: currentColor; }
 .composer-input::placeholder { color: var(--assistant-muted, #718277); opacity: 0.85; }
 .composer-notes:empty { display: none; }
@@ -233,12 +217,10 @@ watch(
 .composer-icon-enter-from, .composer-icon-leave-to { opacity: 0; transform: scale(0.7); }
 .spinning { animation: composer-spin 1s linear infinite; }
 @keyframes composer-spin { to { transform: rotate(360deg); } }
-.editing { animation: editing-enter 150ms ease; }
-@keyframes editing-enter { from { opacity: 0; transform: translateY(4px); } }
 
 @media (prefers-reduced-motion: reduce) {
     .composer-row, .composer-action, .composer-icon-enter-active, .composer-icon-leave-active { transition: none; }
-    .editing, .spinning { animation: none; }
+    .spinning { animation: none; }
 }
 @media (max-height: 440px) and (orientation: landscape) {
     .mobile.experience-composer {

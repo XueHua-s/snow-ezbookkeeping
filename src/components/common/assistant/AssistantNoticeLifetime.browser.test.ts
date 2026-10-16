@@ -7,7 +7,6 @@ import Notices from './AssistantConversationNotices.vue';
 import Recovery from './AssistantRecoveryPanel.vue';
 import Capacity from './AssistantCapacityNotice.vue';
 import Copy from './AssistantCopyButton.vue';
-import Composer from './AssistantExperienceComposer.vue';
 import { fixtureConversation } from './experienceFixture.ts';
 
 const mocks = vi.hoisted(() => ({ store: {} as Record<string, unknown> }));
@@ -58,16 +57,11 @@ it.each(['owner', 'epoch'] as const)('removes pending and draft text on %s chang
     screen.unmount();
 });
 
-it('removes obsolete capacity and edit actions immediately', async () => {
+it('removes obsolete capacity actions immediately', async () => {
     const capacity = await render(Capacity, { props: { used: 90, reserved: 0, limit: 100, canContinue: true } });
     await capacity.rerender({ used: 0, canContinue: false });
     expect(document.querySelector('.capacity')).toBeNull();
     capacity.unmount();
-    const composer = await render(Composer, { props: { modelValue: '', variant: 'desktop', limits: { inputCharacters: 1000, inputBytes: 4000 }, editingLabel: 'Old edit context' } });
-    await composer.rerender({ editingLabel: '' });
-    expect(document.body.textContent).not.toContain('Old edit context');
-    expect(document.querySelector('[aria-label="Cancel"]')).toBeNull();
-    composer.unmount();
 });
 
 it('clears dismissed clipboard fallback text immediately', async () => {

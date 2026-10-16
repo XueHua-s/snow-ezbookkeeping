@@ -27,8 +27,6 @@ const emit = defineEmits<{
     openReference: [id: string, answer: AssistantRunSnapshot];
     retry: [message: AssistantMessageDTO];
     regenerate: [message: AssistantMessageDTO];
-    edit: [message: AssistantMessageDTO];
-    branch: [message: AssistantMessageDTO];
     selectVersion: [message: AssistantMessageDTO, id: string];
     loadVersions: [message: AssistantMessageDTO];
     nextPage: [message: AssistantMessageDTO];
@@ -101,14 +99,7 @@ defineExpose({
                 >
                     <div class="question">
                         <div class="question-text">{{ message.content }}</div>
-                        <AssistantExperienceActions
-                            :content="message.content"
-                            edit
-                            :disabled-reason="
-                                busy ? 'An answer is still being prepared. You can wait for it or stop it to send a new message.' : undefined
-                            "
-                            @edit="emit('edit', message)"
-                        />
+                        <AssistantExperienceActions :content="message.content" />
                     </div>
                     <article
                         v-if="message.selectedAnswer"
@@ -170,7 +161,6 @@ defineExpose({
                             :regenerate="
                                 isLatest(message, index) && message.selectedAnswer.state === 'completed'
                             "
-                            :branch="!isLatest(message, index)"
                             :versions="message.versions"
                             :selected-version-id="message.selectedAnswer.assistantMessageId"
                             :context-version-id="message.selectedAssistantMessageId"
@@ -180,7 +170,6 @@ defineExpose({
                             "
                             @retry="emit('retry', message)"
                             @regenerate="emit('regenerate', message)"
-                            @branch="emit('branch', message)"
                             @select-version="emit('selectVersion', message, $event)"
                             @load-versions="emit('loadVersions', message)"
                         />

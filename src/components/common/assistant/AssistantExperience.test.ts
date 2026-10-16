@@ -133,10 +133,11 @@ describe('server-authoritative conversation tail', () => {
         const wrapper = mount(MessageList, { props: { messages: [fixtureMessage], latestMessageId: '' }, global: { stubs: { AssistantMarkdownContent: true, AssistantExperienceEvidence: true } } });
         const actions = wrapper.findAllComponents(Actions).at(-1)!;
         expect(actions.props('regenerate')).toBe(false);
-        expect(actions.props('branch')).toBe(true);
+        expect(wrapper.find('[aria-label="Create branch from here"]').exists()).toBe(false);
+        expect(wrapper.find('[aria-label="Edit and create branch"]').exists()).toBe(false);
         await wrapper.setProps({ latestMessageId: fixtureMessage.id });
         expect(actions.props('regenerate')).toBe(true);
-        expect(actions.props('branch')).toBe(false);
+        expect(wrapper.find('[aria-label="Create branch from here"]').exists()).toBe(false);
         wrapper.unmount();
     });
 });

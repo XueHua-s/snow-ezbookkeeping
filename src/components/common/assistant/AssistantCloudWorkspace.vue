@@ -39,7 +39,6 @@ const {
     query,
     historySearching,
     includeVersions,
-    editing,
     input,
     retryQuerySource,
     restartQuery,
@@ -50,9 +49,7 @@ const {
     rename,
     archive,
     remove,
-    edit,
     send,
-    branch,
     continueConversation,
     retry,
     nextPage,
@@ -85,7 +82,6 @@ const { narrow, shellStyle, historyPanel, historyKey } = useAssistantWorkspacePa
 const latestMessageId = computed(() => messages.value.find((message) => store.isLatestMessage(message.id))?.id ?? '');
 const conversation = computed(() => store.detail?.conversation);
 function navigate(id: string, messageId?: string, versionId?: string) {
-    editing.value = undefined;
     historyOpen.value = false;
     emit('navigate', id, messageId, versionId);
 }
@@ -251,10 +247,8 @@ function fallbackFocus() {
                 @latest="latest"
                 @anchor-change="store.savePosition"
                 @open-reference="referenceDialog?.check"
-                @edit="edit"
                 @retry="retry"
                 @regenerate="retry($event, 'regenerate')"
-                @branch="branch"
                 @select-version="version"
                 @load-versions="loadVersions($event.id)"
                 @next-page="nextPage"
@@ -281,10 +275,8 @@ function fallbackFocus() {
                 :generation-state="store.detail?.activeRun?.state"
                 :sending="store.submitting"
                 :disabled-reason="disabledReason"
-                :editing-label="editing ? tt('Edit and create branch') : undefined"
                 @send="send"
                 @stop="run(() => store.stop())"
-                @cancel-edit="editing = undefined"
             />
         </section>
         <AssistantConfirmationDialog ref="confirmationDialog" :context="context" :fallback-focus="fallbackFocus" />

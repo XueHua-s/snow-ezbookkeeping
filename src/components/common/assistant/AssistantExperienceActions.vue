@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { mdiRefresh, mdiPencilOutline, mdiSourceBranch, mdiHistory } from '@mdi/js';
+import { mdiRefresh, mdiHistory } from '@mdi/js';
 import { useI18n } from '@/locales/helpers.ts';
 import type { AssistantVersionDTO } from '@/models/ai_assistant_conversation.ts';
 import { assistantStateLabels } from './assistantPresentation.ts';
@@ -9,8 +9,6 @@ defineProps<{
     streaming?: boolean;
     retry?: boolean;
     regenerate?: boolean;
-    edit?: boolean;
-    branch?: boolean;
     versions?: readonly AssistantVersionDTO[];
     selectedVersionId?: string;
     contextVersionId?: string;
@@ -20,8 +18,6 @@ defineProps<{
 const emit = defineEmits<{
     retry: [];
     regenerate: [];
-    edit: [];
-    branch: [];
     selectVersion: [id: string];
     loadVersions: [];
 }>();
@@ -52,12 +48,6 @@ const { tt } = useI18n();
         </label>
         <button v-if="hasMoreVersions" class="icon-action" :aria-label="tt('Older versions')" :title="tt('Older versions')" type="button" @click="emit('loadVersions')">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiHistory" /></svg>
-        </button>
-        <button v-if="edit" class="icon-action" type="button" :aria-label="tt('Edit and create branch')" :title="tt('Edit and create branch')" :disabled="!!disabledReason" @click="emit('edit')">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiPencilOutline" /></svg>
-        </button>
-        <button v-if="branch" class="icon-action" type="button" :aria-label="tt('Create branch from here')" :title="tt('Create branch from here')" :disabled="!!disabledReason" @click="emit('branch')">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiSourceBranch" /></svg>
         </button>
     </div>
 </template>

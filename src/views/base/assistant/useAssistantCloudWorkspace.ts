@@ -23,8 +23,6 @@ export function useAssistantCloudWorkspace(
     const query = shallowRef('');
     const historySearching = shallowRef(false);
     const includeVersions = shallowRef(false);
-    const editing = shallowRef<AssistantMessageDTO>();
-    const editText = shallowRef('');
     const retryQuerySource = shallowRef('');
     let pendingCount = 0;
     const captureScope = useAssistantWorkspaceScope(
@@ -36,8 +34,6 @@ export function useAssistantCloudWorkspace(
             pendingCount = 0;
             working.value = false;
             error.value = '';
-            editing.value = undefined;
-            editText.value = '';
             retryQuerySource.value = '';
         }
     );
@@ -63,10 +59,9 @@ export function useAssistantCloudWorkspace(
         }))
     );
     const input = computed({
-        get: () => (editing.value ? editText.value : store.draft),
+        get: () => store.draft,
         set: (value) => {
-            if (editing.value) editText.value = value;
-            else void store.setDraft(value);
+            void store.setDraft(value);
         }
     });
     const disabledReason = computed(() =>
@@ -158,20 +153,8 @@ export function useAssistantCloudWorkspace(
         if (!authorized()) return;
         return run(() => store.execute('delete', { id: item.id, expectedMetadataVersion: item.metadataVersion }));
     }
-    function edit(message: AssistantMessageDTO) {
-        if (store.busy) return;
-        editing.value = message;
-        editText.value = message.content;
-    }
-    async function send() {
-        if (editing.value) {
-            const target = editing.value;
-            const text = editText.value;
-            await run(async (current) => {
-                const receipt = await store.branch(target.id, 'edit', text);
-                if (receipt && current()) editing.value = undefined;
-            });
-        } else await run(() => store.send());
+    function send() {
+        return run(() => store.send());
     }
     function branch(message: AssistantMessageDTO) {
         return run(() => store.branch(message.id, 'regenerate', message.content));
@@ -239,7 +222,6 @@ export function useAssistantCloudWorkspace(
         query,
         historySearching,
         includeVersions,
-        editing,
         input,
         retryQuerySource,
         restartQuery,
@@ -250,9 +232,7 @@ export function useAssistantCloudWorkspace(
         rename,
         archive,
         remove,
-        edit,
         send,
-        branch,
         continueConversation,
         retry,
         nextPage,
