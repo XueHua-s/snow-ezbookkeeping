@@ -14,7 +14,7 @@ const emit = defineEmits<{
 }>();
 const store = useAssistantStore();
 const { tt } = useI18n();
-const unresolvedPending = computed(() => store.local.pending.filter((item) => !item.resolvedConversationId));
+const unresolvedPending = computed(() => store.local.pending.filter((item) => !item.resolvedConversationId && (item.rejected || store.delivery[item.clientRequestId] !== 'sending')));
 </script>
 <template>
     <p key="notice-1" v-if="store.legacyBackend" class="assistant-notice" role="status">

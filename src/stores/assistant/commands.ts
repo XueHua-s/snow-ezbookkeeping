@@ -123,6 +123,7 @@ export function useAssistantCommands(
             if (!valid()) return;
             if (
                 item.rejected ||
+                delivery.value[item.clientRequestId] === 'sending' ||
                 item.resolvedConversationId ||
                 (item.action !== 'clearAllData' && item.expectedDeletionEpoch !== capabilities.value?.deletionEpoch)
             )
@@ -175,6 +176,9 @@ export function useAssistantCommands(
             if (statusCode(failure) === 401) throw failure;
             if (valid() && authenticated.value) await reconcilePending();
             if (valid()) throw failure;
+        } finally {
+            // Explicit recovery retries enter dispatch without executeOnce's persistence guard.
+            if (valid() && delivery.value[item.clientRequestId] === 'sending') delete delivery.value[item.clientRequestId];
         }
         return undefined;
     }
@@ -240,14 +244,21 @@ export function useAssistantCommands(
                 typeof value['sourceConversationId'] === 'string' ? value['sourceConversationId'] : undefined,
             payload: request as AssistantLocalPending['payload'],
         };
-        const saved = await owner.savePending(item).catch((failure) => {
-            if (valid()) throw failure;
-        });
-        if (!saved || !valid()) return;
-        applyLocal(saved);
-        if (action === 'send' && currentRoute() && draft.value === value['content']) await setDraft('');
-        if (!valid()) return;
-        return dispatch(item);
+        // Publish delivery intent before persistence can notify subscribers about this command.
+        delivery.value[item.clientRequestId] = 'sending';
+        try {
+            const saved = await owner.savePending(item).catch((failure) => {
+                if (valid()) throw failure;
+            });
+            if (!saved || !valid()) return;
+            applyLocal(saved);
+            if (action === 'send' && currentRoute() && draft.value === value['content']) await setDraft('');
+            if (!valid()) return;
+            return await dispatch(item);
+        } finally {
+            // Persistence failure and invalidation must not leave a recoverable command hidden.
+            if (valid() && delivery.value[item.clientRequestId] === 'sending') delete delivery.value[item.clientRequestId];
+        }
     }
     function prepareDataClear(newOperation = false) {
         return prepareAssistantDataClear(

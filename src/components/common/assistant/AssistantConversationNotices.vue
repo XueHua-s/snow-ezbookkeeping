@@ -22,7 +22,7 @@ const conversation = computed(() => store.detail?.conversation);
             <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiPlus" /></svg>
         </button>
     </p>
-    <p key="notice-2" v-if="store.loading" class="assistant-notice" role="status">{{ tt('Loading') }}</p>
+    <p key="notice-2" v-if="store.loading && !store.submitting" class="assistant-notice" role="status">{{ tt('Loading') }}</p>
     <p key="notice-3" v-if="conversation?.sourceInvalidated" class="assistant-notice" role="status">
         {{
             tt(

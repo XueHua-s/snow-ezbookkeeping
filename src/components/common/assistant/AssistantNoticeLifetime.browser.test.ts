@@ -74,3 +74,33 @@ it('clears dismissed clipboard fallback text immediately', async () => {
     expect(document.querySelector('textarea')).toBeNull();
     screen.unmount();
 });
+
+it('hides normal in-flight delivery but immediately shows genuine recovery states', async () => {
+    mocks.store['local'] = { pending: [{ clientRequestId: 'pending', text: 'question' }], drafts: [] };
+    mocks.store['delivery'] = { pending: 'sending' };
+    const screen = await render(Recovery);
+    expect(document.querySelector('.assistant-notice')).toBeNull();
+    for (const state of ['confirming_delivery', 'unsent', undefined]) {
+        mocks.store['delivery'] = { pending: state };
+        await nextTick();
+        expect(document.querySelector('.assistant-notice')).not.toBeNull();
+        expect(document.body.textContent).toContain(state === 'unsent' ? 'Not delivered' : 'Confirming changes');
+    }
+    mocks.store['delivery'] = { pending: 'sending' };
+    mocks.store['local'] = { pending: [{ clientRequestId: 'pending', text: 'question', rejected: true }], drafts: [] };
+    await nextTick();
+    expect(document.body.textContent).toContain('Not delivered');
+    screen.unmount();
+});
+
+it('suppresses the normal post-send load notice while preserving history loading', async () => {
+    mocks.store['detail'] = undefined;
+    mocks.store['loading'] = true;
+    mocks.store['submitting'] = true;
+    const screen = await render(Notices);
+    expect(document.querySelector('.assistant-notice')).toBeNull();
+    mocks.store['submitting'] = false;
+    await nextTick();
+    expect(document.body.textContent).toContain('Loading');
+    screen.unmount();
+});
