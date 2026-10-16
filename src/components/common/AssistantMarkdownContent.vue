@@ -1,17 +1,3 @@
-<template>
-    <div class="assistant-markdown-container">
-    <details v-if="thinking" class="assistant-process"><summary>{{ tt('Process summary') }}</summary><p>{{ thinking }}</p></details>
-    <markdown-renderer
-        class="assistant-markdown"
-        mode="streaming"
-        :markdown="content"
-        :streamdown="streamdownOptions"
-        :parserOptions="parserOptions"
-        :components="customComponents"
-    />
-    </div>
-</template>
-
 <script setup lang="ts">
 import { h, type FunctionalComponent, type VNodeChild } from 'vue';
 import { useI18n } from '@/locales/helpers.ts';
@@ -41,21 +27,86 @@ const streamdownOptions = {
 
 function safeLink(value: unknown): string | undefined {
     if (typeof value !== 'string' || /[\u0000-\u0020]/.test(value)) return undefined;
-    try { const url = new URL(value); return ['https:', 'http:', 'mailto:'].includes(url.protocol) ? value : undefined; } catch { return undefined; }
+    try {
+        const url = new URL(value);
+        return ['https:', 'http:', 'mailto:'].includes(url.protocol) ? value : undefined;
+    } catch {
+        return undefined;
+    }
 }
-const SafeLink: FunctionalComponent<{ href?: string; children?: VNodeChild }> = (props) => h(safeLink(props['href']) ? 'a' : 'span', safeLink(props['href']) ? { href: safeLink(props['href']), target: '_blank', rel: 'noopener noreferrer' } : {}, [props['children']]);
-const SafeImage: FunctionalComponent<{ src?: string; alt?: string }> = (props) => h(safeLink(props['src']) ? 'a' : 'span', safeLink(props['src']) ? { href: safeLink(props['src']), target: '_blank', rel: 'noopener noreferrer' } : {}, String(props['alt'] || tt('External image')));
+const SafeLink: FunctionalComponent<{ href?: string; children?: VNodeChild }> = (props) =>
+    h(
+        safeLink(props['href']) ? 'a' : 'span',
+        safeLink(props['href'])
+            ? { href: safeLink(props['href']), target: '_blank', rel: 'noopener noreferrer' }
+            : {},
+        [props['children']]
+    );
+const SafeImage: FunctionalComponent<{ src?: string; alt?: string }> = (props) =>
+    h(
+        safeLink(props['src']) ? 'a' : 'span',
+        safeLink(props['src'])
+            ? { href: safeLink(props['src']), target: '_blank', rel: 'noopener noreferrer' }
+            : {},
+        String(props['alt'] || tt('External image'))
+    );
 const customComponents: MarkdownComponents = { a: SafeLink, img: SafeImage, code: AssistantCodeBlock };
 </script>
 
+<template>
+    <div class="assistant-markdown-container">
+        <details v-if="thinking" class="assistant-process">
+            <summary>{{ tt('Process summary') }}</summary>
+            <p>{{ thinking }}</p>
+        </details>
+        <markdown-renderer
+            class="assistant-markdown"
+            mode="streaming"
+            :markdown="content"
+            :streamdown="streamdownOptions"
+            :parserOptions="parserOptions"
+            :components="customComponents"
+        />
+    </div>
+</template>
+
 <style scoped>
-.assistant-markdown { overflow-wrap: anywhere; min-width: 0; color: inherit !important; background: transparent !important; font-family: inherit !important; font-size: inherit !important; }
-.assistant-markdown :deep(th), .assistant-markdown :deep(pre) { background: rgb(127 127 127 / 12%) !important; color: inherit !important; }
-.assistant-markdown :deep(blockquote), .assistant-markdown :deep(h6) { color: inherit !important; }
-.assistant-markdown :deep(a) { color: inherit; text-decoration: underline; }
-.assistant-markdown :deep(table) { display: block; overflow-x: auto; max-width: 100%; font-variant-numeric: tabular-nums; }
-.assistant-process { margin-block-end: 12px; font-size: .85em; }
-.assistant-process summary { cursor: pointer; min-height: 44px; padding-block: 10px; }
+.assistant-markdown {
+    overflow-wrap: anywhere;
+    min-width: 0;
+    color: inherit !important;
+    background: transparent !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+}
+.assistant-markdown :deep(th),
+.assistant-markdown :deep(pre) {
+    background: rgb(127 127 127 / 12%) !important;
+    color: inherit !important;
+}
+.assistant-markdown :deep(blockquote),
+.assistant-markdown :deep(h6) {
+    color: inherit !important;
+}
+.assistant-markdown :deep(a) {
+    color: inherit;
+    text-decoration: underline;
+}
+.assistant-markdown :deep(table) {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+    font-variant-numeric: tabular-nums;
+}
+.assistant-process {
+    margin-block-end: 12px;
+    font-size: 0.85em;
+}
+.assistant-process summary {
+    cursor: pointer;
+    min-height: 44px;
+    padding-block: 10px;
+}
 .assistant-markdown :deep(*) {
     box-sizing: border-box;
 }

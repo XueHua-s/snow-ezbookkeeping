@@ -164,7 +164,7 @@ func (tx *AssistantStorageTx) InvalidateSources(conversationID int64) error {
 	}
 	// Memory invalidation can affect runs whose direct seed is unrelated.
 	var active []models.AssistantConversation
-	if err := tx.Session.Where("uid = ? AND deleted = ? AND active_run_id <> ?", tx.State.Uid, false, 0).Limit(4).Find(&active); err != nil {
+	if err := tx.Session.Where("uid = ? AND deleted = ? AND active_run_id <> ?", tx.State.Uid, false, 0).Limit(max(1, tx.State.RunningCount+tx.State.QueuedCount)).Find(&active); err != nil {
 		return err
 	}
 	for i := range active {

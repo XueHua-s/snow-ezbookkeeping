@@ -1,0 +1,60 @@
+{
+  "executedAt": "2026-10-15T23:15:19.539Z",
+  "frontend": "production dist",
+  "backend": "Docker image sha256:bd5b1c31834ad9d917679b9bb9007edae4b9553201a2af48939f6796d1d339e1; isolated SQLite; see docker-runtime.json",
+  "provider": "deterministic protocol fixture",
+  "status": "PASS",
+  "results": [
+    {
+      "variant": "desktop",
+      "scenario": "real ledger modification is explicitly marked; saved answer/draft/reading offset retained; explicit current-bill and ask-again controls",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "transport failure shows distinct retry explanation and preserves answer/draft/reading offset",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "preflight ID redirected to isolated foreign owner bill; actual HTTP authorization rejection uses neutral inaccessible explanation and preserves draft/offset",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "explicit ask-again creates second answer version using current ledger; original answer and queriedAt unchanged; unsent draft retained",
+      "status": "PASS"
+    },
+    {
+      "variant": "desktop",
+      "scenario": "real deleted bill uses same neutral inaccessible explanation and preserves saved answer/draft/reading offset",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "real ledger modification is explicitly marked; saved answer/draft/reading offset retained; explicit current-bill and ask-again controls",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "transport failure shows distinct retry explanation and preserves answer/draft/reading offset",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "preflight ID redirected to isolated foreign owner bill; actual HTTP authorization rejection uses neutral inaccessible explanation and preserves draft/offset",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "explicit ask-again creates second answer version using current ledger; original answer and queriedAt unchanged; unsent draft retained",
+      "status": "PASS"
+    },
+    {
+      "variant": "mobile",
+      "scenario": "real deleted bill uses same neutral inaccessible explanation and preserves saved answer/draft/reading offset",
+      "status": "PASS"
+    }
+  ],
+  "providerCalls": 8
+}

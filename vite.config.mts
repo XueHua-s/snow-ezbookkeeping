@@ -1,5 +1,5 @@
-import fs from 'fs';
-import { resolve } from 'path';
+import fs from 'node:fs';
+import { resolve } from 'node:path';
 
 import { type UserConfig, type Plugin, defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue';
@@ -9,13 +9,13 @@ import Checker from 'vite-plugin-checker';
 import { minify } from 'terser';
 import git from 'git-rev-sync';
 
-import packageFile from './package.json';
-import contributorsFile from './contributors.json';
-import thirdPartyLicenseFile from './third-party-dependencies.json';
+import packageFile from './package.json' with { type: 'json' };
+import contributorsFile from './contributors.json' with { type: 'json' };
+import thirdPartyLicenseFile from './third-party-dependencies.json' with { type: 'json' };
 
-const SRC_DIR = resolve(__dirname, './src');
-const PUBLIC_DIR = resolve(__dirname, './public');
-const BUILD_DIR = resolve(__dirname, './dist',);
+const SRC_DIR = resolve(import.meta.dirname, './src');
+const PUBLIC_DIR = resolve(import.meta.dirname, './public');
+const BUILD_DIR = resolve(import.meta.dirname, './dist',);
 
 function minifyWorkerWithTerser(): Plugin {
     const minifyOptionsHash = `terser-${packageFile.devDependencies.terser}-compress-mangle-no-comments`;
@@ -103,7 +103,7 @@ function injectFramework7CssFile({ htmlFileName, placeHolders }: { htmlFileName:
 }
 
 export default defineConfig(() => {
-    const licenseContent = fs.readFileSync('./LICENSE', { encoding: 'utf-8' });
+    const licenseContent = fs.readFileSync(new URL('./LICENSE', import.meta.url), { encoding: 'utf-8' });
     const buildUnixTime = process.env['buildUnixTime'] || '';
 
     const options: UserConfig = {
@@ -114,7 +114,7 @@ export default defineConfig(() => {
             __EZBOOKKEEPING_IS_PRODUCTION__: process.env['NODE_ENV'] === 'production',
             __EZBOOKKEEPING_VERSION__: JSON.stringify(packageFile.version),
             __EZBOOKKEEPING_BUILD_UNIX_TIME__: JSON.stringify(buildUnixTime),
-            __EZBOOKKEEPING_BUILD_COMMIT_HASH__: JSON.stringify(git.short()),
+            __EZBOOKKEEPING_BUILD_COMMIT_HASH__: JSON.stringify(git.short(import.meta.dirname)),
             __EZBOOKKEEPING_CONTRIBUTORS__: JSON.stringify(contributorsFile),
             __EZBOOKKEEPING_LICENSE__: JSON.stringify(licenseContent),
             __EZBOOKKEEPING_THIRD_PARTY_LICENSES__: JSON.stringify(thirdPartyLicenseFile)

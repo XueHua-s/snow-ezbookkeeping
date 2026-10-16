@@ -1,0 +1,68 @@
+[
+  {
+    "variant": "desktop",
+    "status": "PASS",
+    "metrics": {
+      "titleWidth": 510,
+      "controls": [
+        {
+          "name": "Conversation history",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "name": "New conversation",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "name": "More",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "viewport": 720,
+      "documentWidth": 720,
+      "table": {
+        "width": 658,
+        "scrollWidth": 658,
+        "overflow": "auto",
+        "numerals": "tabular-nums"
+      }
+    },
+    "errors": []
+  },
+  {
+    "variant": "mobile",
+    "status": "PASS",
+    "metrics": {
+      "titleWidth": 230,
+      "controls": [
+        {
+          "name": "Conversation history",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "name": "New conversation",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "name": "More",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "viewport": 390,
+      "documentWidth": 390,
+      "table": {
+        "width": 358,
+        "scrollWidth": 358,
+        "overflow": "auto",
+        "numerals": "tabular-nums"
+      }
+    },
+    "errors": []
+  }
+]

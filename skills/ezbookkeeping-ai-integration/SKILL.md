@@ -23,10 +23,10 @@ description: "Delivery workflow for AI assistant and receipt-recognition feature
 
 ## Execution Steps
 
-1. Update active provider config (`LLMConfig`), assistant runtime budgets, and config template (`conf/ezbookkeeping.ini`); retired embedding keys remain ignored.
+1. When configuration changes, update active provider config (`LLMConfig`), assistant runtime budgets, persistent experience limits, and config template (`conf/ezbookkeeping.ini`); retired embedding keys remain ignored.
 2. Wire provider endpoints through config-based URL builders.
 3. Keep API handlers focused on orchestration and validation.
-4. If frontend needs runtime AI config info, expose it via `pkg/api/server_settings.go` and read via `src/lib/server_settings.ts`.
+4. Expose general AI flags and legacy runtime info via `pkg/api/server_settings.go` and `src/lib/server_settings.ts`; expose persistent assistant effective limits/owner/epochs through its capabilities endpoint and typed conversation client.
 5. Update docs for migration and operations when storage/config semantics change.
 
 ## Verification

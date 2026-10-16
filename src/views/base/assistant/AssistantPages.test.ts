@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
-import { createPinia } from 'pinia';
+import { createPinia, disposePinia, type Pinia } from 'pinia';
 import { createMemoryHistory, createRouter, RouterView } from 'vue-router';
 import { setupCloudAPI } from './testing/cloudFixture.ts';
 const api = vi.hoisted(() => Object.fromEntries(['capabilities','list','get','state','command','send','subscribe','cancel','memories'].map(key => [key, vi.fn()])));
@@ -14,15 +14,21 @@ vi.mock('@/components/desktop/SnackBar.vue', () => ({ default: defineComponent({
 import DesktopPage from '@/views/desktop/assistant/AssistantPage.vue';
 import { useAssistantStore } from '@/stores/assistant.ts';
 let wrapper: VueWrapper | undefined;
+let pinia: Pinia | undefined;
 let fixture: ReturnType<typeof setupCloudAPI>;
 beforeEach(() => { fixture = setupCloudAPI(api); });
-afterEach(() => { wrapper?.unmount(); wrapper = undefined; document.body.innerHTML = ''; });
+afterEach(() => {
+    wrapper?.unmount(); wrapper = undefined;
+    if (pinia) disposePinia(pinia);
+    pinia = undefined;
+    document.body.innerHTML = '';
+});
 async function openPage() {
     const router = createRouter({ history: createMemoryHistory(), routes: [
         { path: '/assistant', component: DesktopPage }, { path: '/away', component: defineComponent({ render: () => h('p', 'Away') }) }
     ] });
     await router.push('/assistant?conversationId=1'); await router.isReady();
-    const pinia = createPinia();
+    pinia = createPinia();
     wrapper = mount(RouterView, { attachTo: document.body, global: { plugins: [router, pinia], components: {
         MainPageLayout: defineComponent({ setup(_, { slots }) { return () => h('main', slots['content']?.()); } })
     } } });

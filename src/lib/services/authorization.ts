@@ -122,7 +122,8 @@ export const authorizationServices = {
         };
 
         return axios.post<ApiResponse<boolean>>('v1/tokens/revoke.json', req, {
-            ignoreError: !!ignoreError
+            ignoreError: !!ignoreError,
+            expectedToken: getCurrentToken()
         } as ApiRequestConfig);
     },
     revokeAllTokens: (): ApiResponsePromise<boolean> => {

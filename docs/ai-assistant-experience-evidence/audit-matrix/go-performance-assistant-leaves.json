@@ -1,0 +1,38 @@
+[
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabase100KPlans/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 4.54
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabase100KPlans/mysql",
+    "status": "pass",
+    "elapsedSeconds": 13.5
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantDatabase100KPlans/postgres",
+    "status": "pass",
+    "elapsedSeconds": 12.62
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantExperienceHistoryPerformance/sqlite3",
+    "status": "pass",
+    "elapsedSeconds": 6.16
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantExperienceHistoryPerformance/mysql",
+    "status": "pass",
+    "elapsedSeconds": 43.01
+  },
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/services",
+    "test": "TestAssistantExperienceHistoryPerformance/postgres",
+    "status": "pass",
+    "elapsedSeconds": 38.73
+  }
+]

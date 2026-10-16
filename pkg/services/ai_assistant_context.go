@@ -35,6 +35,11 @@ func assistantContextFits(messages []data.ConversationMessage, tools []data.Tool
 	raw, e := json.Marshal(data.ToolTurnInput{Messages: messages, Tools: tools})
 	return e == nil && len(raw) <= budget && len(raw) <= llm.AssistantMaxModelRequestBytes
 }
+
+// Prepare selects server-owned history, memory and tools under the run's accepted
+// limits. It may compact history (and call a model) but must not be called inside
+// a storage transaction. The returned dependencies must be revalidated before
+// generation and every checkpoint; selection alone does not freeze authorization.
 func (s *AssistantContextService) Prepare(ctx core.Context, run *models.AssistantMessage) (*AssistantPreparedRun, error) {
 	cfg := s.config()
 	if !cfg.EnableAIAssistant {

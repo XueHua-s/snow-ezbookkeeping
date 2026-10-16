@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { environment } from './assistant-experience-e2e-environment.mjs';
-const env = await environment({ queryPageSize: 8, onProviderRequest: process.env.EBK_PLATFORM_TRACE ? metadata => console.log('provider_trace', JSON.stringify(metadata)) : undefined });
+const env = await environment({ production: process.env.EBK_E2E_PRODUCTION === '1', queryPageSize: 8, onProviderRequest: process.env.EBK_PLATFORM_TRACE ? metadata => console.log('provider_trace', JSON.stringify(metadata)) : undefined });
 const checks = [];
 try {
     const login = await env.user('platform');
@@ -63,9 +63,9 @@ try {
     assert.equal(exported.status, 200); assert.ok((await exported.text()).includes('123.45')); checks.push('current conversation Markdown export with viewed version');
     await write('conversations/delete', { id: sent.conversationId, expectedMetadataVersion: detail.conversation.metadataVersion });
     await write('conversations/clear', {}); caps = await read('capabilities'); const history = await read('conversations/list'); assert.equal(history.items.length, 0); checks.push('delete and clear commands');
-    await writeFile(resolve(env.artifacts, 'platform-commands.json'), JSON.stringify({ runAt: new Date().toISOString(), passed: checks, realHTTP: true, realModel: false, queryPageSize: 8 }, null, 2));
+    await writeFile(resolve(env.artifacts, 'platform-commands.json'), JSON.stringify({ runAt: new Date().toISOString(), passed: checks, realHTTP: true, realModel: false, backend: process.env.EBK_E2E_DOCKER_IMAGE ? `Docker image ${process.env.EBK_E2E_DOCKER_IMAGE}; see docker-runtime.json` : 'current host Go build', queryPageSize: 8 }, null, 2));
     console.log(JSON.stringify({ passed: checks, artifacts: env.artifacts }, null, 2));
 } catch (error) {
-    await writeFile(resolve(env.artifacts, 'platform-commands.json'), JSON.stringify({ runAt: new Date().toISOString(), passed: checks, failed: true, failure: String(error), realHTTP: true, realModel: false, queryPageSize: 8 }, null, 2));
+    await writeFile(resolve(env.artifacts, 'platform-commands.json'), JSON.stringify({ runAt: new Date().toISOString(), passed: checks, failed: true, failure: String(error), realHTTP: true, realModel: false, backend: process.env.EBK_E2E_DOCKER_IMAGE ? `Docker image ${process.env.EBK_E2E_DOCKER_IMAGE}; see docker-runtime.json` : 'current host Go build', queryPageSize: 8 }, null, 2));
     throw error;
 } finally { await env.close(); }

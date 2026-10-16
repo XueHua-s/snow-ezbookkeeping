@@ -36,15 +36,9 @@ func (s *AssistantMemoryService) List(ctx core.Context, uid int64) (*models.Assi
 			return e
 		}
 		for _, m := range records {
-			var sources []models.AssistantSourceDependency
-			if m.SourcesJSON != "" && json.Unmarshal([]byte(m.SourcesJSON), &sources) != nil {
+			dto, err := assistantMemoryDTO(&m)
+			if err != nil {
 				continue
-			}
-			dto := models.AssistantMemoryDTO{SchemaVersion: models.AssistantSchemaVersion, Id: assistantConversationID(m.Id), Key: m.Key, Text: m.Text, Type: m.Type, Status: m.Status, Sources: sources, SourceMessageIds: []string{}, Version: m.Version, Explicit: m.Explicit, CreatedAt: assistantConversationTime(m.CreatedAt), UpdatedAt: assistantConversationTime(m.UpdatedAt), ExpiresAt: assistantConversationTime(m.ExpiresAt)}
-			for _, d := range sources {
-				if d.MessageId != "" {
-					dto.SourceMessageIds = append(dto.SourceMessageIds, d.MessageId)
-				}
 			}
 			result.Items = append(result.Items, dto)
 		}

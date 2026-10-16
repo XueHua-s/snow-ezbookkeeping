@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { ASSISTANT_SNAPSHOT_FRAME_BYTES, isAssistantRunSnapshot, readAssistantConversationStream } from './assistant_conversation_stream.ts';
-import type { AssistantRunSnapshot } from '@/models/ai_assistant_conversation.ts';
+import { assistantReasonCodes, type AssistantRunSnapshot } from '@/models/ai_assistant_conversation.ts';
 
 const fixture = JSON.parse(readFileSync('testdata/assistant_snapshot_v1.json', 'utf8')) as AssistantRunSnapshot;
 const encoder = new TextEncoder();
@@ -16,6 +16,13 @@ function body(text: string, chunk = 17): ReadableStream<Uint8Array> {
     } });
 }
 describe('persistent assistant snapshots', () => {
+    it('accepts every declared reason code and rejects unknown wire values', () => {
+        for (const reasonCode of assistantReasonCodes) {
+            expect(isAssistantRunSnapshot({ ...fixture, reasonCode })).toBe(true);
+        }
+        expect(isAssistantRunSnapshot({ ...fixture, reasonCode: 'future_unknown' })).toBe(false);
+        expect(isAssistantRunSnapshot({ ...fixture, reasonCode: 1 })).toBe(false);
+    });
     it('consumes the Go/TS fixture without rounding signed int64 amounts or IDs', async () => {
         const onSnapshot = vi.fn();
         await readAssistantConversationStream(body(frame()), fixture.runId, { onSnapshot });

@@ -18,6 +18,7 @@ import { useSettingsStore } from '@/stores/setting.ts';
 import { useEnvironmentsStore } from '@/stores/environment.ts';
 import { useUserStore } from '@/stores/user.ts';
 import { useTokensStore } from '@/stores/token.ts';
+import logger from '@/lib/logger.ts';
 import { useExchangeRatesStore } from '@/stores/exchangeRates.ts';
 
 import { APPLICATION_LOGO_PATH } from '@/consts/asset.ts';
@@ -226,6 +227,7 @@ if (isUserLogined()) {
     if (!settingsStore.appSettings.applicationLock || isUserUnlocked()) {
         // refresh token if user is logined
         tokensStore.refreshTokenAndRevokeOldToken().then(response => {
+            if (!response.isCurrent()) return;
             if (response.user) {
                 localeDefaultSettings = setLanguage(response.user.language);
                 settingsStore.updateLocalizedDefaultSettings(localeDefaultSettings);
@@ -240,6 +242,8 @@ if (isUserLogined()) {
             updateMapCacheExpiration(settingsStore.appSettings.mapCacheExpiration);
             exchangeRatesStore.removeExpiredExchangeRates(true);
             exchangeRatesStore.autoUpdateExchangeRatesData();
+        }).catch(error => {
+            if (!error.processed) logger.warn('Unable to refresh the current session');
         });
     }
 }

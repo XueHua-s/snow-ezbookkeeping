@@ -14,7 +14,9 @@ import {
 } from '@/lib/settings.ts';
 import {
     clearCurrentTokenAndUserInfo,
-    getCurrentToken
+    getCurrentToken,
+    getCurrentUserInfo,
+    updateCurrentToken
 } from '@/lib/userstate.ts';
 import { getBasePath } from '@/lib/web.ts';
 import type {
@@ -29,15 +31,18 @@ export interface ApiRequestConfig extends AxiosRequestConfig {
     readonly ignoreError?: boolean;
     readonly timeout?: number;
     readonly cancelableUuid?: string;
+    /** Bind identity-sensitive requests before Axios schedules its interceptors. */
+    readonly expectedToken?: string | null;
+    /** Bind assistant payloads to their owner while allowing same-owner refresh. */
+    readonly expectedOwner?: string;
 }
 
 export type ApiResponsePromise<T> = Promise<AxiosResponse<ApiResponse<T>>>;
 
 export type { AIAssistantChatStreamCallbacks } from '@/lib/types/assistant.ts';
 
-let needBlockRequest = false;
-
-const blockedRequests: ((token: string | undefined) => void)[] = [];
+const blockedRequests: ((failure?: unknown) => void)[] = [];
+let tokenRefresh: ApiResponsePromise<TokenRefreshResponse> | undefined;
 
 const cancelableRequests: Record<string, boolean> = {};
 
@@ -49,6 +54,8 @@ axios.defaults.timeout = DEFAULT_API_TIMEOUT;
 
 axios.interceptors.request.use((config: ApiRequestConfig) => {
     const token = getCurrentToken();
+    if ('expectedOwner' in config && (!token || config.expectedOwner !== getCurrentUserInfo()?.username)) return Promise.reject({ processed: true });
+    if ('expectedToken' in config && config.expectedToken !== token) return Promise.reject({ processed: true });
 
     if (token && !config.noAuth) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -64,13 +71,18 @@ axios.interceptors.request.use((config: ApiRequestConfig) => {
 
     config.headers['X-Timezone-Name'] = timezoneName;
 
-    if (needBlockRequest && !config.ignoreBlocked) {
-        return new Promise(resolve => {
-            blockedRequests.push(newToken => {
-                if (newToken) {
-                    config.headers.Authorization = `Bearer ${newToken}`;
+    if (tokenRefresh && !config.ignoreBlocked) {
+        const owner = getCurrentUserInfo()?.username;
+        return new Promise((resolve, reject) => {
+            blockedRequests.push(failure => {
+                if (failure) { reject(failure); return; }
+                const current = getCurrentToken();
+                if (!current || getCurrentUserInfo()?.username !== owner
+                    || ('expectedToken' in config && config.expectedToken !== current)) {
+                    reject({ processed: true });
+                    return;
                 }
-
+                if (!config.noAuth) config.headers.Authorization = `Bearer ${current}`;
                 resolve(config);
             });
         });
@@ -107,6 +119,11 @@ axios.interceptors.response.use(response => {
             || errorCode === 202006 // current token does not require two-factor authorization
             || errorCode === 202012 // token is empty
         ) {
+            // Another tab may already have replaced/revoked the token used by
+            // this request. Its late 401 must not log out the current session.
+            const authorization = error.response.config.headers?.Authorization;
+            const current = getCurrentToken();
+            if (authorization && authorization !== `Bearer ${current}`) return Promise.reject(error);
             clearCurrentTokenAndUserInfo(false);
             location.reload();
             return Promise.reject({ processed: true });
@@ -121,23 +138,46 @@ export const transportServices = {
         axios.defaults.headers.common['Accept-Language'] = locale;
     },
     refreshToken: (): ApiResponsePromise<TokenRefreshResponse> => {
-        return new Promise((resolve) => {
-            needBlockRequest = true;
-
-            axios.post<ApiResponse<TokenRefreshResponse>>('v1/tokens/refresh.json', {}, {
-                ignoreBlocked: true
-            } as ApiRequestConfig).then(response => {
-                const data = response.data;
-
-                resolve(response);
-                needBlockRequest = false;
-
-                return data.result.newToken;
-            }).then(newToken => {
-                blockedRequests.forEach(func => func(newToken));
-                blockedRequests.length = 0;
-            });
+        if (tokenRefresh) return tokenRefresh;
+        const owner = getCurrentUserInfo()?.username;
+        const refresh = async (): ApiResponsePromise<TokenRefreshResponse> => {
+            // Only refresh is retryable. Never replay a queued accounting write.
+            for (let attempt = 0; attempt < 3; attempt++) {
+                const token = getCurrentToken();
+                if (!token || getCurrentUserInfo()?.username !== owner) throw { processed: true };
+                let response;
+                try {
+                    response = await axios.post<ApiResponse<TokenRefreshResponse>>('v1/tokens/refresh.json', {}, {
+                        ignoreBlocked: true, expectedToken: token
+                    } as ApiRequestConfig);
+                } catch (error) {
+                    if (!getCurrentToken() || getCurrentUserInfo()?.username !== owner) throw { processed: true };
+                    if (getCurrentToken() !== token && attempt < 2) continue;
+                    throw error;
+                }
+                if (!getCurrentToken() || getCurrentUserInfo()?.username !== owner) throw { processed: true };
+                if (getCurrentToken() !== token) {
+                    if (attempt < 2) continue;
+                    throw { processed: true };
+                }
+                if (!response.data.success || !response.data.result) throw response.data;
+                if (response.data.result.newToken) updateCurrentToken(response.data.result.newToken);
+                return response;
+            }
+            throw { processed: true };
+        };
+        const settle = (failure?: unknown) => {
+            tokenRefresh = undefined;
+            for (const resume of blockedRequests.splice(0)) resume(failure);
+        };
+        tokenRefresh = refresh().then(response => {
+            settle();
+            return response;
+        }, error => {
+            settle(error);
+            throw error;
         });
+        return tokenRefresh;
     },
     cancelRequest: (cancelableUuid: string) => {
         if (cancelableStreamingRequests[cancelableUuid]) {

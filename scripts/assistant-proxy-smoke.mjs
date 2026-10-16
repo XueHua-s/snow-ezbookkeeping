@@ -7,7 +7,8 @@ import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { environment } from './assistant-experience-e2e-environment.mjs';
 
-const exec = promisify(execFile);
+const execute = promisify(execFile);
+const exec = (file, args) => execute(file, args, { timeout: 30000, maxBuffer: 4 * 1024 * 1024 });
 process.env.EBK_E2E_ARTIFACTS ||= resolve('.vitest/assistant-proxy');
 await mkdir(process.env.EBK_E2E_ARTIFACTS, { recursive: true });
 const env = await environment({ production: true });
@@ -16,7 +17,7 @@ const image = 'nginx:1.28-alpine';
 let container = false;
 try {
     const port = new URL(env.base).port;
-    const location = (name, directives) => `location /${name}/ { proxy_pass http://host.docker.internal:${port}/; proxy_http_version 1.1; proxy_set_header Connection ""; proxy_cache off; ${directives} }`;
+    const location = (name, directives) => `location /${name}/ { proxy_pass http://host.lima.internal:${port}/; proxy_http_version 1.1; proxy_set_header Connection ""; proxy_cache off; ${directives} }`;
     const config = `events {}\nhttp { access_log /dev/stdout; error_log /dev/stderr info; server { listen 8080;\n${[
         location('off', 'proxy_buffering off; proxy_read_timeout 35s;'),
         location('on', 'proxy_buffering on; proxy_read_timeout 35s;'),
@@ -25,8 +26,10 @@ try {
     ].join('\n')}\n} }\n`;
     const configPath = resolve(env.artifacts, 'nginx.conf');
     await writeFile(configPath, config);
-    await exec('docker', ['run', '-d', '--rm', '--name', name, '-p', '127.0.0.1::8080', '--add-host=host.docker.internal:host-gateway', '-v', `${configPath}:/etc/nginx/nginx.conf:ro`, image]);
-    container = true;
+    container = true; // Cleanup also covers a partially successful create.
+    await exec('docker', ['create', '--pull', 'never', '--name', name, '--label', 'ebk.validation=assistant-experience', '-p', '127.0.0.1::8080', image]);
+    await exec('docker', ['cp', configPath, `${name}:/etc/nginx/nginx.conf`]);
+    await exec('docker', ['start', name]);
     const { stdout: mapping } = await exec('docker', ['port', name, '8080/tcp']);
     const proxy = `http://${mapping.trim()}`;
     let proxyReady = false;
@@ -100,16 +103,17 @@ try {
     await writeFile(resolve(env.artifacts, 'nginx-active.conf'), activeConfig + configDiagnostics);
     assert.match(activeConfig, /proxy_ignore_headers X-Accel-Buffering/);
     const { stdout: inspect } = await exec('docker', ['image', 'inspect', image, '--format', '{{json .RepoDigests}}']);
-    const report = { status: 'PASS', nginx: (version + versionErr).trim(), imageDigests: JSON.parse(inspect), productionAPI: true, database: 'isolated SQLite', provider: 'controlled HTTP protocol fixture', providerCalls: env.calls() - before,
+    const report = { status: 'PASS', nginx: (version + versionErr).trim(), imageDigests: JSON.parse(inspect), productionAPI: true, backend: process.env.EBK_E2E_DOCKER_IMAGE ? `Docker image ${process.env.EBK_E2E_DOCKER_IMAGE}; see docker-runtime.json` : 'current host Go build', database: 'isolated SQLite', provider: 'controlled HTTP protocol fixture', providerCalls: env.calls() - before,
         commandCount: 1, runId: accepted.runId, results, reconnected, completedState: state.state,
         checks: ['real nginx buffering off', 'real nginx buffering on honoring X-Accel-Buffering', 'buffering-on with X-Accel-Buffering ignored (measured timing)', 'actual proxy idle disconnect', 'same-run status polling recovery', 'terminal reconnect afterRevision equal', 'no duplicate model calls'] };
     await writeFile(resolve(env.artifacts, 'results.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
 } finally {
+    try {
     if (container) {
         const logs = await exec('docker', ['logs', name]).catch(() => ({ stdout: '', stderr: '' }));
         await writeFile(resolve(env.artifacts, 'nginx.log'), logs.stdout + logs.stderr);
         await exec('docker', ['rm', '-f', name]);
     }
-    await env.close();
+    } finally { await env.close(); }
 }

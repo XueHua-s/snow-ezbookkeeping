@@ -31,6 +31,21 @@ describe('native IndexedDB assistant storage', () => {
         expect((await storage(owner).load()).pending).toEqual([]);
     });
 
+    it('orders snapshots across page fallback cleanup and recovery without comparing row versions', async () => {
+        const owner = storage();
+        for (let i = 0; i < 20; i++) await owner.saveDraft(draft(`text ${i}`, `${i}`));
+        let snapshot = await owner.saveDraft(draft('extra page draft', '21'));
+        for (let i = 0; i < 4; i++) snapshot = await owner.saveDraft(draft(`page edit ${i}`, '21'));
+        const cleaned = await owner.removeDraft(snapshot.drafts.find(item => item.conversationId === '0')!.id);
+        expect(cleaned.scope).toBe('page');
+        expect(cleaned.version).toBeLessThan(snapshot.version);
+        expect(cleaned.sequence).toBeGreaterThan(snapshot.sequence!);
+        const recovered = await owner.retryPersistence();
+        expect(recovered.scope).toBe('device');
+        expect(recovered.sequence).toBeGreaterThan(cleaned.sequence!);
+        expect(recovered.drafts.find(item => item.conversationId === '21')?.text).toBe('page edit 3');
+    });
+
     it('isolates owners and devices, and migrates new drafts without losing text', async () => {
         const owner = crypto.randomUUID();
         const first = storage(owner);

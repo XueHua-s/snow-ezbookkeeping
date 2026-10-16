@@ -134,12 +134,9 @@ func (s *AssistantConversationService) exportMemories(ctx core.Context, uid int6
 						return err
 					}
 				}
-				dto := models.AssistantMemoryDTO{SchemaVersion: m.SchemaVersion, Id: assistantConversationID(m.Id), Key: m.Key, Text: m.Text, Type: m.Type, Status: m.Status, CreatedAt: assistantConversationTime(m.CreatedAt), UpdatedAt: assistantConversationTime(m.UpdatedAt), ExpiresAt: assistantConversationTime(m.ExpiresAt), Version: m.Version, Explicit: m.Explicit, SourceMessageIds: []string{}, Sources: []models.AssistantSourceDependency{}}
-				if m.SourcesJSON != "" && json.Unmarshal([]byte(m.SourcesJSON), &dto.Sources) != nil {
-					return models.AssistantReasonStorageUnavailable
-				}
-				for _, source := range dto.Sources {
-					dto.SourceMessageIds = append(dto.SourceMessageIds, source.MessageId)
+				dto, err := assistantMemoryDTO(m)
+				if err != nil {
+					return err
 				}
 				raw, err := json.Marshal(dto)
 				if err != nil {

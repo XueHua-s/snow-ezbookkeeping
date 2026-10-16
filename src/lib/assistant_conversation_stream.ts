@@ -1,9 +1,6 @@
-import type { AssistantRunSnapshot, AssistantRunState } from '@/models/ai_assistant_conversation.ts';
+import { assistantReasonCodes, type AssistantReasonCode, assistantRunStates, isAssistantRunTerminal, type AssistantRunSnapshot, type AssistantRunState } from '@/models/ai_assistant_conversation.ts';
 
 export const ASSISTANT_SNAPSHOT_FRAME_BYTES = 256 * 1024;
-const terminalStates: AssistantRunState[] = ['completed', 'incomplete', 'failed', 'canceled', 'interrupted'];
-const reasons = ['queue_timeout', 'run_timeout', 'execution_limit', 'generation_unavailable', 'input_too_long', 'conversation_conflict', 'data_epoch_conflict', 'memory_conflict', 'context_changed', 'already_running', 'quota_exceeded', 'queue_full', 'subscription_limit', 'cursor_expired', 'context_limit', 'output_limit', 'empty_response', 'storage_unavailable', 'provider_unavailable', 'interrupted', 'not_accessible'];
-const states: AssistantRunState[] = ['queued', 'preparing', 'running', 'cancel_requested', ...terminalStates];
 
 export class AssistantSubscriptionError extends Error {
     constructor(public readonly kind: 'protocol' | 'disconnected' | 'unauthorized' | 'limited' | 'http' | 'canceled',
@@ -36,9 +33,9 @@ export function isAssistantRunSnapshot(value: unknown): value is AssistantRunSna
     if (!object(value) || value['schemaVersion'] !== 1 || !id(value['runId']) ||
         value['runId'] !== value['assistantMessageId'] || !id(value['conversationId']) || !id(value['userMessageId']) ||
         !integer(value['attemptNumber'], 1) || !integer(value['revision'], 1) ||
-        !states.includes(value['state'] as AssistantRunState) || typeof value['content'] !== 'string' ||
+        !assistantRunStates.includes(value['state'] as AssistantRunState) || typeof value['content'] !== 'string' ||
         typeof value['savedAt'] !== 'string' || !Number.isFinite(Date.parse(value['savedAt'])) ||
-        !(value['reasonCode'] === null || reasons.includes(value['reasonCode'] as string)) ||
+        !(value['reasonCode'] === null || assistantReasonCodes.includes(value['reasonCode'] as AssistantReasonCode)) ||
         !Array.isArray(value['queries']) || !Array.isArray(value['references'])) {
         return false;
     }
@@ -91,7 +88,7 @@ export async function readAssistantConversationStream(body: ReadableStream<Uint8
         let value: unknown;
         try { value = JSON.parse(data); } catch { throw new AssistantSubscriptionError('protocol'); }
         if (!isAssistantRunSnapshot(value) || value.runId !== runId || ids[0] !== `${runId}:${value.revision}` ||
-            terminalStates.includes(value.state) !== (events[0] === 'run.terminal')) {
+            isAssistantRunTerminal(value.state) !== (events[0] === 'run.terminal')) {
             throw new AssistantSubscriptionError('protocol');
         }
         const nextIdentity = `${value.conversationId}:${value.userMessageId}:${value.attemptNumber}`;

@@ -1,8 +1,12 @@
 # AI 助手体验计划独立验收记录
 
+本报告保留提交 `91081998` 的基线验证记录。2026-10-16 开始的后续技能串行审查、修复及 Docker 验证见 [技能审计清单](ai-assistant-experience-skill-audit.md)；下文的通过结果不自动覆盖后续代码变更。
+
+当前复核已有独立的 [容器 E2E 记录](ai-assistant-experience-audit/16-container-e2e.md) 和 [完整单元/三库矩阵](ai-assistant-experience-audit/17-final-test-matrix.md)：主 E2E 47 PASS / 2 bfcache NOT RUN、引用 10 PASS、旧后端兼容 2 PASS，[最终 Vitest 38,917 PASS](ai-assistant-experience-audit/18-harness-finalization.md)、Chromium 62 PASS，Go 全仓、race、三库性能及备份恢复/回滚均通过。重复测试模式不叠加为独立覆盖；14项适用技能本地终审均已闭环为10/10，构建工具整改完成；评分仅覆盖审计记录中的本地适用范围。商业模型、物理输入/读屏、真实 bfcache 与 stock Dockerfile 发布构建仍未验证。
+
 核查日期：2026-10-15–16（Asia/Shanghai）。目标为根目录 `AI_ASSISTANT_EXPERIENCE_PLAN.md` v2.1 的全部要求。
 
-最终状态：实现与隔离自动/生产验证通过，无未解决的已知实现FAIL；真实主备模型、物理软键盘/读屏及未命中的真实bfcache门槛仍未完成，最终整体验收不能标为全部通过；下面 NOT RUN 表示尚无覆盖该整项要求的执行证据，不能据此宣称完成或可发布。旧 harness 的通过结果仅作为旧链路基线，不替代新增功能验收。最终质量门已在冻结的集成工作树运行，结果见最终记录；业务代码后续变化时重跑相应门槛。
+基线状态（以下为原验收快照）：实现与隔离自动/生产验证通过，无未解决的已知实现FAIL；真实主备模型、物理软键盘/读屏及未命中的真实bfcache门槛仍未完成，最终整体验收不能标为全部通过；下面 NOT RUN 表示尚无覆盖该整项要求的执行证据，不能据此宣称完成或可发布。旧 harness 的通过结果仅作为旧链路基线，不替代新增功能验收。基线质量门在当时冻结的集成工作树运行，结果见下方原始记录；后续变化的证据见上述当前审计。
 
 ## 环境核查
 

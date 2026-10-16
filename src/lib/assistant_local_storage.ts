@@ -42,6 +42,8 @@ interface OwnerData {
 }
 
 export interface AssistantLocalSnapshot {
+    /** Monotonic completion order within one storage instance, including fallback/recovery. */
+    sequence?: number;
     drafts: AssistantLocalDraft[];
     pending: AssistantLocalPending[];
     scope: 'device' | 'page';
@@ -67,24 +69,35 @@ const STORE = 'owners';
 const empty = (ownerScope: string): OwnerData => ({ ownerScope, version: 0, drafts: [], pending: [] });
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-function deviceIdentity(): string | undefined {
-    try {
-        const key = 'assistant-device-id';
-        const existing = localStorage.getItem(key);
-        if (existing) return existing;
-        const id = crypto.randomUUID();
-        localStorage.setItem(key, id);
-        return id;
-    } catch { return undefined; }
+/** The origin's IndexedDB is the device boundary; localStorage can disappear independently.
+ * Normalize legacy tab IDs inside the owner transaction, retaining every record.
+ */
+function migrateDevice(data: OwnerData, deviceId: string): boolean {
+    const changed = [...data.drafts, ...data.pending].some(item => item.deviceId !== deviceId);
+    if (!changed) return false;
+    for (const item of [...data.drafts, ...data.pending]) item.deviceId = deviceId;
+    for (const draft of data.drafts) {
+        if (data.drafts.some(other => other !== draft && other.conversationId === draft.conversationId)) {
+            draft.conflict = true;
+        }
+    }
+    return true;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DATABASE, 1);
+        let blocked = false;
         request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: 'ownerScope' });
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => {
+            if (blocked) request.result.close();
+            else resolve(request.result);
+        };
         request.onerror = () => reject(request.error);
-        request.onblocked = () => reject(new Error('Local storage upgrade blocked'));
+        request.onblocked = () => {
+            blocked = true;
+            reject(new Error('Local storage upgrade blocked'));
+        };
     });
 }
 
@@ -172,14 +185,14 @@ function mergeRecovery(current: OwnerData, local: OwnerData, base: OwnerData): v
 /** One owner row makes checks and writes atomic across tabs, including the total byte quota. */
 export function createAssistantLocalStorage(options: { ownerScope: string; deviceId?: string; editorId?: string }) {
     const { ownerScope } = options;
-    const stableDeviceId = options.deviceId ?? deviceIdentity();
-    const deviceId = stableDeviceId ?? crypto.randomUUID();
+    const deviceId = options.deviceId ?? 'browser';
     const editorId = options.editorId ?? crypto.randomUUID();
     let memory = empty(ownerScope);
     let baseline = copy(memory);
-    let reason: AssistantLocalSnapshot['reason'] = stableDeviceId ? undefined : 'unavailable';
+    let reason: AssistantLocalSnapshot['reason'];
     let database: IDBDatabase | undefined;
     let closed = false;
+    let sequence = 0;
     let queue: Promise<unknown> = Promise.resolve();
     let channel: BroadcastChannel | undefined;
     const listeners = new Set<(notice: AssistantLocalNotice) => void>();
@@ -193,7 +206,7 @@ export function createAssistantLocalStorage(options: { ownerScope: string; devic
     } catch { /* Polling remains available when BroadcastChannel is disabled. */ }
 
     function snapshot(): AssistantLocalSnapshot {
-        return { drafts: copy(memory.drafts.filter(d => d.deviceId === deviceId)),
+        return { sequence: ++sequence, drafts: copy(memory.drafts.filter(d => d.deviceId === deviceId)),
             pending: copy(memory.pending.filter(p => p.deviceId === deviceId)),
             scope: reason ? 'page' : 'device', reason, version: memory.version };
     }
@@ -203,23 +216,29 @@ export function createAssistantLocalStorage(options: { ownerScope: string; devic
             if (closed) throw new Error('Assistant local storage closed');
             const retained = reason && cleanup ? copy(memory) : undefined;
             const retainedReason = reason;
+            let migrated = false;
             if (!reason || cleanup) {
                 let candidate: OwnerData | undefined;
                 try {
                     database ??= await openDatabase();
+                    if (closed) {
+                        database.close();
+                        throw new Error('Assistant local storage closed');
+                    }
                     await new Promise<void>((resolve, reject) => {
-                        const tx = database!.transaction(STORE, mutate ? 'readwrite' : 'readonly');
+                        const tx = database!.transaction(STORE, mutate || options.deviceId === undefined ? 'readwrite' : 'readonly');
                         const store = tx.objectStore(STORE);
                         const request = store.get(ownerScope);
                         let failure: unknown;
                         request.onsuccess = () => {
                             candidate = request.result as OwnerData | undefined ?? empty(ownerScope);
+                            migrated = options.deviceId === undefined && migrateDevice(candidate, deviceId);
                             // Keep the latest persisted text if quota validation fails below.
                             memory = copy(candidate);
                             if (!retained) baseline = copy(candidate);
                             try {
-                                if (mutate) {
-                                    mutate(candidate);
+                                if (mutate || migrated) {
+                                    mutate?.(candidate);
                                     candidate.version++;
                                     checkQuota(candidate);
                                     store.put(candidate);
@@ -238,7 +257,7 @@ export function createAssistantLocalStorage(options: { ownerScope: string; devic
                         mutate(baseline);
                     } else baseline = copy(memory);
                 } catch (error) {
-                    if (error instanceof AssistantLocalEpochError || error instanceof TypeError) throw error;
+                    if (closed || error instanceof AssistantLocalEpochError || error instanceof TypeError) throw error;
                     reason = error instanceof LocalQuotaError ? 'quota' : 'unavailable';
                     if (mutate) {
                         const fallback = copy(retained ?? memory);
@@ -253,7 +272,7 @@ export function createAssistantLocalStorage(options: { ownerScope: string; devic
                 fallback.version++;
                 memory = fallback;
             }
-            if (mutate && !reason) channel?.postMessage({ ownerScope, version: memory.version });
+            if ((mutate || migrated) && !reason) channel?.postMessage({ ownerScope, version: memory.version });
             return snapshot();
         };
         const result = queue.then(task);
@@ -264,9 +283,13 @@ export function createAssistantLocalStorage(options: { ownerScope: string; devic
     function retryPersistence(): Promise<AssistantLocalSnapshot> {
         const task = async () => {
             if (closed) throw new Error('Assistant local storage closed');
-            if (!reason || !stableDeviceId) return snapshot();
+            if (!reason) return snapshot();
             try {
                 database ??= await openDatabase();
+                if (closed) {
+                    database.close();
+                    throw new Error('Assistant local storage closed');
+                }
                 let recovered: OwnerData | undefined;
                 await new Promise<void>((resolve, reject) => {
                     const tx = database!.transaction(STORE, 'readwrite');
@@ -276,6 +299,7 @@ export function createAssistantLocalStorage(options: { ownerScope: string; devic
                     request.onsuccess = () => {
                         try {
                             recovered = request.result as OwnerData | undefined ?? empty(ownerScope);
+                            if (options.deviceId === undefined) migrateDevice(recovered, deviceId);
                             mergeRecovery(recovered, memory, baseline);
                             recovered.version++;
                             checkQuota(recovered);
@@ -290,7 +314,7 @@ export function createAssistantLocalStorage(options: { ownerScope: string; devic
                 reason = undefined;
                 channel?.postMessage({ ownerScope, version: memory.version });
             } catch (error) {
-                if (error instanceof AssistantLocalEpochError || error instanceof TypeError) throw error;
+                if (closed || error instanceof AssistantLocalEpochError || error instanceof TypeError) throw error;
                 reason = error instanceof LocalQuotaError ? 'quota' : 'unavailable';
             }
             return snapshot();

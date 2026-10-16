@@ -41,45 +41,51 @@ func (tx *AssistantStorageTx) ClearAssistantData() error {
 // in-flight financial answer and discarding derived context from the old ledger.
 func (s *AssistantStorageService) InvalidateLedgerContext(ctx core.Context, uid int64) error {
 	return s.WithUserTransaction(ctx, uid, func(tx *AssistantStorageTx) error {
-		var after int64
-		for {
-			var rows []models.AssistantConversation
-			if err := tx.Session.Where("uid = ? AND deleted = ? AND id > ?", uid, false, after).Asc("id").Limit(50).Find(&rows); err != nil {
+		return tx.invalidateLedgerContext()
+	})
+}
+
+// invalidateLedgerContext also runs inside the transaction that deletes ledger
+// rows, so a run accepted after an earlier fence cannot survive that commit.
+func (tx *AssistantStorageTx) invalidateLedgerContext() error {
+	var after int64
+	for {
+		var rows []models.AssistantConversation
+		if err := tx.Session.Where("uid = ? AND deleted = ? AND id > ?", tx.State.Uid, false, after).Asc("id").Limit(50).Find(&rows); err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for i := range rows {
+			c := &rows[i]
+			after = c.Id
+			if err := tx.CancelConversationRuns(c.Id, models.AssistantReasonContextChanged); err != nil {
 				return err
 			}
-			if len(rows) == 0 {
-				break
+			var err error
+			c, err = assistantConversationLoad(tx.Session, tx.State.Uid, c.Id)
+			if err != nil {
+				return err
 			}
-			for i := range rows {
-				c := &rows[i]
-				after = c.Id
-				if err := tx.CancelConversationRuns(c.Id, models.AssistantReasonContextChanged); err != nil {
-					return err
-				}
-				var err error
-				c, err = assistantConversationLoad(tx.Session, uid, c.Id)
-				if err != nil {
-					return err
-				}
-				c.ContextVersion++
-				c.SourceVersion++
-				c.ContextInvalidatedThroughTurn = c.NextTurnSequence - 1
-				c.SourceInvalidated = true
-				c.Summary = ""
-				c.SummaryThrough = 0
-				c.SummarySourcesJSON = ""
-				c.SeedContext = ""
-				c.SeedSourcesJSON = ""
-				c.FrozenPrefixJSON = ""
-				if err = assistantSettleConversationHeader(tx, c); err != nil {
-					return err
-				}
-				if err = assistantConversationSave(tx, c); err != nil {
-					return err
-				}
+			c.ContextVersion++
+			c.SourceVersion++
+			c.ContextInvalidatedThroughTurn = c.NextTurnSequence - 1
+			c.SourceInvalidated = true
+			c.Summary = ""
+			c.SummaryThrough = 0
+			c.SummarySourcesJSON = ""
+			c.SeedContext = ""
+			c.SeedSourcesJSON = ""
+			c.FrozenPrefixJSON = ""
+			if err = assistantSettleConversationHeader(tx, c); err != nil {
+				return err
+			}
+			if err = assistantConversationSave(tx, c); err != nil {
+				return err
 			}
 		}
-		tx.State.MemoryGenerationEpoch++
-		return nil
-	})
+	}
+	tx.State.MemoryGenerationEpoch++
+	return nil
 }

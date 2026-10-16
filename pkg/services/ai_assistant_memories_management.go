@@ -86,7 +86,7 @@ func (s *AssistantMemoryService) Settings(ctx core.Context, uid int64, r models.
 // preference addition increments the revalidation epoch but preserves their run.
 func assistantRevokeMemoryRuns(tx *AssistantStorageTx) error {
 	var runs []models.AssistantMessage
-	if e := tx.Session.Where("uid = ? AND role = ?", tx.State.Uid, "assistant").In("run_state", models.AssistantRunQueued, models.AssistantRunPreparing, models.AssistantRunRunning).Limit(4).Find(&runs); e != nil {
+	if e := tx.Session.Where("uid = ? AND role = ?", tx.State.Uid, "assistant").In("run_state", models.AssistantRunQueued, models.AssistantRunPreparing, models.AssistantRunRunning).Limit(max(1, tx.State.RunningCount+tx.State.QueuedCount)).Find(&runs); e != nil {
 		return e
 	}
 	for _, run := range runs {

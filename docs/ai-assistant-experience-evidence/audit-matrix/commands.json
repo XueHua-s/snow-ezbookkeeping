@@ -1,0 +1,101 @@
+[
+  {
+    "name": "go-all",
+    "command": [
+      "go",
+      "test",
+      "-json",
+      "-count=1",
+      "./..."
+    ],
+    "exit": 0,
+    "elapsedSeconds": 49.698976039886475
+  },
+  {
+    "name": "go-vet",
+    "command": [
+      "go",
+      "vet",
+      "./..."
+    ],
+    "exit": 0,
+    "elapsedSeconds": 1.2692651748657227
+  },
+  {
+    "name": "go-race",
+    "command": [
+      "go",
+      "test",
+      "-race",
+      "-json",
+      "-count=1",
+      "./pkg/api",
+      "./pkg/services",
+      "./pkg/llm/...",
+      "./pkg/datastore",
+      "./pkg/core",
+      "./pkg/settings"
+    ],
+    "exit": 0,
+    "elapsedSeconds": 108.21549272537231
+  },
+  {
+    "name": "go-performance",
+    "command": [
+      "go",
+      "test",
+      "-json",
+      "-count=1",
+      "-timeout",
+      "20m",
+      "./pkg/services",
+      "-run",
+      "TestAssistant(ExperienceHistoryPerformance|Database100KPlans)$"
+    ],
+    "exit": 0,
+    "elapsedSeconds": 121.21575212478638
+  },
+  {
+    "name": "migration",
+    "command": [
+      "python3",
+      "scripts/assistant-experience-migration-check.py",
+      "--mysql-container",
+      "ebk-experience-verify-matrix-mysql",
+      "--postgres-container",
+      "ebk-experience-verify-matrix-postgres",
+      "--mysql-port",
+      "32871",
+      "--postgres-port",
+      "32872"
+    ],
+    "exit": 0,
+    "elapsedSeconds": 16.06168007850647
+  },
+  {
+    "name": "go-services-final",
+    "command": [
+      "go",
+      "test",
+      "-json",
+      "-count=1",
+      "./pkg/services"
+    ],
+    "exit": 0,
+    "elapsedSeconds": 31.27621293067932
+  },
+  {
+    "name": "go-http-export",
+    "command": [
+      "go",
+      "test",
+      "-json",
+      "-count=1",
+      "./pkg/api",
+      "-run",
+      "TestAssistantExperienceHTTPLargeExport$"
+    ],
+    "exit": 0,
+    "elapsedSeconds": 2.7998039722442627
+  }
+]

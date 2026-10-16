@@ -1,0 +1,8 @@
+[
+  {
+    "package": "github.com/mayswind/ezbookkeeping/pkg/api",
+    "test": "TestAssistantExperienceHTTPLargeExport",
+    "status": "pass",
+    "elapsedSeconds": 1.31
+  }
+]

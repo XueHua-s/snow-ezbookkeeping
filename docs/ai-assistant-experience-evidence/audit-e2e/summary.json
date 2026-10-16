@@ -1,0 +1,109 @@
+{
+  "date": "2026-10-16",
+  "finalImageId": "sha256:bd5b1c31834ad9d917679b9bb9007edae4b9553201a2af48939f6796d1d339e1",
+  "main": {
+    "PASS": 47,
+    "NOT RUN": 2,
+    "SKIP": 0
+  },
+  "reference": {
+    "PASS": 10
+  },
+  "compatibility": {
+    "PASS": 2
+  },
+  "designVariants": 2,
+  "accessibilityVariants": 4,
+  "hostStoreBehaviorGroups": 7,
+  "focusedRegressionTests": 65,
+  "helperTests": 11,
+  "rawLogs": {
+    "final-docker-e2e-fixed": {
+      "path": "/tmp/final-docker-e2e-fixed.log",
+      "sha256": "53fde7227d667e56f898b26320ac6996b24cbeb431164c11c089ba25e10da195"
+    },
+    "final-docker-reference-fixed": {
+      "path": "/tmp/final-docker-reference-fixed.log",
+      "sha256": "a1100800b719c43eca8fe222ed79833766b824c24592f96b1b75751e81a79979"
+    },
+    "final-docker-design": {
+      "path": "/tmp/final-docker-design.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "final-docker-accessibility": {
+      "path": "/tmp/final-docker-accessibility.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "final-host-store-fixed": {
+      "path": "/tmp/final-host-store-fixed.log",
+      "sha256": "7a58f462ca696042630e7111c5a0a6a5d088f430f976357f2f75e9ab438560ee"
+    },
+    "final-old-main-compat-fixed": {
+      "path": "/tmp/final-old-main-compat-fixed.log",
+      "sha256": "680c80e445ca1beea8e2b47c3514142cea2ff86b3959750f053794ed6ef7bf1d"
+    },
+    "final-docker-platform": {
+      "path": "/tmp/final-docker-platform.log",
+      "sha256": "30c9398230d9b32ecd692df797a60550d6f72d4d4f72dbe490af798bc733d48a"
+    },
+    "final-docker-proxy": {
+      "path": "/tmp/final-docker-proxy.log",
+      "sha256": "6afe1c45c8b48b5e454226e1ac0adb532350dfc92c4ae68cee973352634a3efe"
+    },
+    "final-docker-upstream-cancel": {
+      "path": "/tmp/final-docker-upstream-cancel.log",
+      "sha256": "a406ba72d3fa02355a2ff5f0b178f5fee25e5bbe0775b64b683254ceefe7d8e5"
+    },
+    "final-compatibility-red": {
+      "path": "/tmp/final-compatibility-red.log",
+      "sha256": "19957ddaabc33a66ac34cd65b05aa12b1f27957406c9a2900418690f0f9c3398"
+    },
+    "final-compatibility-green": {
+      "path": "/tmp/final-compatibility-green.log",
+      "sha256": "18008a96fba09e252b057189a6fe3ea79c72a0c673a34cd8ffaae3f45701bfb7"
+    },
+    "final-e2e-cleanup-red": {
+      "path": "/tmp/final-e2e-cleanup-red.log",
+      "sha256": "c22f73ed90f016d7d4e0e3fcc970462fad1f518f8719310276ba3feba4f1f580"
+    },
+    "final-e2e-helper-tests-restored": {
+      "path": "/tmp/final-e2e-helper-tests-restored.log",
+      "sha256": "823d48a41a21d0150573e8b551b3d1b70a920a6d9e29c4606de95c737acc5d03"
+    },
+    "final-e2e-rebuild": {
+      "path": "/tmp/final-e2e-rebuild.log",
+      "sha256": "983ec5f2f32baf55223798b5df397c5d020acd7eb8eb279e71ef69c6f1aa49e7"
+    },
+    "final-docker-reference": {
+      "path": "/tmp/final-docker-reference.log",
+      "sha256": "56c03f1754646c5e7e907bf43ed5d6364c35148089e27200ac1842e11e0e9ff7"
+    },
+    "final-old-main-compat-trace": {
+      "path": "/tmp/final-old-main-compat-trace.log",
+      "sha256": "d36b24b642c4e624006b0930efdbd751379184e689c86475d670fdade04063a9"
+    },
+    "final-e2e-source-lines": {
+      "path": "/tmp/final-e2e-source-lines.log",
+      "sha256": "6229ac3bff5debe78a06d2d14a31d5c79fc409941e730e98290cc973e861b023"
+    }
+  },
+  "productFiles": {
+    "src/stores/assistant.ts": "f879b5004ba3569b4d764cbfde868348b129cc5430e096f9f57f5dd67e9e9d97",
+    "src/stores/assistant/session.ts": "602cc81b026ce80a7a8aa7a282928361a7ed7050fc0a7052e23a09b1279ca97a",
+    "src/stores/assistant/compatibility.test.ts": "0d1433984c054191e1ddc6ec3b9606f6bb51d89621c7c4dad6bedd998e0e5e7f"
+  },
+  "cleanup": {
+    "taskLabelContainersRemaining": [],
+    "unrelatedContainerUntouched": "codex-s03-build",
+    "oldMainArchiveAndBinaryRemoved": true,
+    "noNetworksCreated": true
+  },
+  "limits": [
+    "actual bfcache restoration NOT RUN (masked reason)",
+    "stock Dockerfile build NOT RUN",
+    "commercial main/fallback model quality NOT RUN",
+    "physical keyboard and manual screen reader NOT RUN",
+    "other browsers and amd64 NOT RUN",
+    "complete unit/backend/three-database matrix is next serial stage"
+  ]
+}

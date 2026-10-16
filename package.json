@@ -17,7 +17,7 @@
     "serve:dist": "vite preview",
     "lint": "npm run check:source-lines && vue-tsc --noEmit && eslint . --fix",
     "test": "vitest run",
-    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "test:browser": "vitest run --config vitest.browser.config.mts",
     "check:source-lines": "node scripts/check-source-lines.mjs",
     "test:production": "node scripts/check-built-pages.mjs"
   },

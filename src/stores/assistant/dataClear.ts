@@ -4,19 +4,29 @@ import { assistantConversationServices as api } from '@/lib/services/assistant_c
 import { result, AssistantDataClearIncompleteError } from './types.ts';
 
 type Storage = ReturnType<typeof createAssistantLocalStorage>;
-interface State { storage?: Storage; capabilities?: AssistantCapabilities; local: AssistantLocalSnapshot; epoch: number; clockOffset: number }
+interface State {
+    storage?: Storage;
+    capabilities?: AssistantCapabilities;
+    local: AssistantLocalSnapshot;
+    epoch: number;
+    clockOffset: number;
+}
 interface Context {
     state(): State;
     checkIdentity(): Promise<boolean>;
     reconcilePending(): Promise<void>;
     applyLocal(snapshot: AssistantLocalSnapshot): void;
 }
-const envelope = (item: AssistantCommand): AssistantCommand => ({ clientRequestId: item.clientRequestId, requestIssuedAt: item.requestIssuedAt, expectedDeletionEpoch: item.expectedDeletionEpoch });
+const envelope = (item: AssistantCommand): AssistantCommand => ({
+    clientRequestId: item.clientRequestId,
+    requestIssuedAt: item.requestIssuedAt,
+    expectedDeletionEpoch: item.expectedDeletionEpoch,
+});
 
 /** Global clearing has two completion boundaries; an assistant receipt alone cannot certify ledger deletion. */
 export async function prepareAssistantDataClear(context: Context, newOperation: boolean): Promise<AssistantCommand> {
     const initial = context.state();
-    const prior = initial.local.pending.find(item => item.action === 'clearAllData');
+    const prior = initial.local.pending.find((item) => item.action === 'clearAllData');
     if (prior) {
         const receipt = await result(api.command(prior.clientRequestId));
         if (initial.epoch !== context.state().epoch) throw new Error('Assistant identity changed');
@@ -30,17 +40,26 @@ export async function prepareAssistantDataClear(context: Context, newOperation: 
             }
         } else if (newOperation) throw new Error('Confirm the original clear operation before starting another one.');
     }
-    if (!await context.checkIdentity()) throw new Error('Assistant unavailable');
+    if (!(await context.checkIdentity())) throw new Error('Assistant unavailable');
+    if (initial.epoch !== context.state().epoch) throw new Error('Assistant identity changed');
     const checked = context.state();
     if (!checked.storage || !checked.capabilities) throw new Error('Assistant unavailable');
-    if (prior && !newOperation && prior.expectedDeletionEpoch !== checked.capabilities.deletionEpoch) throw new Error('data_epoch_conflict');
+    if (prior && !newOperation && prior.expectedDeletionEpoch !== checked.capabilities.deletionEpoch)
+        throw new Error('data_epoch_conflict');
     await context.reconcilePending();
     const current = context.state();
-    if (current.epoch !== checked.epoch || current.storage !== checked.storage) throw new Error('Assistant identity changed');
-    const existing = current.local.pending.find(item => item.action === 'clearAllData');
+    if (current.epoch !== checked.epoch || current.storage !== checked.storage)
+        throw new Error('Assistant identity changed');
+    const existing = current.local.pending.find((item) => item.action === 'clearAllData');
     if (existing) return envelope(existing);
-    const command = { clientRequestId: crypto.randomUUID(), requestIssuedAt: new Date(Date.now() + current.clockOffset).toISOString(), expectedDeletionEpoch: checked.capabilities.deletionEpoch };
+    const command = {
+        clientRequestId: crypto.randomUUID(),
+        requestIssuedAt: new Date(Date.now() + current.clockOffset).toISOString(),
+        expectedDeletionEpoch: checked.capabilities.deletionEpoch,
+    };
     const saved = await checked.storage.savePending({ ...command, action: 'clearAllData', payload: command });
-    if (checked.epoch !== context.state().epoch || checked.storage !== context.state().storage) throw new Error('Assistant identity changed');
-    context.applyLocal(saved); return command;
+    if (checked.epoch !== context.state().epoch || checked.storage !== context.state().storage)
+        throw new Error('Assistant identity changed');
+    context.applyLocal(saved);
+    return command;
 }

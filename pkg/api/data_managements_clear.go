@@ -75,7 +75,7 @@ func (a *DataManagementsApi) ClearAllDataHandler(c *core.WebContext) (any, *errs
 		return nil, errs.ErrUserDataClearIncomplete
 	}
 
-	err = a.transactions.DeleteAllTransactions(c, uid, true)
+	err = a.transactions.DeleteAllTransactions(c, uid, true, a.assistantStorage)
 
 	if err != nil {
 		log.Errorf(c, "[data_managements.ClearAllDataHandler] failed to delete all transactions, because %s", err.Error())
@@ -177,7 +177,7 @@ func (a *DataManagementsApi) ClearAllTransactionsHandler(c *core.WebContext) (an
 		return nil, errs.ErrOperationFailed
 	}
 
-	err = a.transactions.DeleteAllTransactions(c, uid, false)
+	err = a.transactions.DeleteAllTransactions(c, uid, false, a.assistantStorage)
 
 	if err != nil {
 		log.Errorf(c, "[data_managements.ClearAllTransactionsHandler] failed to delete all transactions, because %s", err.Error())
@@ -249,7 +249,7 @@ func (a *DataManagementsApi) ClearAllTransactionsByAccountHandler(c *core.WebCon
 		return nil, errs.ErrOperationFailed
 	}
 
-	err = a.transactions.DeleteAllTransactionsOfAccount(c, uid, account.AccountId, pageCountForClearTransactions)
+	err = a.transactions.DeleteAllTransactionsOfAccount(c, uid, account.AccountId, pageCountForClearTransactions, a.assistantStorage)
 
 	if err != nil {
 		log.Errorf(c, "[data_managements.ClearAllTransactionsByAccountHandler] failed to delete all transactions in account \"id:%d\", because %s", account.AccountId, err.Error())

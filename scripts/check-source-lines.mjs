@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 
 const limit = 500;
-const extensions = new Set(['.go', '.ts', '.vue', '.js', '.mjs', '.cjs', '.scss', '.css', '.sh', '.py', '.html']);
+const extensions = new Set(['.go', '.ts', '.mts', '.cts', '.vue', '.js', '.mjs', '.cjs', '.scss', '.css', '.sh', '.py', '.html']);
 const violations = [];
 let checked = 0;
 

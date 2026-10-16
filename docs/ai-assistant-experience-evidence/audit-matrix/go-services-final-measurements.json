@@ -1,0 +1,26 @@
+[
+  {
+    "test": "TestAssistantLedgerClearScaling/sqlite3/0",
+    "output": "ai_assistant_ledger_clear_performance_test.go:42: conversations=0 transactions=25 elapsed=11.417584ms scans=1"
+  },
+  {
+    "test": "TestAssistantLedgerClearScaling/sqlite3/1000",
+    "output": "ai_assistant_ledger_clear_performance_test.go:42: conversations=1000 transactions=25 elapsed=120.480583ms scans=21"
+  },
+  {
+    "test": "TestAssistantLedgerClearScaling/mysql/0",
+    "output": "ai_assistant_ledger_clear_performance_test.go:42: conversations=0 transactions=25 elapsed=113.938833ms scans=1"
+  },
+  {
+    "test": "TestAssistantLedgerClearScaling/mysql/1000",
+    "output": "ai_assistant_ledger_clear_performance_test.go:42: conversations=1000 transactions=25 elapsed=1.298894917s scans=21"
+  },
+  {
+    "test": "TestAssistantLedgerClearScaling/postgres/0",
+    "output": "ai_assistant_ledger_clear_performance_test.go:42: conversations=0 transactions=25 elapsed=103.97525ms scans=1"
+  },
+  {
+    "test": "TestAssistantLedgerClearScaling/postgres/1000",
+    "output": "ai_assistant_ledger_clear_performance_test.go:42: conversations=1000 transactions=25 elapsed=1.492124084s scans=21"
+  }
+]

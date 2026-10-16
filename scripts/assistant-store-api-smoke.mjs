@@ -7,8 +7,9 @@ import { historySmoke } from './assistant-store-history-smoke.mjs';
 import { environment } from './assistant-experience-e2e-environment.mjs';
 
 const env = await environment();
-const browser = await chromium.launch({ headless: true });
+let browser;
 try {
+    browser = await chromium.launch({ headless: true });
     const account = await env.user('store');
     const page = await browser.newPage();
     page.on('pageerror', error => console.error('Browser runtime:', error.message));
@@ -68,7 +69,7 @@ try {
     assert.deepEqual(remoteDelete, { id: '', count: 0, draft: '', localDrafts: 0 });
     await second.waitForFunction(() => document.querySelectorAll('.experience-messages .turn').length === 0);
     await secondContext.close();
-    const verification = { history, remoteDelete, passed: ['persist-before-HTTP', 'unknown-response-refresh-original-ID', 'confirm-without-resend', 'same-server-run-completed', 'two-stage-branch-failed-first-send-retains-target', 'delete-clears-current', 'independent-browser-context-remote-delete-clears-DOM-and-draft'], sends, providerCalls: env.calls(), artifacts: env.artifacts };
+    const verification = { backend: 'current host Go build and isolated SQLite (not Docker)', frontend: 'Vite current source with real store module imports', browser: browser.version(), history, remoteDelete, passed: ['persist-before-HTTP', 'unknown-response-refresh-original-ID', 'confirm-without-resend', 'same-server-run-completed', 'two-stage-branch-failed-first-send-retains-target', 'delete-clears-current', 'independent-browser-context-remote-delete-clears-DOM-and-draft'], sends, providerCalls: env.calls(), artifacts: env.artifacts };
     await writeFile(env.artifacts + '/store-results.json', JSON.stringify(verification, null, 2));
     console.log(JSON.stringify(verification));
-} finally { await browser.close(); await env.close(); }
+} finally { try { await browser?.close(); } finally { await env.close(); } }

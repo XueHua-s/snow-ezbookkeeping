@@ -1,8 +1,9 @@
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 import { writeFile, mkdir, open } from 'node:fs/promises';
-import { spawn } from 'node:child_process';
+import { boundedCommand } from './assistant-bounded-command.mjs';
 import { resolve, dirname } from 'node:path';
+import { identityFlows } from './assistant-experience-e2e-identity.mjs';
 import { browserBoundaries } from './assistant-experience-e2e-boundaries.mjs';
 import { cacheFlows } from './assistant-experience-e2e-cache.mjs';
 import { extendedFlows } from './assistant-experience-e2e-flows.mjs';
@@ -11,18 +12,20 @@ const require = createRequire(import.meta.resolve('@vitest/browser-playwright'))
 const { chromium } = require('playwright');
 const production = process.env.EBK_E2E_PRODUCTION === '1';
 const env = await environment({ production });
-const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ['--disable-back-forward-cache'] });
+let browser;
 const results = [];
-await writeFile(resolve(env.artifacts, 'results.json'), JSON.stringify({ status: 'RUNNING', results }));
 try {
+    await writeFile(resolve(env.artifacts, 'results.json'), JSON.stringify({ status: 'RUNNING', results }));
+    browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ['--disable-back-forward-cache'] });
     if (production) {
         const gatePath = process.env.EBK_E2E_PRODUCTION_GATE_LOG || resolve(env.artifacts, 'production-smoke.log');
         await mkdir(dirname(gatePath), { recursive: true }); const gateLog = await open(gatePath, 'w');
-        try { await new Promise((resolve, reject) => { const check = spawn('npm', ['run', 'test:production'], { env: { ...process.env, EBK_SMOKE_BASE_URL: env.base }, stdio: ['ignore', gateLog.fd, gateLog.fd] }); check.on('exit', code => code === 0 ? resolve() : reject(new Error(`npm run test:production failed (${code}); see ${gatePath}`))); }); }
+        try { await boundedCommand('npm', ['run', 'test:production'], { timeout: 180000, env: { ...process.env, EBK_SMOKE_BASE_URL: env.base }, stdio: ['ignore', gateLog.fd, gateLog.fd] }); }
         finally { await gateLog.close(); }
         results.push({ scenario: 'npm run test:production against isolated current Go application serving production dist', status: 'PASS' });
     }
     for (const variant of ['desktop', 'mobile']) {
+        await identityFlows({ env, browser, variant, production, results });
         const identity = await env.user(variant);
         const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'], viewport: variant === 'desktop' ? { width: 1440, height: 960 } : { width: 390, height: 844 } });
         await context.addInitScript(login => { if (!localStorage.getItem('ebk_user_token')) { localStorage.setItem('ebk_user_token', login.token); localStorage.setItem('ebk_user_info', JSON.stringify(login.user)); } }, identity);
@@ -54,6 +57,6 @@ try {
         assert.equal(errors.length, 0, errors.join('\n'));
         await context.close();
     }
-    await writeFile(resolve(env.artifacts, 'results.json'), JSON.stringify({ executedAt: new Date().toISOString(), frontend: production ? 'production dist with service worker' : 'Vite actual app routes', browser: browser.version(), status: results.some(result => result.status !== 'PASS') ? 'PARTIAL' : 'PASS', results, backend: process.env.EBK_E2E_BINARY ? 'explicit prebuilt development snapshot; rebuild required for final acceptance' : 'built from current worktree', providerCalls: env.calls(), provider: 'deterministic protocol fixture; not model certification' }, null, 2));
+    await writeFile(resolve(env.artifacts, 'results.json'), JSON.stringify({ executedAt: new Date().toISOString(), frontend: production ? 'production dist with service worker' : 'Vite actual app routes', browser: browser.version(), status: results.some(result => result.status !== 'PASS') ? 'PARTIAL' : 'PASS', results, backend: process.env.EBK_E2E_DOCKER_IMAGE ? `Docker image ${process.env.EBK_E2E_DOCKER_IMAGE}; see docker-runtime.json` : process.env.EBK_E2E_BINARY ? 'explicit prebuilt development snapshot; rebuild required for final acceptance' : 'built from current worktree', providerCalls: env.calls(), provider: 'deterministic protocol fixture; not model certification' }, null, 2));
     console.log(JSON.stringify(results));
-} catch (error) { for (const context of browser.contexts()) for (const page of context.pages()) await page.screenshot({ path: resolve(env.artifacts, 'failure.png') }).catch(() => {}); await writeFile(resolve(env.artifacts, 'results.json'), JSON.stringify({ status: 'FAIL', results, error: String(error), providerCalls: env.calls() }, null, 2)); throw error; } finally { await browser.close(); await env.close(); }
+} catch (error) { for (const context of (browser?.contexts() ?? [])) for (const page of context.pages()) await page.screenshot({ path: resolve(env.artifacts, 'failure.png') }).catch(() => {}); await writeFile(resolve(env.artifacts, 'results.json'), JSON.stringify({ status: 'FAIL', results, error: String(error), providerCalls: env.calls() }, null, 2)); throw error; } finally { try { await browser?.close(); } finally { await env.close(); } }

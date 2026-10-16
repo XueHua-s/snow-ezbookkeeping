@@ -2,7 +2,7 @@ import axios, { type AxiosResponse } from 'axios';
 import type { ApiResponse } from '@/core/api.ts';
 import type * as DTO from '@/models/ai_assistant_conversation.ts';
 import { BASE_API_URL_PATH } from '@/consts/api.ts';
-import { getCurrentToken } from '@/lib/userstate.ts';
+import { getCurrentToken, getCurrentUserInfo } from '@/lib/userstate.ts';
 import { getBasePath } from '@/lib/web.ts';
 import { getBrowserTimezoneName, getCurrentUnixTime, getTimezoneOffsetMinutes } from '@/lib/datetime.ts';
 import { getTimeZone } from '@/lib/settings.ts';
@@ -12,11 +12,11 @@ import type { ApiResponsePromise, ApiRequestConfig } from './transport.ts';
 
 const prefix = 'v1/llm/assistant/';
 function get<T>(path: string, params: unknown, signal?: AbortSignal): ApiResponsePromise<T> {
-    return axios.get<ApiResponse<T>>(prefix + path + '.json', { params, signal, ignoreError: true } as ApiRequestConfig);
+    return axios.get<ApiResponse<T>>(prefix + path + '.json', { params, signal, ignoreError: true, expectedOwner: getCurrentUserInfo()?.username } as ApiRequestConfig);
 }
 function post<T>(path: string, request: unknown, signal?: AbortSignal): ApiResponsePromise<T> {
     // No retry interceptor: ambiguous write outcomes must be resolved using commands/get.
-    return axios.post<ApiResponse<T>>(prefix + path + '.json', request, { signal, ignoreError: true } as ApiRequestConfig);
+    return axios.post<ApiResponse<T>>(prefix + path + '.json', request, { signal, ignoreError: true, expectedOwner: getCurrentUserInfo()?.username } as ApiRequestConfig);
 }
 
 export const assistantConversationServices = {
@@ -31,7 +31,7 @@ export const assistantConversationServices = {
     clear: (request: DTO.AssistantClearRequest) => post<DTO.AssistantCommandResult>('conversations/clear', request),
     branch: (request: DTO.AssistantBranchRequest) => post<DTO.AssistantCommandResult>('conversations/branch', request),
     export: (request: DTO.AssistantExportRequest, signal?: AbortSignal): Promise<AxiosResponse<Blob>> =>
-        axios.post(prefix + 'conversations/export.json', request, { responseType: 'blob', signal, timeout: 0, ignoreError: true } as ApiRequestConfig),
+        axios.post(prefix + 'conversations/export.json', request, { responseType: 'blob', signal, timeout: 0, ignoreError: true, expectedOwner: getCurrentUserInfo()?.username } as ApiRequestConfig),
     send: (request: DTO.AssistantSendRequest) => post<DTO.AssistantCommandResult>('messages/send', request),
     retry: (request: DTO.AssistantRetryRequest) => post<DTO.AssistantCommandResult>('messages/retry', request),
     message: (assistantMessageId: string, signal?: AbortSignal) => get<DTO.AssistantRunSnapshot>('messages/get', { assistantMessageId }, signal),

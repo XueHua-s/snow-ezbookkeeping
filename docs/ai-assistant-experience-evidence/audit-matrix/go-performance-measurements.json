@@ -1,0 +1,98 @@
+[
+  {
+    "test": "TestAssistantDatabase100KPlans/sqlite3",
+    "output": "ai_assistant_database_integration_test.go:299: measurement all_history elapsed=218.053542ms application_rows=100014 tool_duration=218.019166ms result_records=1 returned_bytes=638"
+  },
+  {
+    "test": "TestAssistantDatabase100KPlans/sqlite3",
+    "output": "ai_assistant_database_integration_test.go:299: measurement month_category elapsed=242.71975ms application_rows=100014 tool_duration=242.714709ms result_records=50 returned_bytes=12946"
+  },
+  {
+    "test": "TestAssistantDatabase100KPlans/sqlite3",
+    "output": "ai_assistant_database_integration_test.go:299: measurement detail_first elapsed=197.05775ms application_rows=100013 tool_duration=197.057167ms result_records=50 returned_bytes=16793"
+  },
+  {
+    "test": "TestAssistantDatabase100KPlans/mysql",
+    "output": "ai_assistant_database_integration_test.go:299: measurement all_history elapsed=1.86351875s application_rows=100014 tool_duration=1.863495583s result_records=1 returned_bytes=638"
+  },
+  {
+    "test": "TestAssistantDatabase100KPlans/mysql",
+    "output": "ai_assistant_database_integration_test.go:299: measurement month_category elapsed=1.625621916s application_rows=100014 tool_duration=1.625613292s result_records=50 returned_bytes=12946"
+  },
+  {
+    "test": "TestAssistantDatabase100KPlans/mysql",
+    "output": "ai_assistant_database_integration_test.go:299: measurement detail_first elapsed=1.242667167s application_rows=100013 tool_duration=1.242666291s result_records=50 returned_bytes=16793"
+  },
+  {
+    "test": "TestAssistantDatabase100KPlans/postgres",
+    "output": "ai_assistant_database_integration_test.go:299: measurement all_history elapsed=1.919374209s application_rows=100014 tool_duration=1.919355417s result_records=1 returned_bytes=638"
+  },
+  {
+    "test": "TestAssistantDatabase100KPlans/postgres",
+    "output": "ai_assistant_database_integration_test.go:299: measurement month_category elapsed=1.982100834s application_rows=100014 tool_duration=1.982081084s result_records=50 returned_bytes=12946"
+  },
+  {
+    "test": "TestAssistantDatabase100KPlans/postgres",
+    "output": "ai_assistant_database_integration_test.go:299: measurement detail_first elapsed=1.614421375s application_rows=100013 tool_duration=1.614420125s result_records=50 returned_bytes=16793"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/sqlite3",
+    "output": "ai_assistant_experience_performance_test.go:90: full_chat_logical_bytes=2011706"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/sqlite3",
+    "output": "ai_assistant_experience_performance_test.go:108: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/sqlite3",
+    "output": "ai_assistant_experience_performance_test.go:232: history_first_page p95=5.425542ms samples=20"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/sqlite3",
+    "output": "ai_assistant_experience_performance_test.go:232: rare_search p95=70.003542ms samples=20"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/sqlite3",
+    "output": "ai_assistant_experience_performance_test.go:296: all_export bytes=96841192 max_write=4557 peak_heap_growth=2489504 elapsed=592.693958ms"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/mysql",
+    "output": "ai_assistant_experience_performance_test.go:90: full_chat_logical_bytes=2011706"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/mysql",
+    "output": "ai_assistant_experience_performance_test.go:108: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/mysql",
+    "output": "ai_assistant_experience_performance_test.go:232: history_first_page p95=69.682334ms samples=20"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/mysql",
+    "output": "ai_assistant_experience_performance_test.go:232: rare_search p95=241.360667ms samples=20"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/mysql",
+    "output": "ai_assistant_experience_performance_test.go:296: all_export bytes=96841192 max_write=4557 peak_heap_growth=2563080 elapsed=4.876486625s"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/postgres",
+    "output": "ai_assistant_experience_performance_test.go:90: full_chat_logical_bytes=2011706"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/postgres",
+    "output": "ai_assistant_experience_performance_test.go:108: fixture conversations=1000 full_chats=50 rounds_per_full_chat=200 versions=2 content_bytes=88250775 logical_bytes=102527441"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/postgres",
+    "output": "ai_assistant_experience_performance_test.go:232: history_first_page p95=72.321958ms samples=20"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/postgres",
+    "output": "ai_assistant_experience_performance_test.go:232: rare_search p95=87.091ms samples=20"
+  },
+  {
+    "test": "TestAssistantExperienceHistoryPerformance/postgres",
+    "output": "ai_assistant_experience_performance_test.go:296: all_export bytes=96841192 max_write=4557 peak_heap_growth=2652984 elapsed=4.565969875s"
+  }
+]

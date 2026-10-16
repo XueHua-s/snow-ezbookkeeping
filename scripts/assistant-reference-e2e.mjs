@@ -7,7 +7,7 @@ const require = createRequire(import.meta.resolve('@vitest/browser-playwright'))
 const { chromium } = require('playwright');
 const production = process.env.EBK_E2E_PRODUCTION === '1';
 const env = await environment({ production });
-const browser = await chromium.launch({ headless: true });
+let browser;
 const results = [];
 const messages = {
  changed: 'This bill changed after the original query. The saved answer has not been updated.',
@@ -15,6 +15,7 @@ const messages = {
  network: 'Unable to check the current bill. Retry when the connection is available.'
 };
 try {
+ browser = await chromium.launch({ headless: true });
  for (const variant of ['desktop','mobile']) {
   const identity = await env.user('reference_' + variant); const foreign = await env.user('foreign_' + variant);
   const context = await browser.newContext({ viewport:variant==='desktop'?{width:1440,height:960}:{width:390,height:844}, serviceWorkers: 'block' });
@@ -26,12 +27,12 @@ try {
   await page.getByRole('heading',{name:'Verified isolated ledger'}).waitFor({timeout:30000});
   await input.fill('Preserve this unsent reference-check draft');
   const reference=page.getByRole('button').filter({hasText:'View Details'}).first();
-  await reference.scrollIntoViewIfNeeded();
+  await reference.click({ trial: true });
   const location=page.url();let calls=env.calls();
   async function check(kind, keepOpen = false) {
-   await reference.scrollIntoViewIfNeeded();
+   await reference.click({ trial: true });
    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-   await reference.scrollIntoViewIfNeeded();
+   await reference.click({ trial: true });
    await page.waitForTimeout(100);
    const reading=await page.locator('.experience-messages').evaluate(el=>({offset:el.scrollTop,following:el.scrollHeight-el.clientHeight-el.scrollTop<=80}));
    await reference.click(); await page.getByText(messages[kind],{exact:true}).waitFor();
@@ -78,7 +79,7 @@ try {
   results.push({variant,scenario:'real deleted bill uses same neutral inaccessible explanation and preserves saved answer/draft/reading offset',status:'PASS'});
   assert.deepEqual(runtimeErrors,[]);await context.close();
  }
- await writeFile(resolve(env.artifacts,'reference-results.json'),JSON.stringify({executedAt:new Date().toISOString(),frontend:production?'production dist':'actual Vite routes',backend:'freshly built current Go and isolated SQLite',provider:'deterministic protocol fixture',status:'PASS',results,providerCalls:env.calls()},null,2));
+ await writeFile(resolve(env.artifacts,'reference-results.json'),JSON.stringify({executedAt:new Date().toISOString(),frontend:production?'production dist':'actual Vite routes',backend:process.env.EBK_E2E_DOCKER_IMAGE ? `Docker image ${process.env.EBK_E2E_DOCKER_IMAGE}; isolated SQLite; see docker-runtime.json` : 'freshly built current Go and isolated SQLite',provider:'deterministic protocol fixture',status:'PASS',results,providerCalls:env.calls()},null,2));
  console.log(JSON.stringify(results));
-} catch(error) {for(const context of browser.contexts())for(const page of context.pages())await page.screenshot({path:resolve(env.artifacts,'reference-failure.png')}).catch(()=>{});throw error;}
-finally {await browser.close();await env.close();}
+} catch(error) {for(const context of (browser?.contexts() ?? []))for(const page of context.pages())await page.screenshot({path:resolve(env.artifacts,'reference-failure.png')}).catch(()=>{});throw error;}
+finally {try { await browser?.close(); } finally { await env.close(); }}

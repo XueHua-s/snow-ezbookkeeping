@@ -1,8 +1,7 @@
-import type { AssistantCommand, AssistantRunState } from '@/models/ai_assistant_conversation.ts';
+import type { AssistantCommand } from '@/models/ai_assistant_conversation.ts';
 import type { assistantConversationServices } from '@/lib/services/assistant_conversations.ts';
 import type { ApiResponsePromise } from '@/lib/services/transport.ts';
 
-export const terminal = (state: AssistantRunState) => ['completed', 'incomplete', 'failed', 'canceled', 'interrupted'].includes(state);
 export type WriteAction = 'send' | 'retry' | 'branch' | 'update' | 'delete' | 'clear' | 'selectVersion' | 'cancel' | 'saveMemory' | 'deleteMemory' | 'memorySettings';
 export type WriteInput<K extends WriteAction> = Omit<Parameters<typeof assistantConversationServices[K]>[0], keyof AssistantCommand>;
 export interface ReadingPosition { messageId: string; offset: number; following: boolean }

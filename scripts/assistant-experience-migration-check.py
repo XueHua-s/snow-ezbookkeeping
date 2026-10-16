@@ -3,7 +3,8 @@
 Uses task-owned Docker containers, creates unique databases, never drops existing DBs.
 Evidence (including synthetic rows) remains in the printed temporary directory.
 """
-import argparse, configparser, hashlib, json, os, pathlib, subprocess, tempfile, time
+import argparse, atexit, configparser, hashlib, json, os, pathlib, shutil, subprocess, tempfile, time
+from assistant_migration_runtime import bounded_run, isolated_environment
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser()
@@ -21,16 +22,30 @@ if not all(name.startswith('ebk-experience-verify-') for name in [a.mysql_contai
 work = pathlib.Path(tempfile.mkdtemp(prefix='ebk_experience_migration_'))
 print(work, flush=True)
 (work/'storage').mkdir()
-env = dict(os.environ, BUILD_PIPELINE='1', EBK_WORK_DIR=str(ROOT))
+env = isolated_environment(os.environ, ROOT)
+
+def cleanup_private_artifacts():
+    for path in work.iterdir():
+        if path.is_dir():
+            shutil.rmtree(path)
+        elif path.suffix in {'.ini', '.db', '.backup'} or path.name in {'old-ebk', 'new-ebk', 'helper'} or '.db-' in path.name:
+            path.unlink(missing_ok=True)
+
+atexit.register(cleanup_private_artifacts)
 log = open(work/'commands.log', 'w')
 
 def run(cmd, *, data=None, cwd=ROOT, output=None):
     safe = [v.replace(password, '<test-password>') for v in map(str, cmd)]
     log.write(json.dumps(safe)+'\n'); log.flush()
-    r = subprocess.run(list(map(str,cmd)), input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
+    try:
+        r = bounded_run(list(map(str, cmd)), data=data, cwd=cwd, env=env,
+                        timeout=600 if str(cmd[0]) == 'go' else 180)
+    except subprocess.TimeoutExpired:
+        log.write('timeout\n'); log.flush()
+        raise RuntimeError('command timed out; see ' + str(work/'commands.log')) from None
     log.write('exit='+str(r.returncode)+'\n'+r.stderr.decode(errors='replace').replace(password,'<test-password>')+'\n');log.flush()
     if output: pathlib.Path(output).write_bytes(r.stdout)
-    if r.returncode: raise RuntimeError('command failed; see '+str(work/'commands.log')+' '+r.stderr.decode(errors='replace')[-1500:])
+    if r.returncode: raise RuntimeError('command failed; see '+str(work/'commands.log')+' '+r.stderr.decode(errors='replace').replace(password, '<test-password>')[-1500:])
     return r.stdout
 
 def config(kind, name):

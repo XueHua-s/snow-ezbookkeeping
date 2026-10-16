@@ -23,12 +23,18 @@ type AssistantStorageService struct {
 	config func() settings.AIAssistantExperienceConfig
 }
 
+// AssistantStorageTx is valid only inside a WithUserTransaction callback. State
+// is the locked user's accounting/epoch record and is committed with the callback's
+// writes; neither this object nor Session may escape into asynchronous work.
+// Database mutations must remain scoped to State.Uid, including direct SQL.
 type AssistantStorageTx struct {
 	Session          *xorm.Session
 	State            *models.AssistantUserState
 	Now              time.Time
 	ReceiptRetention time.Duration
 	Limits           models.AssistantLimits
+	// Persisted version before this transaction acquired its write position.
+	previousVersion int64
 }
 
 func NewAssistantStorageService(container *datastore.DataStoreContainer) *AssistantStorageService {
@@ -50,16 +56,24 @@ var errAssistantStorageRetry = errors.New("assistant database concurrency retry"
 // WithUserTransaction serializes writes using a database row CAS. The callback
 // may run again after rollback; it must never perform external side effects.
 func (s *AssistantStorageService) WithUserTransaction(ctx core.Context, uid int64, apply func(*AssistantStorageTx) error) error {
+	_, err := s.withUserTransactionVersion(ctx, uid, apply)
+	return err
+}
+
+// withUserTransactionVersion returns proof only after a successful commit.
+// The locked pre-write version and committed version hide CAS bookkeeping from
+// operations that need to detect intervening assistant writes.
+func (s *AssistantStorageService) withUserTransactionVersion(ctx core.Context, uid int64, apply func(*AssistantStorageTx) error) (int64, error) {
 	if uid <= 0 {
-		return models.AssistantReasonNotAccessible
+		return 0, models.AssistantReasonNotAccessible
 	}
 	for attempt := 0; attempt < 16; attempt++ {
-		err := s.userTransaction(ctx, uid, apply)
+		version, err := s.userTransaction(ctx, uid, apply)
 		if err == nil {
-			return nil
+			return version, nil
 		}
 		if !assistantStorageRetryable(err) {
-			return assistantStorageSafeError(err)
+			return 0, assistantStorageSafeError(err)
 		}
 		delay := time.NewTimer(time.Duration(attempt+1) * 5 * time.Millisecond)
 		var done <-chan struct{}
@@ -69,47 +83,47 @@ func (s *AssistantStorageService) WithUserTransaction(ctx core.Context, uid int6
 		select {
 		case <-done:
 			delay.Stop()
-			return models.AssistantReasonStorageUnavailable
+			return 0, models.AssistantReasonStorageUnavailable
 		case <-delay.C:
 		}
 	}
-	return models.AssistantReasonStorageUnavailable
+	return 0, models.AssistantReasonStorageUnavailable
 }
 
-func (s *AssistantStorageService) userTransaction(ctx core.Context, uid int64, apply func(*AssistantStorageTx) error) error {
+func (s *AssistantStorageService) userTransaction(ctx core.Context, uid int64, apply func(*AssistantStorageTx) error) (int64, error) {
 	session := s.UserDataDB(uid).NewAssistantSession(ctx)
 	defer session.Close()
 	if err := session.Begin(); err != nil {
-		return err
+		return 0, err
 	}
 	defer session.Rollback()
 	// Acquire the database write position before reading: SQLite deferred
 	// transactions otherwise let competing read snapshots deadlock on upgrade.
 	affected, err := session.Where("uid = ?", uid).Incr("version", 1).Update(&models.AssistantUserState{})
 	if err != nil {
-		return err
+		return 0, err
 	}
 	state := &models.AssistantUserState{}
 	if affected == 0 {
 		state = &models.AssistantUserState{Uid: uid, Version: 1, SettingsVersion: 1}
 		if _, err = session.Insert(state); err != nil {
-			return err
+			return 0, err
 		}
 	} else {
 		found, err := session.Where("uid = ?", uid).Get(state)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		if !found {
-			return errAssistantStorageRetry
+			return 0, errAssistantStorageRetry
 		}
 	}
-	tx := &AssistantStorageTx{Session: session, State: state, Now: s.now().UTC(), ReceiptRetention: time.Duration(s.config().ReceiptRetentionHours) * time.Hour, Limits: s.config().Limits}
+	tx := &AssistantStorageTx{Session: session, State: state, Now: s.now().UTC(), ReceiptRetention: time.Duration(s.config().ReceiptRetentionHours) * time.Hour, Limits: s.config().Limits, previousVersion: state.Version - 1}
 	if err := apply(tx); err != nil {
-		return err
+		return 0, err
 	}
 	if state.UsedBytes < 0 || state.ReservedBytes < 0 || state.ConversationCount < 0 || state.RunningCount < 0 || state.QueuedCount < 0 {
-		return models.AssistantReasonStorageUnavailable
+		return 0, models.AssistantReasonStorageUnavailable
 	}
 	state.UpdatedAt = tx.Now.UnixMilli()
 	// MySQL reports changed rows, so even a read-only receipt replay must
@@ -118,12 +132,15 @@ func (s *AssistantStorageService) userTransaction(ctx core.Context, uid int64, a
 	state.Version++
 	affected, err = session.Where("uid = ? AND version = ?", uid, previousVersion).AllCols().Update(state)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if affected != 1 {
-		return errAssistantStorageRetry
+		return 0, errAssistantStorageRetry
 	}
-	return session.Commit()
+	if err := session.Commit(); err != nil {
+		return 0, err
+	}
+	return state.Version, nil
 }
 
 func (s *AssistantStorageService) GetUserState(ctx core.Context, uid int64) (*models.AssistantUserState, error) {

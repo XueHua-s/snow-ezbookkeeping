@@ -1,0 +1,163 @@
+{
+  "go-all": {
+    "leafCounts": {
+      "pass": 1746,
+      "skip": 4
+    },
+    "packages": {
+      "skip": 19,
+      "pass": 47
+    },
+    "skipped": [
+      "github.com/mayswind/ezbookkeeping/pkg/api/TestAIDeploymentIntegration",
+      "github.com/mayswind/ezbookkeeping/pkg/api/TestAssistantExperienceHTTPLargeExport",
+      "github.com/mayswind/ezbookkeeping/pkg/services/TestAssistantDatabase100KPlans",
+      "github.com/mayswind/ezbookkeeping/pkg/services/TestAssistantExperienceHistoryPerformance"
+    ],
+    "failed": []
+  },
+  "go-services-final": {
+    "leafCounts": {
+      "pass": 441,
+      "skip": 2
+    },
+    "packages": {
+      "pass": 1
+    },
+    "skipped": [
+      "github.com/mayswind/ezbookkeeping/pkg/services/TestAssistantDatabase100KPlans",
+      "github.com/mayswind/ezbookkeeping/pkg/services/TestAssistantExperienceHistoryPerformance"
+    ],
+    "failed": []
+  },
+  "go-race": {
+    "leafCounts": {
+      "pass": 754,
+      "skip": 4
+    },
+    "packages": {
+      "skip": 2,
+      "pass": 12
+    },
+    "skipped": [
+      "github.com/mayswind/ezbookkeeping/pkg/api/TestAIDeploymentIntegration",
+      "github.com/mayswind/ezbookkeeping/pkg/api/TestAssistantExperienceHTTPLargeExport",
+      "github.com/mayswind/ezbookkeeping/pkg/services/TestAssistantDatabase100KPlans",
+      "github.com/mayswind/ezbookkeeping/pkg/services/TestAssistantExperienceHistoryPerformance"
+    ],
+    "failed": []
+  },
+  "go-performance": {
+    "leafCounts": {
+      "pass": 6
+    },
+    "packages": {
+      "pass": 1
+    },
+    "skipped": [],
+    "failed": []
+  },
+  "go-http-export": {
+    "leafCounts": {
+      "pass": 1
+    },
+    "packages": {
+      "pass": 1
+    },
+    "skipped": [],
+    "failed": []
+  },
+  "logs": {
+    "source-lines.log": {
+      "sha256": "2b09390dfd352b492707c06556e34903b97068c37c75d1bdcdc2fc01eeae8230",
+      "bytes": 144
+    },
+    "browser.log": {
+      "sha256": "9d4ba30fd1d7be6a3ebe9734f49e56e1814006a90a7410df3f8c3d83a56cf7f7",
+      "bytes": 325
+    },
+    "go-vet.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "migration.log": {
+      "sha256": "c478aa117e28f5d9c4b69e381142d01d55ca78e3ff7d3cdcc1798d2dff43bfc8",
+      "bytes": 225
+    },
+    "lint.log": {
+      "sha256": "c81294f9039b123d8e1c53f57ce368638044669c5ca6a43dbf4dca44d79d74d5",
+      "bytes": 240
+    },
+    "go-performance.log": {
+      "sha256": "9cd7f11af6503cdbab8f0460ae99502a0f793e63f7a65278dc52cc2858d79c65",
+      "bytes": 81383
+    },
+    "go-http-export.log": {
+      "sha256": "feef8db4f170bb049a9316bd25fbd74a630b9942befacecaede88d1e3f94d98f",
+      "bytes": 1721
+    },
+    "go-all.log": {
+      "sha256": "36ba135e1ca222a9c8bb48eadc68c97d3eb824ce936a4d339c81dabc89f49a8d",
+      "bytes": 2160297
+    },
+    "migration-runtime-tests.log": {
+      "sha256": "b147c96aac44a824677d8da93046843f083abbfc250bfedfaa8958b49b0f7d6f",
+      "bytes": 402
+    },
+    "unit.log": {
+      "sha256": "74e70f754f9fac0659a067804378cf08edfe1b96110fac0b5e21153f1ea6e4fc",
+      "bytes": 530
+    },
+    "migration-env-red.log": {
+      "sha256": "647ec05af6fc3ee70ab6713e1a6e6794197dec779d5677d26c471281bf77855c",
+      "bytes": 1241
+    },
+    "go-race.log": {
+      "sha256": "d3188bb5a8c41be1fc8b593e9b4f06d14aa6fbf91bc1c8e110a8f5fa176dfc52",
+      "bytes": 913659
+    },
+    "go-services-final.log": {
+      "sha256": "7f5dc2809aa5618072a45196acee3d285a646647d0b67bbb007d9971c8621798",
+      "bytes": 541865
+    },
+    "build.log": {
+      "sha256": "f4be4876e56e7c2fabc8383da235ec5f388f09f008d64c60a8447fc4441da115",
+      "bytes": 7739
+    }
+  },
+  "frontend": {
+    "lint": "PASS",
+    "unit": {
+      "files": 42,
+      "passed": 38907,
+      "skipped": 0
+    },
+    "browser": {
+      "files": 7,
+      "passed": 62,
+      "skipped": 0
+    },
+    "build": "PASS"
+  },
+  "migrationRuntime": {
+    "passed": 2,
+    "skipped": 0,
+    "redEnvironmentExit": 1
+  },
+  "cleanup": {
+    "taskContainersRemovedWithVolumes": [
+      "ebk-experience-verify-matrix-mysql",
+      "ebk-experience-verify-matrix-postgres"
+    ],
+    "migrationPrivateArtifactsRemaining": [],
+    "unrelatedContainersUntouched": true
+  },
+  "changedFilesThisStage": {
+    "scripts/assistant-experience-migration-check.py": "cad4f15e67ced34aa30fdb27f699b41168161cdda1f94b380bb537f3ac3556b1",
+    "scripts/assistant_migration_runtime.py": "b6e2362dc846c0a87e5aaad6b5fe13bf288d0b420f0fee7f8d3f364d4c9f16d3",
+    "scripts/assistant_migration_runtime_test.py": "e62634df027770dae6b5fbe2836ad77b582ed5199357e898dc4149bf7a8f871f",
+    "pkg/services/ai_assistant_memories_projection_test.go": "654c8dc105bf5e938c1a98cec084c3cb1735b2a4a5a9ca4fd2b80cd2c6d11818"
+  },
+  "gofmtClean": true,
+  "sourceLines": "> ezbookkeeping@2.1.0 check:source-lines\n> node scripts/check-source-lines.mjs\n\nChecked 1712 source, test and style files; 0 exceed 500 lines."
+}

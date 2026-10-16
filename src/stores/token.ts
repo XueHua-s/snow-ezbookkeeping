@@ -11,10 +11,17 @@ import type {
 } from '@/models/token.ts';
 
 import { isObject } from '@/lib/common.ts';
-import { updateCurrentToken } from '@/lib/userstate.ts';
+import { getCurrentToken, getCurrentUserInfo } from '@/lib/userstate.ts';
 
 import logger from '@/lib/logger.ts';
 import services from '@/lib/services.ts';
+
+/** Bootstrap data is usable only while its committed identity/token remains current.
+ * Callers recheck at their own continuation before applying locale or notification state.
+ */
+export interface RefreshedSession extends TokenRefreshResponse {
+    isCurrent(): boolean;
+}
 
 export const useTokensStore = defineStore('tokens', () => {
     const settingsStore = useSettingsStore();
@@ -45,33 +52,35 @@ export const useTokensStore = defineStore('tokens', () => {
         });
     }
 
-    function refreshTokenAndRevokeOldToken(): Promise<TokenRefreshResponse> {
-        return new Promise((resolve) => {
-            services.refreshToken().then(response => {
-                const data = response.data;
-
-                if (data && data.success && data.result) {
-                    settingsStore.setApplicationSettingsFromCloudSettings(data.result.applicationCloudSettings);
-                }
-
-                if (data && data.success && data.result && data.result.user && isObject(data.result.user)) {
-                    userStore.storeUserBasicInfo(data.result.user);
-                }
-
-                if (data && data.success && data.result && data.result.newToken) {
-                    updateCurrentToken(data.result.newToken);
-
-                    if (data.result.oldTokenId) {
-                        revokeToken({
-                            tokenId: data.result.oldTokenId,
-                            ignoreError: true
-                        });
-                    }
-                }
-
-                resolve(data.result);
-            });
-        });
+    let refreshPromise: Promise<RefreshedSession> | undefined;
+    function refreshTokenAndRevokeOldToken(): Promise<RefreshedSession> {
+        if (refreshPromise) return refreshPromise;
+        const refresh = async () => {
+            const owner = getCurrentUserInfo()?.username;
+            const response = await services.refreshToken();
+            const data = response.data;
+            const authorization = response.config.headers?.Authorization;
+            const expectedToken = data.result?.newToken;
+            if (getCurrentUserInfo()?.username !== owner
+                || (expectedToken ? getCurrentToken() !== expectedToken : authorization !== `Bearer ${getCurrentToken()}`)) {
+                throw { processed: true };
+            }
+            const committedToken = getCurrentToken();
+            if (data && data.success && data.result) {
+                settingsStore.setApplicationSettingsFromCloudSettings(data.result.applicationCloudSettings);
+            }
+            if (data && data.success && data.result && data.result.user && isObject(data.result.user)) {
+                userStore.storeUserBasicInfo(data.result.user);
+            }
+            if (data.result?.oldTokenId) {
+                // Revocation is best-effort after the replacement has been committed.
+                // A failed cleanup must not strand callers or become an unhandled rejection.
+                void revokeToken({ tokenId: data.result.oldTokenId, ignoreError: true }).catch(() => undefined);
+            }
+            return { ...data.result, isCurrent: () => getCurrentUserInfo()?.username === owner && getCurrentToken() === committedToken };
+        };
+        refreshPromise = refresh().finally(() => { refreshPromise = undefined; });
+        return refreshPromise;
     }
 
     function generateToken<T extends 'api' | 'mcp'>({ type, expiresInSeconds, password }: { type: T, expiresInSeconds: number, password: string }): Promise<{ 'api': TokenGenerateAPIResponse, 'mcp': TokenGenerateMCPResponse }[T]> {

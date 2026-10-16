@@ -7,7 +7,7 @@ export function setupCloudAPI(api: Record<string, Mock>) {
     const response = (result: unknown) => ({ data: { success: true, result } });
     let detail: AssistantConversationDetail = { conversation: fixtureConversation, messages: [fixtureMessage], hasMore: false };
     let generationAvailable = true;
-    const ownerScope = crypto.randomUUID();
+    let ownerScope: string = crypto.randomUUID();
     api['capabilities']!.mockImplementation(async () => response({ schemaVersion: 1, ownerScope, serverTime: new Date().toISOString(), deletionEpoch: 1,
         generationAvailable, historyAvailable: true, memoryAvailable: true, settingsVersion: 1, memoryUseEpoch: 1, memoryEnabled: true,
         limits: { inputCharacters: 4000, inputBytes: 16384, titleCharacters: 100, conversationBytes: 2097152, memoryBytes: 1024 }, usage: {} }));
@@ -22,5 +22,5 @@ export function setupCloudAPI(api: Record<string, Mock>) {
         return response({ status: 'accepted', conversationId: '1', clientRequestId: req.clientRequestId });
     });
     api['subscribe']!.mockResolvedValue(undefined);
-    return { setGeneration(value: boolean) { generationAvailable = value; }, getDetail: () => detail };
+    return { setOwner(value: string) { ownerScope = value; }, setGeneration(value: boolean) { generationAvailable = value; }, getDetail: () => detail };
 }

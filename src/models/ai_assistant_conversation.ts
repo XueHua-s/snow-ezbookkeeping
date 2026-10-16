@@ -1,7 +1,37 @@
 import type { AIAssistantQuery } from './large_language_model.ts';
 
-export type AssistantRunState = 'queued' | 'preparing' | 'running' | 'cancel_requested' | 'completed' | 'incomplete' | 'failed' | 'canceled' | 'interrupted';
-export type AssistantReasonCode = 'queue_timeout' | 'run_timeout' | 'execution_limit' | 'generation_unavailable' | 'input_too_long' | 'conversation_conflict' | 'data_epoch_conflict' | 'memory_conflict' | 'context_changed' | 'already_running' | 'quota_exceeded' | 'queue_full' | 'subscription_limit' | 'cursor_expired' | 'context_limit' | 'output_limit' | 'empty_response' | 'storage_unavailable' | 'provider_unavailable' | 'interrupted' | 'not_accessible';
+const assistantTerminalStates = ['completed', 'incomplete', 'failed', 'canceled', 'interrupted'] as const;
+export const assistantRunStates = ['queued', 'preparing', 'running', 'cancel_requested', ...assistantTerminalStates] as const;
+export type AssistantRunState = typeof assistantRunStates[number];
+
+/** Terminal snapshots are immutable, regardless of a later response's revision. */
+export function isAssistantRunTerminal(state: AssistantRunState): boolean {
+    return (assistantTerminalStates as readonly AssistantRunState[]).includes(state);
+}
+export const assistantReasonCodes = [
+    'queue_timeout',
+    'run_timeout',
+    'execution_limit',
+    'generation_unavailable',
+    'input_too_long',
+    'conversation_conflict',
+    'data_epoch_conflict',
+    'memory_conflict',
+    'context_changed',
+    'already_running',
+    'quota_exceeded',
+    'queue_full',
+    'subscription_limit',
+    'cursor_expired',
+    'context_limit',
+    'output_limit',
+    'empty_response',
+    'storage_unavailable',
+    'provider_unavailable',
+    'interrupted',
+    'not_accessible'
+] as const;
+export type AssistantReasonCode = typeof assistantReasonCodes[number];
 
 export interface AssistantCommand {
     readonly clientRequestId: string;

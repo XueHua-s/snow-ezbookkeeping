@@ -1,0 +1,151 @@
+{
+  "at": "2026-10-15T22:55:46.836918+00:00",
+  "checks": [
+    {
+      "command": "node scripts/build-assistant-docker-validation.mjs",
+      "exit": 0,
+      "status": "PASS",
+      "details": "Fresh host frontend and current Linux CGO backend; see provenance"
+    },
+    {
+      "command": "EBK_E2E_DOCKER_IMAGE=ebk-assistant-validation:20261016 EBK_E2E_ARTIFACTS=.vitest/audit-docker node scripts/assistant-experience-docker-smoke.mjs",
+      "exit": 0,
+      "status": "PASS",
+      "scenarios": 10
+    },
+    {
+      "command": "npx vitest run scripts/assistant-experience-docker-runtime.test.mjs scripts/assistant-experience-e2e-cleanup.test.mjs scripts/assistant-experience-e2e-environment.test.mjs",
+      "exit": 0,
+      "status": "PASS",
+      "files": 3,
+      "tests": 10
+    },
+    {
+      "command": "node --check (five modified/new runtime/build/smoke/runner mjs files)",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "npm run check:source-lines",
+      "exit": 0,
+      "status": "PASS",
+      "files": 1709,
+      "overLimit": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "Controlled old cleanup mutation + new runtime test; finally restore",
+      "exit": 1,
+      "status": "EXPECTED_FAIL",
+      "details": "Uncertain Docker daemon failure must reject cleanup and retain recovery hook"
+    },
+    {
+      "command": "Real busybox partial-startup probe through environment({production:true})",
+      "exit": 0,
+      "status": "PASS",
+      "details": "create succeeds, config copy fails, container removed and provider/reservation no longer listening"
+    }
+  ],
+  "initialAttempts": [
+    {
+      "stage": "Official Alpine APK CDN",
+      "exit": 3,
+      "result": "TLS failure; HTTPS mirror with signature validation worked"
+    },
+    {
+      "stage": "Official alpine:3.24.2 runtime fetch",
+      "exit": 1,
+      "result": "DockerHub EOF; daocloud 502/EOF; cached Go-base validation runtime used"
+    },
+    {
+      "stage": "First smoke authentication assertion",
+      "exit": 1,
+      "result": "Script expected401; actual existing contract is400/error202012; corrected exact contract and reran PASS"
+    }
+  ],
+  "runtimeProbe": {
+    "uid": 1000,
+    "gid": 1000,
+    "alpine": "3.24.2",
+    "go": "go1.27.1 linux/arm64",
+    "binarySha256": "e5af7ae3ab00bf3930964e0f7c02aacd5b12dca41910effa15ecb967c56c5f63"
+  },
+  "cleanup": {
+    "taskContainersRemaining": 0,
+    "taskNetworksCreated": 0,
+    "temporaryCredentialsRemoved": true,
+    "reachabilityProbePort39876Closed": true,
+    "unrelatedContainerPreserved": "codex-s03-build",
+    "retainedImageId": "sha256:990c1f23742049c78c43832cdde54e69a575412675524f4a8ac88d4b80bc0dff"
+  },
+  "logs": [
+    {
+      "path": ".vitest/audit-docker-build/image-build-first-failed.log",
+      "sha256": "3dd8013463f7d3d0fd7e55250c88f90bd4c71a2e98b56e4d973287ed6248d7b4",
+      "bytes": 997
+    },
+    {
+      "path": ".vitest/audit-docker-build/helper-tests.log",
+      "sha256": "789ed2ea14d4380ae68dc97a28c08342433c0285908cf5bc02c2b3481db0fede",
+      "bytes": 209
+    },
+    {
+      "path": ".vitest/audit-docker-build/partial-startup-test.log",
+      "sha256": "4f1953b3651861ece52f66aadbbb194774604d5d3c9800430df51f3a1cd09645",
+      "bytes": 131
+    },
+    {
+      "path": ".vitest/audit-docker-build/image-build-runtime-fetch-failed.log",
+      "sha256": "4b75800d9092eb8b614f0a9dd62db232c2887399cf361941484f08309897c5b1",
+      "bytes": 9962
+    },
+    {
+      "path": ".vitest/audit-docker-build/image-build.log",
+      "sha256": "8abea04cb7bbc4647b813525042318efeec5952743da6dd49967903bbc2f1167",
+      "bytes": 10907
+    },
+    {
+      "path": ".vitest/audit-docker-build/frontend-build.log",
+      "sha256": "90344d06da794285414352adfd7a896c3448ee9d96126fcf4df46e3b8e3d418b",
+      "bytes": 7323
+    },
+    {
+      "path": ".vitest/audit-docker/application.log",
+      "sha256": "5e216ae12eb823c96e70f4f4848f0cb9538e08f1389c6bcdbc305ac2d016041b",
+      "bytes": 54868
+    },
+    {
+      "path": ".vitest/audit-docker-smoke.log",
+      "sha256": "50d35f50876b1e97654bb4bd63dc33f55bdd112e4235d083e534bb3ef0d18cf7",
+      "bytes": 1815
+    },
+    {
+      "path": ".vitest/docker-helper-tests-final.log",
+      "sha256": "9b34b8213eabe8b65b858f28ebeef9301633ddf47ca50ccb2f2b14c8836cab27",
+      "bytes": 209
+    },
+    {
+      "path": ".vitest/docker-source-lines.log",
+      "sha256": "139fc477ac4a2a482d8a227cfdc709f999edbc26e98da36448773ec145042beb",
+      "bytes": 144
+    },
+    {
+      "path": ".vitest/docker-cleanup-red.log",
+      "sha256": "948fa002a4a4a8758d1e62ac0c5f642c7f1b95d7b973a26e9204121aebdb92db",
+      "bytes": 1273
+    }
+  ],
+  "notRun": [
+    "Stock production Dockerfile (Node26 frontend stage and exact Alpine runtime image)",
+    "Complete business E2E",
+    "Complete unit/Go/race/three-database matrix",
+    "Commercial providers",
+    "Physical keyboard/manual screen reader",
+    "Actual bfcache restoration",
+    "Upstream TCP-close observation"
+  ]
+}
