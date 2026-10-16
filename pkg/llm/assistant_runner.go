@@ -137,12 +137,16 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		if run.observation.Rounds >= input.MaxRounds {
 			return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonRoundBudget)
 		}
-		turnInput := data.ToolTurnInput{Messages: messages, Tools: definitions, State: state, MaxRequestBytes: AssistantMaxModelRequestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
+		requestBytes := input.MaxRequestBytes
+		if requestBytes <= 0 || requestBytes > AssistantMaxModelRequestBytes {
+			requestBytes = AssistantMaxModelRequestBytes
+		}
+		turnInput := data.ToolTurnInput{Messages: messages, Tools: definitions, State: state, MaxRequestBytes: requestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
 		body, marshalErr := json.Marshal(turnInput)
 		if marshalErr != nil {
 			return run.result, run.stop(data.ToolErrorProtocol, AssistantReasonProtocolError)
 		}
-		if len(body) > AssistantMaxModelRequestBytes || (input.MaxInputTokens > 0 && len(body) > input.MaxInputTokens) {
+		if !data.AssistantRequestFits(body, input.MaxInputTokens, requestBytes) {
 			return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonContextBudget)
 		}
 		if err = run.emit(AssistantEvent{Type: AssistantEventStatus, Status: AssistantStatusQuerying}); err != nil {
@@ -256,7 +260,7 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 						placeholder := data.ToolResult{OK: false, Error: &data.ToolError{Code: data.ToolErrorBudgetExhausted, Message: "Reserved pending result"}}
 						candidate = append(candidate, data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: pending.ID, ToolResult: &placeholder})
 					}
-					next := data.ToolTurnInput{Messages: candidate, Tools: definitions, State: turn.State, MaxRequestBytes: AssistantMaxModelRequestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
+					next := data.ToolTurnInput{Messages: candidate, Tools: definitions, State: turn.State, MaxRequestBytes: requestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
 					if !assistantToolRequestFits(current, next) {
 						return false
 					}
@@ -338,5 +342,5 @@ func assistantToolRequestFits(p provider.LargeLanguageModelToolProvider, input d
 		return err == nil
 	}
 	body, e := json.Marshal(input)
-	return e == nil && len(body) <= input.MaxRequestBytes && (input.MaxInputTokens <= 0 || len(body)+1024 <= input.MaxInputTokens)
+	return e == nil && data.AssistantRequestFits(body, input.MaxInputTokens, input.MaxRequestBytes)
 }

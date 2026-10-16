@@ -12,7 +12,7 @@ import (
 const (
 	AssistantMaxToolCalls         = 24
 	AssistantMaxToolResultBytes   = 64 * 1024
-	AssistantMaxModelRequestBytes = 128 * 1024
+	AssistantMaxModelRequestBytes = data.AssistantMaxRequestBytes
 	AssistantMaxReferences        = 8
 	AssistantMaxHistoryMessages   = 12
 )
@@ -69,6 +69,7 @@ type AssistantRunInput struct {
 	// PriorModelCalls accounts for preparing calls within this same foreground run.
 	PriorModelCalls uint32
 	MaxInputTokens  int
+	MaxRequestBytes int
 	MaxOutputTokens int
 
 	UID          int64

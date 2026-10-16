@@ -138,7 +138,7 @@ func (s *AssistantMemoryService) extractBatch(ctx core.Context, batch *assistant
 		parent, cancel := context.WithTimeout(ctx, time.Duration(cfg.SummaryTimeoutSeconds)*time.Second)
 		defer cancel()
 		response, e := p.RunToolTurn(core.NewAssistantContext(parent, ctx.GetContextId(), ctx.GetClientLocale(), ctx.ClientIP()), batch.UID, data.ToolTurnInput{Messages: batch.Messages, MaxInputTokens: assistantContextBudget(cfg), MaxOutputTokens: cfg.Limits.MemoryTokens, MaxRequestBytes: cfg.Limits.RequestBytes}, nil)
-		if e == nil && response.Completed && len(response.ToolCalls) == 0 && len(response.Content) <= cfg.Limits.MemoryTokens {
+		if e == nil && response.Completed && len(response.ToolCalls) == 0 && data.EstimateAssistantTokens(response.Content) <= cfg.Limits.MemoryTokens {
 			_ = json.Unmarshal([]byte(response.Content), &candidates)
 		}
 	}

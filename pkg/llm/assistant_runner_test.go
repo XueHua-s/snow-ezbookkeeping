@@ -378,3 +378,25 @@ func TestAssistantRunnerBudgetsRetainEvidence(t *testing.T) {
 		runnerRequireCode(t, err, data.ToolErrorBudgetExhausted)
 	})
 }
+
+func TestAssistantRunnerHonorsAcceptedRequestBytes(t *testing.T) {
+	calls := 0
+	p := runnerModel(func(_ core.Context, _ int64, in data.ToolTurnInput, _ data.DisplayEventSink) (data.TurnResponse, error) {
+		calls++
+		if in.MaxRequestBytes != 2048 {
+			t.Fatal("accepted request budget replaced", in.MaxRequestBytes)
+		}
+		return data.TurnResponse{Completed: true, Content: "answer"}, nil
+	})
+	input := AssistantRunInput{UID: 7, Mode: "chat", Messages: []data.ConversationMessage{{Role: data.ConversationRoleUser, Content: "hello"}}, MaxRequestBytes: 2048, MaxInputTokens: 16000}
+	runner := NewAssistantRunner(p, nil, &runnerExecutor{})
+	result, err := runner.Run(core.NewNullContext(), input, nil)
+	if err != nil || result.State != AssistantStateCompleted || calls != 1 {
+		t.Fatal(result, err, calls)
+	}
+	input.MaxRequestBytes = 100
+	result, err = runner.Run(core.NewNullContext(), input, nil)
+	if err == nil || result.StopReason != AssistantReasonContextBudget || calls != 1 {
+		t.Fatal("byte limit bypassed", result, err, calls)
+	}
+}

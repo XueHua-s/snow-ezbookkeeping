@@ -69,7 +69,7 @@ func TestAssistantContextThirtyTurnsTwoCompactions(t *testing.T) {
 			if len(snap.Turns) != i {
 				t.Fatalf("lost chain: %d wanted %d", len(snap.Turns), i)
 			}
-			changed, e := service.compact(ctx, run, snap, provider, 16000)
+			changed, _, e := service.compact(ctx, run, snap, provider, 16000)
 			if e != nil || !changed {
 				t.Fatal(changed, e)
 			}
@@ -121,7 +121,7 @@ func TestAssistantContextCompactionCASRejectsChangedVersion(t *testing.T) {
 			return assistantConversationSave(tx, c)
 		})
 	}}
-	if _, e = service.compact(ctx, run, snap, provider, 16000); e != models.AssistantReasonContextChanged {
+	if _, _, e = service.compact(ctx, run, snap, provider, 16000); e != models.AssistantReasonContextChanged {
 		t.Fatal(e)
 	}
 }
@@ -131,8 +131,8 @@ func TestAssistantContextConservativeWindow(t *testing.T) {
 	if got := assistantContextBudget(cfg); got != 3072 {
 		t.Fatal(got)
 	}
-	if assistantContextFits([]data.ConversationMessage{{Role: data.ConversationRoleUser, Content: strings.Repeat("中", 1100)}}, nil, 3072) {
-		t.Fatal("UTF8 underestimated")
+	if !assistantContextFits([]data.ConversationMessage{{Role: data.ConversationRoleUser, Content: strings.Repeat("中", 1100)}}, nil, 3072) {
+		t.Fatal("UTF8 bytes must not be treated as tokens")
 	}
 }
 
@@ -255,7 +255,7 @@ func TestAssistantPrepareThirtyTwoTurnsAutomaticCompaction(t *testing.T) {
 	}
 	var last models.AssistantCommandResult
 	for i := 0; i < 32; i++ {
-		question := fmt.Sprintf("turn %d: account 42; dining budget CNY 2500; date 2026-09. %s", i, strings.Repeat("please preserve this explicit condition. ", 4))
+		question := fmt.Sprintf("turn %d: account 42; dining budget CNY 2500; date 2026-09. %s", i, strings.Repeat("please preserve this explicit condition. ", 80))
 		last = conversationSend(t, conv, fmt.Sprint("auto-", i), last.ConversationId, last.ContextVersion, question)
 		var run *models.AssistantMessage
 		_ = conv.storage.WithUserTransaction(core.NewNullContext(), 7, func(tx *AssistantStorageTx) error {
@@ -290,7 +290,7 @@ func (p *contextConversationProvider) RunToolTurn(_ core.Context, _ int64, input
 	return data.TurnResponse{Completed: true, Content: "Your conditions are account 42; dining budget CNY 2500; date 2026-09. Fresh tools are required for actual financial facts."}, nil
 }
 
-func TestAssistantPrepareRejectsOversizedContextBeforeModelCall(t *testing.T) {
+func TestAssistantPrepareAcceptsChineseQueryWithinTokenBudget(t *testing.T) {
 	t.Chdir("../..")
 	conv := assistantConversationFixture(t, settings.Sqlite3DbType)
 	accepted := conversationSend(t, conv, "large-context", "", 0, strings.Repeat("中", 4000))
@@ -306,7 +306,7 @@ func TestAssistantPrepareRejectsOversizedContextBeforeModelCall(t *testing.T) {
 	service.providers = func() (provider.LargeLanguageModelToolProvider, provider.LargeLanguageModelToolProvider, error) {
 		return p, nil, nil
 	}
-	if _, e := service.Prepare(core.NewNullContext(), run); e != models.AssistantReasonContextLimit {
+	if _, e := service.Prepare(core.NewNullContext(), run); e != nil {
 		t.Fatal(e)
 	}
 	if p.summaries != 0 || p.answers != 0 {

@@ -281,8 +281,8 @@ func (p *assistantToolProvider) toolRequestBody(input data.ToolTurnInput, displa
 	if limit <= 0 {
 		limit = assistantDefaultRequestBytes
 	}
-	// One token per UTF-8 wire byte is conservative for unknown tokenizers and includes private state.
-	if len(b) > limit || (input.MaxInputTokens > 0 && len(b) > input.MaxInputTokens) {
+	// Check the actual wire body, including private Responses continuation state.
+	if !data.AssistantRequestFits(b, input.MaxInputTokens, limit) {
 		return nil, nil, assistantError(data.ToolErrorBudgetExhausted)
 	}
 	return b, items, nil

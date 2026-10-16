@@ -3128,7 +3128,7 @@
     "The assistant is busy. Try again later; your question is kept.": "助手暫時繁忙，請稍後重試，你的問題已保留。",
     "Live updates are busy. Checking the saved answer instead.": "實時更新暫時繁忙，正在檢查已儲存的回答。",
     "This query expired. Run the query again to see current records.": "此查詢已過期，請重新查詢以檢視當前記錄。",
-    "This conversation is too large to process. Continue in a new conversation.": "此會話內容過多，請在新會話中繼續。",
+    "This request exceeds the model context limit. Narrow the query and retry, or continue in a new conversation.": "本次請求超出模型上下文限制。請縮小查詢範圍後重試，或在新會話中繼續。",
     "The answer reached its limit. The partial text is kept.": "回答已達到輸出上限，已有內容已保留。",
     "The model returned no answer. You can retry your question.": "模型沒有返回回答，你可以重試此問題。",
     "The answer could not be saved. Check the connection and retry.": "無法儲存回答，請檢查連線後重試。",

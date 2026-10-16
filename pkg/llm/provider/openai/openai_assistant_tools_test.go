@@ -261,6 +261,13 @@ func TestAssistantResponsesPrivateStateAndNeutralFallback(t *testing.T) {
 	requireAssistantCode(t, err, data.ToolErrorBudgetExhausted)
 	require.Len(t, requests, 2)
 	next.MaxRequestBytes = 128 * 1024
+	next.MaxInputTokens = data.EstimateAssistantTokens(string(wire)) - 1
+	_, err = p.RunToolTurn(core.NewNullContext(), 1, next, nil)
+	requireAssistantCode(t, err, data.ToolErrorBudgetExhausted)
+	require.Len(t, requests, 2)
+	next.MaxInputTokens = data.EstimateAssistantTokens(string(wire))
+	_, _, err = p.toolRequestBody(next, false)
+	require.NoError(t, err)
 	fallback := assistantTestProvider(server.URL, false, false, 2000)
 	_, _, err = fallback.toolRequestBody(next, false)
 	requireAssistantCode(t, err, data.ToolErrorProviderUnsupported)

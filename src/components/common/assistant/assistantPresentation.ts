@@ -17,7 +17,7 @@ export const assistantReasonLabels: Record<AssistantReasonCode, string> = {
     queue_full: 'The assistant is busy. Try again later; your question is kept.',
     subscription_limit: 'Live updates are busy. Checking the saved answer instead.',
     cursor_expired: 'This query expired. Run the query again to see current records.',
-    context_limit: 'This conversation is too large to process. Continue in a new conversation.',
+    context_limit: 'This request exceeds the model context limit. Narrow the query and retry, or continue in a new conversation.',
     output_limit: 'The answer reached its limit. The partial text is kept.',
     empty_response: 'The model returned no answer. You can retry your question.',
     storage_unavailable: 'The answer could not be saved. Check the connection and retry.',

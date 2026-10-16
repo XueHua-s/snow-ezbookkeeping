@@ -188,3 +188,29 @@ System instructions, shared argument prose and tool descriptions now avoid repet
 This is deterministic protocol/query coverage, not commercial-model quality certification. Larger histories/results can still reach configured budgets and must retain explicit incomplete states. The configured remote SSH host was unreachable (connection timeout), so no production conversation history was inspected and no production changes were made.
 
 Validation: `go test ./pkg/api ./pkg/services -count=1` and `go vet ./...` passed. The full `go test ./...` run passed the assistant packages but failed the unrelated live National Bank of Belarus and National Bank of Ukraine exchange-rate requests; this is not recorded as an all-suite pass. Optional external-database/commercial-provider integrations remain subject to their existing opt-in requirements.
+
+
+## 2026-10-16：上下文误判修复复验
+
+此次修复取代前述以约 16,000 字节小型提示验证默认上下文的结论。生产只读日志出现生成开始后 `context_limit`；配置为默认 input_tokens=16000，账户/分类数量为 40/124。未读取财务正文作为测试夹具。
+
+根因是 context service、runner 和 OpenAI 请求编码层将 UTF-8 字节长度与 token 预算直接比较，中文及完整工具元数据因而过早触发限制；旧摘要策略还无法压缩唯一一轮长历史，也无法分批压缩超大历史。
+
+修复统一使用内置 cl100k BPE 估算加 20% 余量，独立执行字节上限，按完整问答分批摘要并保留未覆盖的分支前缀。取消、截止时间、权限/CAS 校验继续生效，失败摘要也计入调用预算。真实上游超限仍会报告；估算不是任意模型 tokenizer 的保证。单个完整问答超过摘要输入容量时不会静默丢弃或截断。
+
+参考 [Codex compact.rs](https://github.com/openai/codex/blob/6ae8b8aa7c608730d4315d59c5c081897ae02780/codex-rs/core/src/compact.rs) 的上下文压缩流程及 [官方配置](https://developers.openai.com/codex/config-reference/) 的模型窗口/自动压缩预算概念。没有移植其超限后移除最旧历史项的策略，以免丢失仍有效的财务查询条件。
+
+已执行验证：
+
+- 默认允许的 4,000 中文字符问题：修复前可复现 `context_limit`，修复后通过。
+- 真实 HTTP adapter 使用合成 40 账户/124 分类夹具：完整工具结果请求超过 16,000 字节且在 token 预算内，回答完成。不是生产模型能力认证。
+- 单轮长历史、完整 turn 分批摘要、partial frozen、失败/取消保留历史、调用预算、accepted byte cap、Responses opaque state 限额均通过。
+- tokenizer 并发与长字符串及上下文相关定向 race 通过。
+- `BUILD_PIPELINE=1 go test ./...`、`go vet ./...`、`npm run lint` 通过；CI 模式跳过外部接口依赖不等于在线集成通过。
+- 前端单元测试 47 文件 / 38,923 项，真实浏览器测试 9 文件 / 71 项通过。
+
+- `node scripts/assistant-experience-e2e.mjs` 双端 40 场景通过，使用隔离数据库和确定性协议夹具。
+
+此次没有调用生产真实模型或写入生产账户数据进行测试。
+
+两轮串行独立复审均无阻断项，预算与摘要修复范围的软件设计评分为 10/10；这不构成所有输入绝无故障的保证。
