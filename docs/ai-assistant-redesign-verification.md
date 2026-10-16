@@ -20,8 +20,8 @@
 ## 验证
 
 - `npm run lint`：通过（行数检查、Vue/TypeScript、ESLint）。
-- `npm run test`：47 个文件、38,927 项通过（包含草稿刷新、删除历史和发送状态回归）。
-- `npm run test:browser`：8 个文件、70 项 Chromium 测试通过；工作区弹层测试启用真实 Transition，包含提示退出生命周期回归。
+- `npm run test`：47 个文件、38,923 项通过（包含草稿刷新、删除历史和发送状态回归）。
+- `npm run test:browser`：9 个文件、71 项 Chromium 测试通过；工作区弹层测试启用真实 Transition，包含提示退出生命周期回归。
 - `node scripts/assistant-experience-e2e.mjs`：40 个桌面／移动端场景通过，26 次确定性模型协议调用。覆盖原始 Markdown 剪贴板、阅读位置、草稿刷新、多标签冲突、账号切换首帧、断线恢复、发送去重、失败重试、分支和单条删除；结果保存在 `.vitest/assistant-e2e/results.json`。
 - `npm run build`：通过。
 - `go vet ./...`、API/services 测试、`BUILD_PIPELINE=1 go test ./...`：通过。CI 模式跳过外部在线接口，不代表这些接口已验证。
@@ -40,7 +40,7 @@
 
 | 技能 | 审查结果 |
 | --- | --- |
-| software-design-philosophy | 8.5/10；模块边界合理。重复样式和未消费接口仍有非阻断简化空间。 |
+| software-design-philosophy | 10/10（本 PR 审查范围）；共享视觉规则、收窄工作区接口、显式关联示例文案与图标后独立复审通过。 |
 | vue-best-practices | 修复失效通知按钮和旧身份文本在退出动画期间残留；复审通过。 |
 | vue-router-best-practices | 检查 Vue Router 与 Framework7 生命周期，18 项专项浏览器测试通过。 |
 | vue-testing-best-practices | 真实 Transition 复现并修复历史弹窗焦点丢失，修正 E2E 文本定位歧义；复审通过。 |
@@ -50,7 +50,13 @@
 | vite | 图标、CSS 和构建入口完整，生产构建通过。 |
 | vitepress | 不适用：无 VitePress 依赖或站点配置，文档为普通 Markdown。 |
 
-最终本地验证：47 个单元测试文件共 38,927 项、8 个浏览器测试文件共 70 项、桌面／移动 E2E 共 40 个场景通过；lint、build、go vet、CI 模式 Go 测试通过。普通 Go 测试的两个外部汇率失败分别为白俄罗斯接口超时、乌克兰接口 HTTP 403。审查结果限于本次检查与测试范围，不构成不存在任何潜在缺陷的保证。
+最终本地验证：47 个单元测试文件共 38,923 项、9 个浏览器测试文件共 71 项、桌面／移动 E2E 共 40 个场景通过；lint、build、go vet、CI 模式 Go 测试通过。普通 Go 测试的两个外部汇率失败分别为白俄罗斯接口超时、乌克兰接口 HTTP 403。审查结果限于本次检查与测试范围，不构成不存在任何潜在缺陷的保证。
+
+## 设计收敛与文档清理
+
+按钮、通知和对话框共享 scoped CSS，各组件继续持有自身布局与行为，没有增加包装组件。工作区移除无生产消费者的摘要、记忆管理和批量清空 UI 接口，底层 store/API 保留；单条删除的身份、纪元及微任务边界测试仍在。示例以 `{ text, icon }` 显式关联，真实浏览器测试覆盖重排及发送文本。移除死接口专属测试后单元测试净减少 4 项，新增 1 项示例浏览器测试。
+
+项目计划及其导读已删除，相关引用改为现有验收记录；保留行为、验证和运维文档。
 
 ## 尚未验证
 

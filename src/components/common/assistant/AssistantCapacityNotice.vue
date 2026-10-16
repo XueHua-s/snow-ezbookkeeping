@@ -17,12 +17,13 @@ const visible = computed(() => !!props.reason || props.used + props.reserved >= 
     <aside v-if="visible" class="capacity" role="status">
         <strong>{{ tt(reason || 'Approaching conversation capacity') }}</strong>
         <div>
-            <button v-if="canContinue" type="button" @click="emit('continue')">
+            <button class="assistant-action" v-if="canContinue" type="button" @click="emit('continue')">
                 {{ tt('Continue in a new conversation') }}</button
-            ><button type="button" :aria-label="tt('Conversation history')" :title="tt('Conversation history')" @click="emit('manage')"><svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiHistory" /></svg></button>
+            ><button class="assistant-action" type="button" :aria-label="tt('Conversation history')" :title="tt('Conversation history')" @click="emit('manage')"><svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiHistory" /></svg></button>
         </div>
     </aside>
 </template>
+<style scoped src="./assistantAction.css"></style>
 <style scoped>
 .capacity {
     padding: 16px;
@@ -38,30 +39,7 @@ const visible = computed(() => !!props.reason || props.used + props.reserved >= 
 .capacity { animation: capacity-enter 180ms ease; }
 @keyframes capacity-enter { from { opacity: 0; transform: translateY(4px); } }
 
-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 44px;
-    min-height: 44px;
-    margin: 4px 6px 0 0;
-    padding: 8px 14px;
-    border: 0;
-    border-radius: 14px;
-    color: var(--assistant-action, #278c62);
-    background: var(--assistant-tint, #e8f3e9);
-    font: inherit;
-    cursor: pointer;
-    transition: background 160ms ease, transform 160ms ease, opacity 160ms ease;
-}
-button:hover:not(:disabled) { background: color-mix(in srgb, var(--assistant-action, #278c62) 16%, var(--assistant-card, #fff)); }
-button:active:not(:disabled) { transform: scale(0.96); }
-button:disabled { opacity: 0.5; cursor: default; }
-button:focus-visible { outline: 2px solid var(--assistant-action, #278c62); outline-offset: 3px; }
-button svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
-
 @media (prefers-reduced-motion: reduce) {
-    *, *::backdrop { animation: none !important; transition: none !important; }
+    .capacity { animation: none; }
 }
 </style>

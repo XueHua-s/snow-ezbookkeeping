@@ -62,7 +62,7 @@
 - `pkg/services/ai_assistant_cleanup*.go`, `pkg/services/users_access.go`, `pkg/api/data_managements_clear.go`: online deletion, account fence and physical cleanup.
 - `src/stores/assistant.ts`, `src/stores/assistant/*`: shared cloud conversation state; `src/lib/assistant_local_storage.ts`: isolated drafts and pending commands. Platform components do not own independent histories.
 - `pkg/api/large_language_models_assistant_conversations*.go`: persistent API/runtime; generation availability does not hide history routes.
-- `AI_ASSISTANT_EXPERIENCE_PLAN.md` and `docs/ai-assistant-experience-verification.md`: scope and actual evidence. Full database backups include all five new assistant tables on every user-data shard; retained embedding data remains untouched.
+- `docs/ai-assistant-experience-verification.md`: implemented behavior and actual evidence. Full database backups include all five new assistant tables on every user-data shard; retained embedding data remains untouched.
 
 ## Persistent Request and Lifecycle Trace
 

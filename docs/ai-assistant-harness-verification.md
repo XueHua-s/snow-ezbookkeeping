@@ -1,6 +1,6 @@
 # AI assistant harness verification
 
-Coverage boundary: this report certifies the earlier stateless read-only harness only. It does not certify the cloud conversations, durable runs, long-term memory, browser synchronization or lifecycle changes in `AI_ASSISTANT_EXPERIENCE_PLAN.md`. See the [experience verification report](ai-assistant-experience-verification.md) for current R01–R40 evidence and remaining gates.
+Coverage boundary: this report certifies the earlier stateless read-only harness only. It does not certify the cloud conversations, durable runs, long-term memory, browser synchronization or persistent workspace lifecycle changes. See the [experience verification report](ai-assistant-experience-verification.md) for current R01–R40 evidence and remaining gates.
 
 Evidence date: 2026-10-14–15 (Asia/Shanghai). Base commit: `77c00d1cca0ff268d221566fc1339d62624cc9b9`, with the authorized harness implementation. This records executed checks; it is not production release approval.
 

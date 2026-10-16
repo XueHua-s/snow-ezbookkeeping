@@ -3,7 +3,6 @@ import { useAssistantWorkspaceScope } from './useAssistantWorkspaceScope.ts';
 import { useAssistantStore } from '@/stores/assistant.ts';
 import type {
     AssistantConversationDTO,
-    AssistantMemoryDTO,
     AssistantMessageDTO
 } from '@/models/ai_assistant_conversation.ts';
 import { assistantReasonLabels } from '@/components/common/assistant/assistantPresentation.ts';
@@ -20,16 +19,13 @@ export function useAssistantCloudWorkspace(
     const error = shallowRef('');
     const working = shallowRef(false);
     const historyOpen = shallowRef(false);
-    const memoryOpen = shallowRef(false);
     const archived = shallowRef(false);
     const query = shallowRef('');
     const historySearching = shallowRef(false);
     const includeVersions = shallowRef(false);
     const editing = shallowRef<AssistantMessageDTO>();
     const editText = shallowRef('');
-    const summaryOpen = shallowRef(false);
     const retryQuerySource = shallowRef('');
-    const summaryPeriod = shallowRef(tt('This month'));
     let pendingCount = 0;
     const captureScope = useAssistantWorkspaceScope(
         () => [store.capabilities?.ownerScope, store.capabilities?.deletionEpoch, store.conversationId, routeKey()],
@@ -43,18 +39,15 @@ export function useAssistantCloudWorkspace(
             editing.value = undefined;
             editText.value = '';
             retryQuerySource.value = '';
-            summaryOpen.value = false;
         }
     );
     watch(
         [() => store.capabilities?.ownerScope, () => store.capabilities?.deletionEpoch],
         () => {
             historyOpen.value = false;
-            memoryOpen.value = false;
             query.value = '';
             includeVersions.value = false;
             archived.value = false;
-            summaryPeriod.value = tt('This month');
         },
         { flush: 'sync' }
     );
@@ -165,15 +158,6 @@ export function useAssistantCloudWorkspace(
         if (!authorized()) return;
         return run(() => store.execute('delete', { id: item.id, expectedMetadataVersion: item.metadataVersion }));
     }
-    async function clear() {
-        const authorized = await requestConfirmation(
-            tt(
-                'Clear all assistant data, including conversations, archives, memories and local drafts? Your bills will not be deleted.'
-            )
-        );
-        if (!authorized()) return;
-        return run(() => store.execute('clear', {}));
-    }
     function edit(message: AssistantMessageDTO) {
         if (store.busy) return;
         editing.value = message;
@@ -239,50 +223,9 @@ export function useAssistantCloudWorkspace(
                 await store.selectVersion(message.id, id);
         });
     }
-    function summary() {
-        return run(async (current) => {
-            await store.send({ mode: 'summary', content: `${tt('Generate AI Summary')}: ${summaryPeriod.value}` });
-            if (current()) summaryOpen.value = false;
-        });
-    }
     async function removeLocalDraft(id: string) {
         const authorized = await requestConfirmation(tt('Delete this local draft?'));
         if (authorized()) await run(() => store.removeDraft(id));
-    }
-    function showMemories() {
-        memoryOpen.value = true;
-        return run(() => store.loadMemories());
-    }
-    function saveMemory(item: AssistantMemoryDTO | undefined, text: string) {
-        return run(() =>
-            store.execute('saveMemory', {
-                id: item?.id,
-                expectedVersion: item?.version ?? 0,
-                expectedMemoryUseEpoch: store.memories?.memoryUseEpoch ?? 0,
-                text,
-                key: item?.key ?? crypto.randomUUID(),
-                type: item?.type ?? 'preference',
-                intent: item?.status === 'candidate' ? 'confirm' : item ? 'correct' : 'add'
-            })
-        );
-    }
-    async function forget(item?: AssistantMemoryDTO) {
-        const authorized = await requestConfirmation(
-            tt(
-                item
-                    ? 'Forget this memory? Original conversations remain.'
-                    : 'Forget all memories? Original conversations remain.'
-            )
-        );
-        if (!authorized()) return;
-        return run(() =>
-            store.execute('deleteMemory', {
-                id: item?.id,
-                all: !item,
-                expectedVersion: item?.version ?? 0,
-                expectedMemoryUseEpoch: store.memories?.memoryUseEpoch ?? 0
-            })
-        );
     }
     return {
         store,
@@ -292,15 +235,12 @@ export function useAssistantCloudWorkspace(
         error,
         working,
         historyOpen,
-        memoryOpen,
         archived,
         query,
         historySearching,
         includeVersions,
         editing,
         input,
-        summaryOpen,
-        summaryPeriod,
         retryQuerySource,
         restartQuery,
         messages,
@@ -310,17 +250,12 @@ export function useAssistantCloudWorkspace(
         rename,
         archive,
         remove,
-        clear,
         edit,
         send,
         branch,
         continueConversation,
         retry,
         nextPage,
-        version,
-        summary,
-        showMemories,
-        saveMemory,
-        forget
+        version
     };
 }

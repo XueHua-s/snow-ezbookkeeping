@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mdiChartLine, mdiChartDonut, mdiWalletOutline } from '@mdi/js';
 import { computed, shallowRef } from 'vue';
 import AssistantExperienceComposer from './AssistantExperienceComposer.vue';
 import AssistantExperienceMessageList from './AssistantExperienceMessageList.vue';
@@ -61,9 +62,9 @@ const messages = computed(() =>
             <AssistantExperienceMessageList
                 :messages="messages"
                 :examples="[
-                    'Compare this month with last month',
-                    'How much did I spend on dining?',
-                    'Show my account balances'
+                    { text: 'Compare this month with last month', icon: mdiChartLine },
+                    { text: 'How much did I spend on dining?', icon: mdiChartDonut },
+                    { text: 'Show my account balances', icon: mdiWalletOutline }
                 ]"
                 @example="draft = $event"
                 @retry="lastAction = 'Retry requested'"

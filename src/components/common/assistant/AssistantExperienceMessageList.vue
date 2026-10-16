@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useTemplateRef, watch, nextTick } from 'vue';
-import { mdiArrowDown, mdiArrowTopRight, mdiChartLine, mdiChartDonut, mdiWalletOutline, mdiAutoFix } from '@mdi/js';
+import { mdiArrowDown, mdiArrowTopRight, mdiAutoFix } from '@mdi/js';
 import { useI18n } from '@/locales/helpers.ts';
 import type { AssistantMessageDTO, AssistantRunSnapshot } from '@/models/ai_assistant_conversation.ts';
 import {
@@ -19,7 +19,7 @@ const props = defineProps<{
     olderError?: string;
     anchor?: AssistantReadingAnchor;
     busy?: boolean;
-    examples?: readonly string[];
+    examples?: readonly { readonly text: string; readonly icon: string }[];
 }>();
 const emit = defineEmits<{
     loadOlder: [];
@@ -81,13 +81,13 @@ defineExpose({
                     <p class="welcome-intro">{{ tt('Understand your spending, explore your balances, and plan what comes next.') }}</p>
                     <div class="examples">
                         <button
-                            v-for="(example, index) in examples"
-                            :key="example"
+                            v-for="example in examples"
+                            :key="example.text"
                             type="button"
-                            @click="emit('example', example)"
+                            @click="emit('example', example.text)"
                         >
-                            <span class="example-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path :d="[mdiChartLine, mdiChartDonut, mdiWalletOutline, mdiAutoFix][index % 4]" /></svg></span>
-                            <span>{{ example }}</span>
+                            <span class="example-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path :d="example.icon" /></svg></span>
+                            <span>{{ example.text }}</span>
                             <svg class="example-arrow" viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiArrowTopRight" /></svg>
                         </button>
                     </div>

@@ -133,6 +133,6 @@ barrier 使用 once-safe cleanup 释放和有界等待。`all-data` 子例验证
 
 AI integration技能明确写的是 **“Real-model smoke is opt-in with a dedicated isolated deployment/test user”**。未提供专用真实商业主备模型配置时，不擅读私人凭据、不执行该opt-in smoke；因此它不作为本地适用技能门的假失败，也绝不登记为PASS。
 
-另一方面，`AI_ASSISTANT_EXPERIENCE_PLAN.md` 的T13、R16–R18/R32及§13.2明确要求真实模型与独立账本oracle、主备服务和成本/延迟证据，并要求供应商不可用时保留发布阻断。真实财务/长对话压缩/记忆质量及主备商业模型测试仍 **NOT RUN，计划发布验收阻断保留**；本地10/10不能代替这些要求。真实fixture HTTP关闭证据也不能证明商业供应商的取消、质量或计费行为。
+另一方面，[体验验收记录](../ai-assistant-experience-verification.md) 的真实模型验收门槛要求真实模型与独立账本oracle、主备服务和成本/延迟证据，并要求供应商不可用时保留发布阻断。真实财务/长对话压缩/记忆质量及主备商业模型测试仍 **NOT RUN，发布验收阻断保留**；本地10/10不能代替这些要求。真实fixture HTTP关闭证据也不能证明商业供应商的取消、质量或计费行为。
 
 实际bfcache恢复、物理手机键盘、人工screen reader、其它浏览器/amd64、stock Dockerfile及Node26阶段仍按Gate16–18标为NOT RUN。当前验证镜像是已记录的Go/Alpine验证环境，不冒充stock发布镜像。它们属于尚未关闭的跨门/发布验收边界，不由本次仅文档闭环悄然豁免。

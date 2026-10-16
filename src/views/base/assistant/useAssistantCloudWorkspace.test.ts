@@ -35,20 +35,11 @@ describe('shared cloud product commands', () => {
         const ui = workspace(); await ui.nextPage(message);
         expect(mocks.store['send']).toHaveBeenCalledWith(expect.objectContaining({ mode: 'next_page', sourceMessageId: 'answer' }));
     });
-    it('requires confirmation for clear and delete', async () => {
+    it('requires confirmation for deletion', async () => {
         const confirm = vi.fn().mockResolvedValue(false); const ui = workspace(confirm);
-        await ui.clear(); await ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
-        expect(mocks.store['execute']).not.toHaveBeenCalled(); confirm.mockResolvedValue(true); await ui.clear();
-        expect(mocks.store['execute']).toHaveBeenCalledWith('clear', {});
-    });
-    it('distinguishes memory add/correct/confirm and includes server epoch', async () => {
-        const ui = workspace(); await ui.saveMemory(undefined, 'Budget preference');
-        expect(mocks.store['execute']).toHaveBeenCalledWith('saveMemory', expect.objectContaining({ intent: 'add', expectedMemoryUseEpoch: 4, text: 'Budget preference' }));
-    });
-    it('summary confirms its period without treating unsent draft as a filter', async () => {
-        const ui = workspace(); ui.summaryPeriod.value = '2026-01-01 to 2026-01-31'; await ui.summary();
-        expect(mocks.store['send']).toHaveBeenCalledWith({ mode: 'summary', content: 'Generate AI Summary: 2026-01-01 to 2026-01-31' });
-        expect(mocks.store['draft']).toBe('Untouched draft');
+        await ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
+        expect(mocks.store['execute']).not.toHaveBeenCalled(); confirm.mockResolvedValue(true); await ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
+        expect(mocks.store['execute']).toHaveBeenCalledWith('delete', { id: 'c', expectedMetadataVersion: 7 });
     });
     it('treats the end of a historical window as a branch, not the end of the server conversation', async () => {
         vi.mocked(mocks.store['isLatestMessage'] as () => boolean).mockReturnValue(false);
@@ -70,13 +61,13 @@ describe('shared cloud product commands', () => {
 });
 
 describe('workspace operation scope', () => {
-    it.each(['clear', 'remove', 'forget', 'nextPage'] as const)('ignores %s confirmation after owner changes', async command => {
+    it.each(['remove', 'nextPage'] as const)('ignores %s confirmation after owner changes', async command => {
         let decide!: (accepted: boolean) => void;
         const ui = workspace(() => new Promise(resolve => { decide = resolve; }));
         vi.mocked(mocks.store['isLatestMessage'] as () => boolean).mockReturnValue(false);
-        const pending = command === 'clear' ? ui.clear() : command === 'remove'
+        const pending = command === 'remove'
             ? ui.remove({ id: 'old', metadataVersion: 1 } as AssistantConversationDTO)
-            : command === 'forget' ? ui.forget() : ui.nextPage(message);
+            : ui.nextPage(message);
         (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = 'owner-b';
         decide(true);
         await pending;
@@ -119,10 +110,11 @@ describe('workspace invalidation boundaries', () => {
         await pending;
         expect(mocks.store['removeDraft']).not.toHaveBeenCalled();
     });
-    it('does not let a confirmed clear use the next deletion epoch', async () => {
+
+    it('does not let a confirmed deletion use the next deletion epoch', async () => {
         let decide!: (value: boolean) => void;
         const ui = workspace(() => new Promise(resolve => { decide = resolve; }));
-        const pending = ui.clear();
+        const pending = ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
         (mocks.store['capabilities'] as { deletionEpoch: number }).deletionEpoch++;
         decide(true);
         await pending;
@@ -132,20 +124,16 @@ describe('workspace invalidation boundaries', () => {
         const route = shallowRef('one');
         const ui = workspace(undefined, () => route.value);
         ui.historyOpen.value = true;
-        ui.memoryOpen.value = true;
         ui.query.value = 'Private query';
         ui.includeVersions.value = true;
-        ui.summaryPeriod.value = 'Private period';
         ui.edit(message);
         route.value = 'two';
         expect(ui.editing.value).toBeUndefined();
         expect(ui.query.value).toBe('Private query');
         (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = 'new-owner';
         expect(ui.historyOpen.value).toBe(false);
-        expect(ui.memoryOpen.value).toBe(false);
         expect(ui.query.value).toBe('');
         expect(ui.includeVersions.value).toBe(false);
-        expect(ui.summaryPeriod.value).toBe('This month');
     });
     it('does not let old same-scope completion clear working while another action remains', async () => {
         const ui = workspace();
@@ -162,7 +150,7 @@ describe('workspace invalidation boundaries', () => {
 it('rechecks authority at the command boundary after the confirmation microtask', async () => {
     let decide!: (value: boolean) => void;
     const ui = workspace(() => new Promise(resolve => { decide = resolve; }));
-    const pending = ui.clear();
+    const pending = ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
     decide(true);
     queueMicrotask(() => { (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = 'b'; });
     await pending;

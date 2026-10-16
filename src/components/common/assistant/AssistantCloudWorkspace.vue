@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mdiChartLine, mdiChartDonut, mdiWalletOutline, mdiAutoFix } from '@mdi/js';
 import { computed, watch, useTemplateRef, nextTick } from 'vue';
 import AssistantConfirmationDialog from './AssistantConfirmationDialog.vue';
 import { useAssistantWorkspacePanels } from '@/views/base/assistant/useAssistantWorkspacePanels.ts';
@@ -240,10 +241,10 @@ function fallbackFocus() {
                 :busy="store.busy"
                 :anchor="anchor"
                 :examples="[
-                    tt('Compare this month with last month'),
-                    tt('How much did I spend on dining?'),
-                    tt('Show my account balances'),
-                    tt('Help me find ways to save')
+                    { text: tt('Compare this month with last month'), icon: mdiChartLine },
+                    { text: tt('How much did I spend on dining?'), icon: mdiChartDonut },
+                    { text: tt('Show my account balances'), icon: mdiWalletOutline },
+                    { text: tt('Help me find ways to save'), icon: mdiAutoFix }
                 ]"
                 @example="store.setDraft"
                 @load-older="loadOlder"
