@@ -123,7 +123,7 @@ export async function readAssistantStream(body: ReadableStream<Uint8Array>, call
             terminal = envelope.success === false ? envelope : chunk;
             return;
         }
-        if (!['status', 'thinking_delta', 'reply_delta', 'references'].includes(chunk.type)) {
+        if (!['status', 'thinking_delta', 'reply_delta', 'reply_reset', 'references'].includes(chunk.type)) {
             return; // Future nonterminal events do not change completion semantics.
         }
         if (terminalSeen) {
@@ -134,6 +134,9 @@ export async function readAssistantStream(body: ReadableStream<Uint8Array>, call
                 throw protocolError();
             }
             callbacks?.onStatus?.(chunk.status);
+        } else if (chunk.type === 'reply_reset') {
+            hasReply = false;
+            callbacks?.onReplyReset?.();
         } else if (chunk.type === 'references') {
             if (!validReferences(chunk.references)) {
                 throw protocolError();

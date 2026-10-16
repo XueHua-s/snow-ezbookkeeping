@@ -98,7 +98,7 @@ func (p *assistantToolProvider) RunToolTurn(c core.Context, uid int64, input dat
 		if p.responses {
 			turn, outputs, err = readResponsesToolStream(resp.Body, emit)
 		} else {
-			turn, err = readChatToolStream(resp.Body)
+			turn, err = readChatToolStream(resp.Body, emit)
 		}
 	} else {
 		var b []byte
@@ -223,7 +223,7 @@ func (p *assistantToolProvider) toolRequestBody(input data.ToolTurnInput, displa
 			tools = append(tools, map[string]any{"type": "function", "function": fn})
 		}
 	}
-	body := map[string]any{"model": p.model, "tools": tools, "stream": p.stream || (p.responses && display)}
+	body := map[string]any{"model": p.model, "tools": tools, "stream": p.stream || display}
 	if input.MaxOutputTokens > 0 {
 		if p.responses {
 			body["max_output_tokens"] = input.MaxOutputTokens

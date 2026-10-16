@@ -25,6 +25,7 @@ export interface AIAssistantRequestError {
 export interface AIAssistantChatStreamCallbacks {
     readonly onStatus?: (status: AIAssistantStatus) => void;
     readonly onThinkingDelta?: (delta: string) => void;
+    readonly onReplyReset?: () => void;
     readonly onReplyDelta?: (delta: string) => void;
     readonly onReferences?: (references: AIAssistantChatResponse['references']) => void;
     readonly onDone?: (chunk: AIAssistantChatStreamChunk) => void;

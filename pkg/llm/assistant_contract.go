@@ -48,6 +48,7 @@ const (
 	AssistantEventStatus        AssistantEventType = "status"
 	AssistantEventThinkingDelta AssistantEventType = "thinking_delta"
 	AssistantEventReplyDelta    AssistantEventType = "reply_delta"
+	AssistantEventReplyReset    AssistantEventType = "reply_reset"
 	AssistantEventReferences    AssistantEventType = "references"
 )
 

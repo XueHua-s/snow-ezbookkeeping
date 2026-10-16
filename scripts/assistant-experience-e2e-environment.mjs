@@ -52,6 +52,21 @@ export async function environment(options = {}) {
         }
         const lastUser = request.messages?.findLastIndex(message => message.role === 'user') ?? -1;
         const toolResult = request.messages?.slice(lastUser + 1).some(message => message.role === 'tool');
+        if (toolResult && options.streamAnswer) {
+            if (request.stream !== true) { res.writeHead(400); res.end('Streaming must be requested'); return; }
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            const frame = (content, finish = null) => `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: finish }] })}\n\n`;
+            res.write(frame('Live verified answer: '));
+            res.write(frame('CNY 123.45.'));
+            options.onAnswerStarted?.();
+            await options.beforeAnswerCompleted?.();
+            if (!res.destroyed) {
+                res.write(frame(' Completed after the held upstream response.', 'stop'));
+                res.end('data: [DONE]\n\n');
+            }
+            return;
+        }
         const message = toolResult ? { role: 'assistant', content: options.answerContent ?? (continuation?.cursor ? '## Verified next page of isolated ledger' : '## Verified isolated ledger\n\nThe synthetic expense is **CNY 123.45**.\n\n```text\n  preserved indentation\n```') } : {
             role: 'assistant', content: null, tool_calls: [{ id: 'query-1', type: 'function', function: { name: continuation?.tool || 'query_transactions', arguments: JSON.stringify(continuation?.cursor ? { cursor: continuation.cursor, page_size: options.queryPageSize ?? 10 } : { filter: { types: ['expense'] }, page_size: options.queryPageSize ?? 10 }) } }]
         };

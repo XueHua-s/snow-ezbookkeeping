@@ -41,7 +41,7 @@ openai_model_id = your-tool-capable-model
 request_timeout = 180000
 ```
 
-浏览器 JSON 与 SSE 使用同一执行器，上游协议由 provider 配置选择：`llm_provider = openai` 使用 Chat Completions，`chat_completions_stream = true` 强制使用流式 Chat Completions；`llm_provider = openai_responses_compatible` 使用 Responses。Responses 配置填写 `openai_compatible_base_url`、`openai_compatible_api_key` 和 `openai_compatible_model_id`，对应密钥文件变量为 `EBKCFP_LLM_ASSISTANT_OPENAI_COMPATIBLE_API_KEY`（备用段同理）。主备模型均须支持其配置协议的完整工具调用和可靠结束标志；其他不具备工具能力的 provider 会明确失败。
+浏览器 JSON 与 SSE 使用同一执行器，上游协议由 provider 配置选择：`llm_provider = openai` 使用 Chat Completions，交互式助手生成在存在事件接收端时自动请求流式正文；`chat_completions_stream = true` 还可强制其他 Chat Completions 调用使用流式传输；`llm_provider = openai_responses_compatible` 使用 Responses。Responses 配置填写 `openai_compatible_base_url`、`openai_compatible_api_key` 和 `openai_compatible_model_id`，对应密钥文件变量为 `EBKCFP_LLM_ASSISTANT_OPENAI_COMPATIBLE_API_KEY`（备用段同理）。主备模型均须支持其配置协议的完整工具调用和可靠结束标志；其他不具备工具能力的 provider 会明确失败。
 
 模型工具轮完整结束后才执行查询；带工具的轮次正文不作为最终答案。SSE 实时输出状态及允许展示的思考，最终正文可能在完整轮次结束后才出现。一次请求最多切换备用模型一次，已经发送正文或思考后不再切换。识图备用接口只接管识图请求。
 

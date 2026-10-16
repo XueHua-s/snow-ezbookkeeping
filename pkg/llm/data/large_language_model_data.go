@@ -250,10 +250,12 @@ type TurnResponse struct {
 	State         any        `json:"-"`
 }
 
-// DisplayEvent is limited to a provider's explicitly displayable summary.
+// DisplayEvent carries displayable summaries and provisional assistant text.
 // Raw reasoning, private output items and partial tool arguments are forbidden.
 type DisplayEvent struct {
 	ThinkingDelta string
+	ReplyDelta    string
+	ReplyReset    bool
 }
 
 // DisplayEventSink is synchronous; a send failure must stop upstream work.

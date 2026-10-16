@@ -76,6 +76,10 @@ func (s *AssistantRunService) execute(parent context.Context, claimed *models.As
 			}
 			buffer.Lock()
 			defer buffer.Unlock()
+			if event.Type == llm.AssistantEventReplyReset {
+				buffer.content = ""
+				buffer.dirty = true
+			}
 			if event.Type == llm.AssistantEventReplyDelta {
 				if len(buffer.content)+len(event.Delta) > limits.ResponseBytes {
 					remaining := limits.ResponseBytes - len(buffer.content)

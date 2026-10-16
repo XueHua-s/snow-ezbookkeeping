@@ -121,11 +121,13 @@ defineExpose({
                             <span v-if="message.selectedAnswer.state === 'completed'" class="answer-complete">{{ tt('Answer completed') }}</span>
                         </header>
                         <AssistantMarkdownContent
-                            v-if="message.selectedAnswer.content"
+                            v-if="message.selectedAnswer.content || message.selectedAnswer.processSummary"
+                            class="answer-content"
                             :content="message.selectedAnswer.content"
                             :thinking="message.selectedAnswer.processSummary"
                         />
                         <p v-if="message.selectedAnswer.state !== 'completed'" class="run-status" role="status" aria-live="polite">
+                            <span v-if="['queued', 'preparing', 'running', 'cancel_requested'].includes(message.selectedAnswer.state)" class="generation-indicator" aria-hidden="true"><i /><i /><i /></span>
                             {{ tt(assistantStateLabels[message.selectedAnswer.state]) }}
                         </p>
                         <p v-if="message.selectedAnswer.reasonCode" class="run-error" role="alert">
@@ -246,6 +248,10 @@ defineExpose({
     min-width: 0;
 }
 .run-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--assistant-muted);
     font-size: 0.8em;
     margin: 8px 0;
 }
@@ -284,11 +290,17 @@ svg { width: 21px; height: 21px; fill: currentColor; }
 .unread-dot { position: absolute; top: 5px; inset-inline-end: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--assistant-action, #278c62); }
 button:hover:not(:disabled) { background: var(--assistant-tint, #e8f3e9); }
 button:active:not(:disabled) { transform: scale(.98); }
+.generation-indicator { display: inline-flex; align-items: center; gap: 4px; height: 16px; color: var(--assistant-action); }
+.generation-indicator i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: generation-pulse 1.2s ease-in-out infinite; }
+.generation-indicator i:nth-child(2) { animation-delay: 150ms; }
+.generation-indicator i:nth-child(3) { animation-delay: 300ms; }
+.answer-content, .answer-complete { animation: message-fade 180ms ease both; }
+@keyframes generation-pulse { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
 /* Reading anchors measure message geometry while navigation restores the list. */
 .turn { animation: message-fade 220ms ease both; }
 .welcome { animation: message-enter 220ms ease both; }
 @keyframes message-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes message-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 440px) { .welcome { padding: 12px 4px; } .examples { gap: 10px; } .examples button { padding: 14px; } }
-@media (prefers-reduced-motion: reduce) { .turn, .welcome { animation: none; } button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .turn, .welcome, .answer-content, .answer-complete, .generation-indicator i { animation: none; } button { transition: none; } }
 </style>

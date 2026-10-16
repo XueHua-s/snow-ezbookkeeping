@@ -8,6 +8,7 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
 	"github.com/mayswind/ezbookkeeping/pkg/llm/provider"
 	"github.com/mayswind/ezbookkeeping/pkg/settings"
+	"strings"
 	"time"
 )
 
@@ -68,7 +69,7 @@ type assistantRun struct {
 	lastFailure  string
 }
 
-// Run buffers assistant text until a complete tool-free terminal turn. Errors
+// Run streams provisional assistant text, retracting tool-turn preambles. Errors
 // retain confirmed evidence; callers own serialization of the sole terminal event.
 func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink EventSink) (result AssistantRunResult, err error) {
 	defaults := (&settings.Config{}).GetAIAssistantRuntimeConfig()
@@ -153,15 +154,32 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 			return run.result, run.writeFailure()
 		}
 		var display data.DisplayEventSink
+		toolTurn := false
 		if sink != nil {
 			display = func(event data.DisplayEvent) error {
-				if event.ThinkingDelta == "" {
-					return nil
+				if event.ReplyReset {
+					toolTurn = true
+					if err := run.resetReply(); err != nil {
+						return err
+					}
 				}
-				if e := run.emit(AssistantEvent{Type: AssistantEventThinkingDelta, Delta: event.ThinkingDelta}); e != nil {
-					return e
+				if event.ThinkingDelta != "" {
+					if err := run.emit(AssistantEvent{Type: AssistantEventThinkingDelta, Delta: event.ThinkingDelta}); err != nil {
+						return err
+					}
+					run.result.Thinking += event.ThinkingDelta
 				}
-				run.result.Thinking += event.ThinkingDelta
+				if !toolTurn && len(run.unresolved) == 0 && event.ReplyDelta != "" {
+					if run.result.Reply == "" {
+						if err := run.emit(AssistantEvent{Type: AssistantEventStatus, Status: AssistantStatusAnswering}); err != nil {
+							return err
+						}
+					}
+					if err := run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: event.ReplyDelta}); err != nil {
+						return err
+					}
+					run.result.Reply += event.ReplyDelta
+				}
 				return nil
 			}
 		}
@@ -179,8 +197,10 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		if turnErr != nil {
 			if turn.OutputLimited {
 				if len(turn.ToolCalls) == 0 && len(run.unresolved) == 0 && turn.Content != "" {
-					run.result.Reply = turn.Content
-					if e := run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: turn.Content}); e != nil {
+					if e := run.finishReply(turn.Content); e != nil {
+						if run.writeErr == nil {
+							return run.result, run.stop(data.ToolErrorProtocol, AssistantReasonProtocolError)
+						}
 						return run.result, run.writeFailure()
 					}
 				}
@@ -220,15 +240,18 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 					return run.result, run.writeFailure()
 				}
 			}
-			if turn.Content != "" {
-				if err = run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: turn.Content}); err != nil {
+			if err = run.finishReply(turn.Content); err != nil {
+				if run.writeErr != nil {
 					return run.result, run.writeFailure()
 				}
+				return run.result, run.stop(data.ToolErrorProtocol, AssistantReasonProtocolError)
 			}
-			run.result.Reply = turn.Content
 			run.result.State = AssistantStateCompleted
 			run.observation.Reason = AssistantReasonCompleted
 			return run.result, nil
+		}
+		if err = run.resetReply(); err != nil {
+			return run.result, run.writeFailure()
 		}
 		if len(turn.ToolCalls) > AssistantMaxToolCalls-calls {
 			return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonCallBudget)
@@ -343,4 +366,30 @@ func assistantToolRequestFits(p provider.LargeLanguageModelToolProvider, input d
 	}
 	body, e := json.Marshal(input)
 	return e == nil && data.AssistantRequestFits(body, input.MaxInputTokens, input.MaxRequestBytes)
+}
+
+// resetReply retracts provisional tool preambles before any query executes.
+func (run *assistantRun) resetReply() error {
+	if run.result.Reply == "" {
+		return nil
+	}
+	if err := run.emit(AssistantEvent{Type: AssistantEventReplyReset}); err != nil {
+		return err
+	}
+	run.result.Reply = ""
+	return nil
+}
+
+func (run *assistantRun) finishReply(content string) error {
+	if !strings.HasPrefix(content, run.result.Reply) {
+		return assistantRunnerError(data.ToolErrorProtocol)
+	}
+	tail := content[len(run.result.Reply):]
+	if tail != "" {
+		if err := run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: tail}); err != nil {
+			return err
+		}
+	}
+	run.result.Reply = content
+	return nil
 }

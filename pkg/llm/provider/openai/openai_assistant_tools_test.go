@@ -291,7 +291,12 @@ func TestAssistantResponsesStreamAssemblyAndDisplay(t *testing.T) {
 		`{"type":"response.output_item.done","output_index":1,"item":{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"list_accounts","arguments":"{\"keyword\":\"x\"}"}}`,
 	}
 	var displayed []string
-	turn, outputs, err := readResponsesToolStream(strings.NewReader(assistantSSE(append(prefix, completed)...)), func(e data.DisplayEvent) error { displayed = append(displayed, e.ThinkingDelta); return nil })
+	turn, outputs, err := readResponsesToolStream(strings.NewReader(assistantSSE(append(prefix, completed)...)), func(e data.DisplayEvent) error {
+		if e.ThinkingDelta != "" {
+			displayed = append(displayed, e.ThinkingDelta)
+		}
+		return nil
+	})
 	require.NoError(t, err)
 	require.True(t, turn.Completed)
 	require.Len(t, turn.ToolCalls, 1)
