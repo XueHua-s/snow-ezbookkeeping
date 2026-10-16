@@ -148,3 +148,49 @@ func TestAssistantWorkingContextCompactsAllBusinessProjections(t *testing.T) {
 		t.Fatal("original evidence mutated")
 	}
 }
+
+func TestAssistantWorkingCheckpointPreservesExactFactsAndBoundsRecovery(t *testing.T) {
+	result := runnerSuccess("query")
+	result.Data = json.RawMessage(`{"rows":"` + strings.Repeat("x", 1200) + `"}`)
+	result.Comparison = json.RawMessage(`[{"delta":"-0.01"}]`)
+	result.Totals = json.RawMessage(`[{"currency":"CNY","amount":"-123456789.01"},{"currency":"USD","amount":"2000.00"}]`)
+	result.MatchedCount = "9183"
+	result.Warnings = []string{"transfers are logical pairs"}
+	original, _ := json.Marshal(result)
+	input := data.ToolTurnInput{State: "opaque", Messages: []data.ConversationMessage{
+		{Role: data.ConversationRoleSystem, Content: "exact policy"},
+		{Role: data.ConversationRoleUser, Content: "2022 vs 2023; account 42; USD"},
+		{Role: data.ConversationRoleAssistant, Content: strings.Repeat("dated answer", 100)},
+		{Role: data.ConversationRoleUser, Content: "continue"},
+		{Role: data.ConversationRoleAssistant, ToolCalls: []data.ToolCall{runnerCall("a", `{}`)}},
+		{Role: data.ConversationRoleTool, ToolCallID: "a", ToolResult: &result},
+	}}
+	run := &assistantRun{c: runnerContext(), ids: map[string]assistantCallIdentity{"a": {key: [32]byte{1}, result: result}}}
+	rebuilt, changed := run.recoverWorkingContext(input)
+	if !changed || rebuilt.State != nil || len(rebuilt.Messages) != len(input.Messages) {
+		t.Fatal("checkpoint missing")
+	}
+	out := rebuilt.Messages[5].ToolResult
+	if string(out.Totals) != string(result.Totals) || out.Scope != result.Scope || out.QueryID != result.QueryID || out.MatchedCount != "9183" || out.Coverage != result.Coverage || len(out.Warnings) != 1 || string(out.Data) != string(assistantArchivedProjection) || out.Comparison != nil {
+		t.Fatal("checkpoint lost exact facts", out)
+	}
+	for _, i := range []int{0, 1, 3, 4} {
+		if rebuilt.Messages[i].Content != input.Messages[i].Content {
+			t.Fatal("constraint lost")
+		}
+	}
+	after, _ := json.Marshal(result)
+	if string(after) != string(original) {
+		t.Fatal("original evidence mutated")
+	}
+	if _, changed = run.recoverWorkingContext(rebuilt); changed {
+		t.Fatal("idempotent checkpoint consumed generation")
+	}
+	rebuilt.Messages[5].ToolResult = &result
+	if _, changed = run.recoverWorkingContext(rebuilt); !changed {
+		t.Fatal("second generation missing")
+	}
+	if _, changed = run.recoverWorkingContext(input); changed {
+		t.Fatal("unbounded recovery")
+	}
+}

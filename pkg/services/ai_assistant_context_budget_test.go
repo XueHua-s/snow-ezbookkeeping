@@ -249,16 +249,23 @@ func TestAssistantRealMetadataToolResultsFitTokenBudgetOverHTTP(t *testing.T) {
 				if err := json.Unmarshal([]byte(m.Content), &result); err != nil {
 					t.Error(err)
 				}
-				if !result.OK || result.HasMore {
-					t.Error("metadata lost", result)
+				if !result.OK || result.ReturnedCount == 0 || (result.HasMore && (result.NextCursor == "" || result.Coverage != data.QueryCoveragePage)) {
+					t.Error("metadata page lost or pagination hidden", result)
+				}
+				wantMatched := "40"
+				if len(counts) == 1 {
+					wantMatched = "124"
+				}
+				if result.MatchedCount != wantMatched {
+					t.Error("complete metadata count lost", result.MatchedCount)
 				}
 				counts = append(counts, result.ReturnedCount)
 			}
 		}
-		if len(counts) != 2 || counts[0] != 40 || counts[1] != 124 {
-			t.Error("incomplete ledger metadata", counts)
+		if len(counts) != 2 || counts[0] <= 0 || counts[0] > 40 || counts[1] <= 0 || counts[1] > 124 {
+			t.Error("invalid bounded metadata pages", counts)
 		}
-		io.WriteString(w, `{"choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"The complete account and category list is available."}}]}`)
+		io.WriteString(w, `{"choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"Account and category pages are available; more categories can be requested."}}]}`)
 	}))
 	defer server.Close()
 	p := openai.NewOpenAICompatibleLargeLanguageModelProvider(&settings.LLMConfig{OpenAICompatibleBaseURL: server.URL, OpenAICompatibleModelID: "fixture", LargeLanguageModelAPIRequestTimeout: 2000, LargeLanguageModelAPIProxy: "none"}, false).(provider.LargeLanguageModelToolProvider)

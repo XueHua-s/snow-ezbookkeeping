@@ -2209,6 +2209,8 @@
     "Preparing your answer": "正在准备回答",
     "This answer was not completed. Partial text may be unreliable.": "本次回答未完成，已显示的部分内容可能不可靠。",
     "Query Evidence": "查询依据",
+    "Displayed details cover this page only.": "展示的明细仅包含本页记录。",
+    "More matching records are available.": "还有符合条件的记录未展示。",
     "All matching records": "完整匹配范围",
     "Current page only": "仅当前页",
     "End time excluded": "不包含结束时间",

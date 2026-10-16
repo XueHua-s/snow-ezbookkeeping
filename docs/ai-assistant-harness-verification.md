@@ -1,6 +1,6 @@
 # AI assistant harness verification
 
-Coverage boundary: this report certifies the earlier stateless read-only harness only. It does not certify the cloud conversations, durable runs, long-term memory, browser synchronization or persistent workspace lifecycle changes. See the [experience verification report](ai-assistant-experience-verification.md) for current R01–R40 evidence and remaining gates.
+Coverage boundary: the initial sections record the earlier stateless read-only harness. Later dated additions record their stated persistent-assistant changes and supersede the historical release status below. See the [experience verification report](ai-assistant-experience-verification.md) for R01–R40 evidence and remaining gates.
 
 Evidence date: 2026-10-14–15 (Asia/Shanghai). Base commit: `77c00d1cca0ff268d221566fc1339d62624cc9b9`, with the authorized harness implementation. This records executed checks; it is not production release approval.
 
@@ -10,7 +10,7 @@ Evidence date: 2026-10-14–15 (Asia/Shanghai). Base commit: `77c00d1cca0ff268d2
 | Environment verification | Real SQLite/MySQL/PostgreSQL contracts and 100K measurements passed. Actual desktop/mobile routes passed with a local protocol stub, including the isolated Docker Linux application and real API/tool/database chain. Actual SQLite old-binary/config rollback passed. Real primary/fallback model financial validation remains **pending**. |
 | Releasable | **No.** Missing real-provider credentials, dedicated deployment/user and seven-question independent oracle review cannot be treated as passed. The user authorized committing, pushing and opening a draft PR against this repository’s main. Production deployment is not authorized or performed. |
 
-The [final implementation audit](../.specs/analysis/harness-final-implementation-review.md) maps all 14 steps and CK-1–20 / HR-1–3 to implementation and evidence. The [Docker verification supplement](ai-assistant-harness-docker-verification.md) records the isolated Linux application smoke and browser E2E.
+The [Docker verification supplement](ai-assistant-harness-docker-verification.md) records the isolated Linux application smoke and browser E2E.
 
 ## Reproducible environment and source protection
 
@@ -240,3 +240,21 @@ Validation: `go test ./pkg/api ./pkg/services -count=1` and `go vet ./...` passe
 新增 `scripts/assistant-context-e2e.mjs`：真实 SQLite、HTTP adapter、桌面/手机，50 分类×跨年月份比较与第二个总额工具同批调用，核对完整范围精确金额和分页标记。使用合成账本和确定性模型协议，不代表商业模型工具规划质量验收。空正文失败不再误报“已显示部分内容不可靠”，同会话问题与重试入口保留。
 
 本轮执行：`BUILD_PIPELINE=1 go test ./...`、`go vet ./...`、`npm run lint` 通过；前端 47 文件 / 38,924 单测、10 文件 / 75 浏览器测试通过；双端原有 40 场景、流式 4 场景、大聚合 2 场景通过。新增后端真实 SQLite 9,183 笔交易测试包含大聚合、后续精确总额查询、一次明确上游拒绝及有界恢复；相关 race 检查通过。真实模型授权尚未确认，因此未进行供应商推理调用，也未重放用户的生产对话。
+
+## 2026-10-16 多轮查询工作集与失败意图续接
+
+后续生产案例暴露了上一轮验证的边界：两段较长历史回答之后，总额、同期、分类、月份与明细查询会连续增加工作上下文。查询本身可以成功，但下一工具的结果页无法再进入模型输入，最终以 `tool_result/context_budget` 停止。此前单次大聚合回归并不能覆盖这条路径。
+
+本次将单页工作集预算改为总输入额度的最多八分之一，并先保留完整汇总与查询元数据，再分配可分页的 Data/Comparison；准备阶段在历史达到约一半预算时开始现有的有界摘要。工具轮最多执行两次确定性 checkpoint 整理：所有 system/user 消息、调用/结果配对、完整 Totals、MatchedCount、Scope、Periods、Coverage、Warnings 和 QueryID 保留。旧 Data/Comparison/References 标记为已归档、当前不可引用；模型需要时可重读原七工具。原执行缓存、账本与展示证据不变，不使用模型自由摘要替代工具中的精确金额。重建后清空 opaque provider state；同一归档结果最多获得一次额外缓存重读机会，原轮数、查询期限与取消约束继续生效。最终不能恢复的请求仍保留明确失败状态。
+
+历史续接同时修复了“继续查询”丢失未完成问题的缺口：失败回答不能成为事实，但原用户问题会按时间顺序保留为 question-only turn，并进入同一历史摘要/`SummaryThrough` 管理，避免积累在较新摘要后覆盖用户的新更正。无需修改数据库结构或迁移账本。
+
+新增合成回归经过 Prepare、真实 SQLite 查询和实际 HTTP 序列化：两段长历史后执行总体、同期、分类、月份、分类元数据、交易明细六个工具轮，再输出结果；逐轮检查输入预算、完整范围金额、负退款、独立币种以及逻辑转账。同一测试复制到独立的修复前 HEAD 源码后，在第五轮稳定触发 `tool_result/context_budget`；修复后普通路径与一次明确上游上下文拒绝路径均完成。另有并行 call/result 配对、原缓存重读、证据去重、循环上限、取消以及未完成问题摘要的回归。
+
+展示层移除技术性的“查询依据”展开区，保留真实账单引用、去重后的数据警告和分页范围提示；发送命令捕获用户语言与时区。提示词要求用用户可读的日期说明必要比较范围，默认不输出内部工具名、queried_at 或 RFC3339 查询时间；内部精确范围与证据不变。
+
+验证仍使用合成账本和确定性 HTTP 模型协议，未调用真实供应商模型、未重放用户账本。不能据此声称商业模型对任意问题的工具规划都已验证。
+
+本轮验证：`BUILD_PIPELINE=1 go test ./...`、`go vet ./...` 通过；新增精确金额独立算术断言定向回归通过；LLM/服务层工作集、runner、摘要与未完成意图相关 race 回归通过。前端 lint、生产构建、38,927 项单测通过；浏览器全套 11 文件 / 78 项通过。生产模式双端体验 E2E 为 43 PASS、2 NOT RUN：Chromium 桌面和手机没有进入 bfcache，因此这两项不计通过，普通历史恢复通过。另行执行的双端上下文 E2E 2 场景与流式 E2E 4 场景通过。执行记录保存在本地测试 artifacts；审查与生产部署结果由后续独立复审记录补充。
+
+独立复审完成：前端末页范围提示遗漏已修复并再次通过；后端与最终交叉审查未发现新的阻断项，复审独立运行工作集恢复、失败意图与六轮 HTTP 回归通过。发布脚本同步补齐手动回滚前的后台助手任务排空检查；发布/回滚只切换代码，使用当前数据库的新备份，不恢复旧账本。

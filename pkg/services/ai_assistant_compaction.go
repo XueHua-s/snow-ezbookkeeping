@@ -29,7 +29,7 @@ func (s *AssistantContextService) compact(ctx core.Context, run *models.Assistan
 	if seed {
 		covered = snap.Frozen
 	} else {
-		for _, t := range snap.Turns {
+		for _, t := range assistantContextTurns(snap.Turns, snap.Unresolved) {
 			if t.Question.TurnSequence > snap.Conversation.SummaryThrough {
 				covered = append(covered, t)
 			}
@@ -136,7 +136,10 @@ func (s *AssistantContextService) compact(ctx core.Context, run *models.Assistan
 		}
 	}
 	for _, t := range covered {
-		summary.SourceMessageIds = append(summary.SourceMessageIds, assistantConversationID(t.Question.Id), assistantConversationID(t.Answer.Id))
+		summary.SourceMessageIds = append(summary.SourceMessageIds, assistantConversationID(t.Question.Id))
+		if t.Answer != nil {
+			summary.SourceMessageIds = append(summary.SourceMessageIds, assistantConversationID(t.Answer.Id))
+		}
 		if !seed {
 			summary.CoveredThrough = t.Question.TurnSequence
 		}

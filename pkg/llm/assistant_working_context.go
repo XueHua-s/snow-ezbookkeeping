@@ -111,8 +111,8 @@ func assistantTabularValue(value any) any {
 	}
 }
 
-// Each pending call receives a share of remaining context, so the first large
-// page cannot starve later tools. Keep a quarter for a later model/tool round.
+// A page gets at most one eighth of the total input budget. This stable share
+// leaves room for multi-step analysis instead of consuming most remaining space.
 // Search the budget, never the result length:
 // serialized BPE counts are not monotonic in the number of returned records.
 func assistantAllocateToolContext(p provider.LargeLanguageModelToolProvider, input data.ToolTurnInput, remaining int) data.ToolTurnInput {
@@ -136,7 +136,7 @@ func assistantAllocateToolContext(p provider.LargeLanguageModelToolProvider, inp
 				low = middle + 1
 			}
 		}
-		input.MaxInputTokens = low + (limit-low)*3/(4*remaining)
+		input.MaxInputTokens = low + min(limit/8, (limit-low)/(2*remaining))
 	}
 	if input.MaxRequestBytes > 0 {
 		limit := input.MaxRequestBytes
@@ -151,7 +151,7 @@ func assistantAllocateToolContext(p provider.LargeLanguageModelToolProvider, inp
 				low = middle + 1
 			}
 		}
-		input.MaxRequestBytes = low + (limit-low)*3/(4*remaining)
+		input.MaxRequestBytes = low + min(limit/8, (limit-low)/(2*remaining))
 	}
 	return input
 }

@@ -4,6 +4,8 @@ import type { AssistantLocalPending } from '@/lib/assistant_local_storage.ts';
 import type * as DTO from '@/models/ai_assistant_conversation.ts';
 import { result, statusCode, isCommandRejection, type WriteAction, type WriteInput } from './types.ts';
 import { prepareAssistantDataClear } from './dataClear.ts';
+import { getSessionCurrentLanguageKey, getTimeZone } from '@/lib/settings.ts';
+import { getBrowserTimezoneName } from '@/lib/datetime.ts';
 import type { AssistantSession } from './session.ts';
 import type { AssistantConversation } from './conversation.ts';
 import type { useAssistantHistory } from './history.ts';
@@ -353,8 +355,10 @@ export function useAssistantCommands(
                 content,
                 sourceMessageId: options.sourceMessageId,
                 restartQuery: options.restartQuery,
-                locale: options.locale,
-                timezone: options.timezone,
+                // Capture the user's date context in the persisted command, so a
+                // delivery retry cannot silently change its calendar boundaries.
+                locale: options.locale || getSessionCurrentLanguageKey() || 'en',
+                timezone: options.timezone || getTimeZone().trim() || getBrowserTimezoneName(),
             });
         } finally {
             if (valid()) submitting.value = false;

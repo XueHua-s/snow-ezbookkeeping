@@ -103,7 +103,7 @@ func (s *AssistantContextService) Prepare(ctx core.Context, run *models.Assistan
 		}
 		history = append(history, assistantContextMessages(snap.Frozen)...)
 		var recent []assistantContextTurn
-		for _, t := range snap.Turns {
+		for _, t := range assistantContextTurns(snap.Turns, snap.Unresolved) {
 			if t.Question.TurnSequence > snap.Conversation.SummaryThrough {
 				recent = append(recent, t)
 			}
@@ -133,7 +133,7 @@ func (s *AssistantContextService) Prepare(ctx core.Context, run *models.Assistan
 		if err != nil {
 			return nil, err
 		}
-		if len(snap.Frozen) == 0 && data.AssistantRequestFits(raw, budget*3/4, requestBytes*3/4) {
+		if len(snap.Frozen) == 0 && data.AssistantRequestFits(raw, budget/2, requestBytes/2) {
 			break
 		}
 		changed, used, err := s.compact(ctx, run, snap, primary, budget)

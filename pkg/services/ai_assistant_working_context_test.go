@@ -78,7 +78,7 @@ func TestAssistantCrossYearWorkingContextOverHTTP(t *testing.T) {
 			if result.HasMore && (result.NextCursor == "" || result.Coverage != data.QueryCoveragePage) {
 				t.Error("truncated groups presented as complete")
 			}
-			if result.ReturnedCount > 2 && !strings.Contains(string(result.Data), "column_rows") {
+			if result.ReturnedCount > 2 && !strings.Contains(string(result.Data), "column_rows") && !strings.Contains(string(result.Data), "archived_checkpoint") {
 				t.Error("redundant records were not compacted")
 			}
 		}

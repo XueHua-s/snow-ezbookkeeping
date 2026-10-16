@@ -5,9 +5,15 @@ import type { AssistantLocalSnapshot, AssistantLocalPending } from '@/lib/assist
 import { useAssistantStore } from '../assistant.ts';
 
 const mocks = vi.hoisted(() => ({ api: Object.fromEntries(['capabilities', 'command', 'list', 'search', 'get', 'state', 'update', 'delete', 'clear', 'branch', 'send', 'retry', 'message', 'versions', 'selectVersion', 'run', 'cancel', 'memories', 'saveMemory', 'deleteMemory', 'memorySettings', 'subscribe'].map(key => [key, vi.fn()])), save: vi.fn(), local: vi.fn(), transaction: vi.fn() }));
+const preferences = vi.hoisted(() => ({ language: vi.fn(), timezone: vi.fn() }));
 vi.mock('@/lib/services/assistant_conversations.ts', () => ({ assistantConversationServices: mocks.api }));
 vi.mock('@/lib/services/transactions.ts', () => ({ transactionsServices: { getTransaction: mocks.transaction } }));
 vi.mock('@/lib/assistant_local_storage.ts', () => ({ createAssistantLocalStorage: mocks.local }));
+vi.mock('@/lib/settings.ts', async importOriginal => ({
+    ...await importOriginal<typeof import('@/lib/settings.ts')>(),
+    getSessionCurrentLanguageKey: preferences.language,
+    getTimeZone: preferences.timezone
+}));
 export const response = (value: unknown) => ({ data: { success: true, result: value } });
 export const capability = (overrides = {}) => ({ ownerScope: 'A', deletionEpoch: 1, generationAvailable: true, historyAvailable: true,
     limits: { inputCharacters: 4000, inputBytes: 16384 }, ...overrides }) as AssistantCapabilities;
@@ -19,6 +25,8 @@ export function deferred<T>() { let resolve!: (value: T) => void; let reject!: (
 export let local: AssistantLocalSnapshot;
 export let store: ReturnType<typeof useAssistantStore>;
 beforeEach(() => {
+    preferences.language.mockReturnValue('zh_Hans');
+    preferences.timezone.mockReturnValue('Asia/Shanghai');
     vi.stubGlobal('document', { hidden: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
     vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
     vi.stubGlobal('navigator', { onLine: true });
@@ -51,4 +59,4 @@ afterEach(() => { store.$dispose(); vi.unstubAllGlobals(); vi.useRealTimers(); }
 
 export function setLocal(value: AssistantLocalSnapshot) { local = value; }
 
-export { mocks };
+export { mocks, preferences };

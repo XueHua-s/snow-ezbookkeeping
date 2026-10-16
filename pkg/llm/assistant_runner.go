@@ -51,22 +51,25 @@ type assistantCallIdentity struct {
 }
 
 type assistantRun struct {
-	runner       *AssistantRunner
-	input        AssistantRunInput
-	result       AssistantRunResult
-	observation  AssistantObservation
-	started      time.Time
-	c            core.Context
-	cancel       context.CancelFunc
-	sink         EventSink
-	writeErr     error
-	visible      bool
-	cache        map[[32]byte]*assistantCachedResult
-	ids          map[string]assistantCallIdentity
-	unresolved   map[data.ToolName]*data.ToolError
-	queryIDs     map[string]bool
-	referenceIDs map[string]bool
-	lastFailure  string
+	runner            *AssistantRunner
+	input             AssistantRunInput
+	result            AssistantRunResult
+	observation       AssistantObservation
+	started           time.Time
+	c                 core.Context
+	cancel            context.CancelFunc
+	sink              EventSink
+	writeErr          error
+	visible           bool
+	cache             map[[32]byte]*assistantCachedResult
+	ids               map[string]assistantCallIdentity
+	unresolved        map[data.ToolName]*data.ToolError
+	queryIDs          map[string]bool
+	referenceIDs      map[string]bool
+	lastFailure       string
+	workingRecoveries int
+	archivedResults   map[[32]byte]bool
+	recoveredReads    map[[32]byte]bool
 }
 
 // Run streams provisional assistant text, retracting tool-turn preambles. Errors
@@ -149,6 +152,9 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 				return run.result, run.stop(assistantErrorCode(preflightErr), assistantReason(assistantErrorCode(preflightErr)))
 			}
 			turnInput = compactAssistantWorkingContext(turnInput)
+			if !assistantToolRequestFits(current, turnInput) {
+				turnInput, _ = run.recoverWorkingContext(turnInput)
+			}
 			if preflightErr = assistantToolRequestError(current, turnInput); preflightErr != nil {
 				if assistantErrorCode(preflightErr) == data.ToolErrorBudgetExhausted {
 					run.observation.ContextFailureSource = "local_input"
@@ -230,6 +236,9 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 				run.observation.ContextFailureSource = "upstream_input"
 				input.MaxOutputTokens = max(1, input.MaxOutputTokens/2)
 				working := compactAssistantWorkingContext(turnInput)
+				if recovered, changed := run.recoverWorkingContext(working); changed {
+					working = recovered
+				}
 				messages, state = working.Messages, nil
 				continue
 			}
@@ -292,47 +301,15 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		calls += len(turn.ToolCalls)
 		// Preserve this exact assistant prefix for same-adapter opaque state replay.
 		messages = append(messages, data.ConversationMessage{Role: data.ConversationRoleAssistant, Content: turn.Content, ToolCalls: turn.ToolCalls})
-		for i, call := range turn.ToolCalls {
-			if err = run.contextError(); err != nil {
-				return run.result, err
-			}
-			allocation := data.ToolTurnInput{Messages: append([]data.ConversationMessage(nil), messages...), Tools: definitions, State: turn.State, MaxRequestBytes: requestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
-			for _, pending := range turn.ToolCalls[i:] {
-				placeholder := data.ToolResult{Error: &data.ToolError{Code: data.ToolErrorBudgetExhausted, Message: "Reserved pending result"}}
-				allocation.Messages = append(allocation.Messages, data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: pending.ID, ToolResult: &placeholder})
-			}
-			allocation = assistantAllocateToolContext(current, allocation, len(turn.ToolCalls)-i)
-			var fits func(data.ToolResult) bool
-			if input.MaxInputTokens > 0 || input.MaxRequestBytes > 0 {
-				fits = func(result data.ToolResult) bool {
-					candidate := append(append([]data.ConversationMessage(nil), messages...), data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: call.ID, ToolResult: &result})
-					// Supply bounded placeholders for the other calls in this same assistant
-					// turn so protocol validation sees a complete call/result chain.
-					for _, pending := range turn.ToolCalls[i+1:] {
-						placeholder := data.ToolResult{OK: false, Error: &data.ToolError{Code: data.ToolErrorBudgetExhausted, Message: "Reserved pending result"}}
-						candidate = append(candidate, data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: pending.ID, ToolResult: &placeholder})
-					}
-					next := data.ToolTurnInput{Messages: candidate, Tools: definitions, State: turn.State, MaxRequestBytes: allocation.MaxRequestBytes, MaxInputTokens: allocation.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
-					next = compactAssistantWorkingContext(next)
-					if !assistantToolRequestFits(current, next) {
-						return false
-					}
-					if !switched && r.fallback != nil {
-						next.State = nil
-						if !assistantToolRequestFits(r.fallback, next) {
-							return false
-						}
-					}
-					return true
-				}
-			}
-			result, executionErr := run.execute(call, keys[i], allowed[call.Name], fits)
-			if executionErr != nil {
-				return run.result, executionErr
-			}
-			messages = append(messages, data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: call.ID, ToolResult: &result})
+		turnInput.Messages, turnInput.State = messages, turn.State
+		messages, err = run.executeTurnTools(current, switched, turn, turnInput, allowed, keys)
+		if err != nil {
+			return run.result, err
 		}
 		state = turn.State
+		if run.workingRecoveries > 0 {
+			state = nil
+		}
 		working := compactAssistantWorkingContext(data.ToolTurnInput{Messages: messages, State: state})
 		messages, state = working.Messages, working.State
 	}
