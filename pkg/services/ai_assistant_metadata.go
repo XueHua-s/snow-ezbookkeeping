@@ -27,11 +27,13 @@ type assistantAccountMetadata struct {
 	Hidden   bool                   `json:"hidden"`
 }
 type assistantCategoryMetadata struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	ParentID string `json:"parent_id"`
-	Type     string `json:"type"`
-	Hidden   bool   `json:"hidden"`
+	ID                      string `json:"id"`
+	Name                    string `json:"name"`
+	ParentID                string `json:"parent_id"`
+	Type                    string `json:"type"`
+	Hidden                  bool   `json:"hidden"`
+	DirectTransactionCount  string `json:"direct_transaction_count"`
+	SubtreeTransactionCount string `json:"subtree_transaction_count"`
 }
 type assistantTagMetadata struct {
 	ID           string `json:"id"`
@@ -63,11 +65,15 @@ func assistantCategoryType(t models.TransactionCategoryType) string {
 	}
 }
 func assistantListCategories(e *assistantQueryExecution) (data.ToolResult, error) {
+	direct, subtree, err := e.categoryUsage()
+	if err != nil {
+		return data.ToolResult{}, err
+	}
 	rows := make([]assistantEntityRow, 0, len(e.Metadata.Categories))
 	for id, c := range e.Metadata.Categories {
 		kind := assistantCategoryType(c.Type)
 		if (e.Args.Type == "" || e.Args.Type == kind) && assistantLiteralContains(c.Name, e.Args.Keyword) {
-			rows = append(rows, assistantEntityRow{id, assistantCategoryMetadata{assistantCount(id), c.Name, assistantCount(c.ParentCategoryId), kind, c.Hidden}})
+			rows = append(rows, assistantEntityRow{id, assistantCategoryMetadata{assistantCount(id), c.Name, assistantCount(c.ParentCategoryId), kind, c.Hidden, assistantCount(direct[id]), assistantCount(subtree[id])}})
 		}
 	}
 	return assistantEntityPage(e, rows, data.ToolResult{})

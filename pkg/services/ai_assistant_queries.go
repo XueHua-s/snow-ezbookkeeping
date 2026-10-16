@@ -111,7 +111,7 @@ func NewAssistantQueryService(store *datastore.DataStore, uid int64, options Ass
 func (s *AssistantQueryService) Definitions() []data.ToolDefinition {
 	descriptions := map[data.ToolName]string{
 		data.ToolListAccounts:          "Discover account IDs/names/hierarchy/hidden state, ordered by ID. Paginated; resolve ambiguous names before filtering.",
-		data.ToolListCategories:        "Discover income/expense/transfer category IDs/names/hierarchy, including hidden categories. Names may repeat. Paginated.",
+		data.ToolListCategories:        "Discover category IDs/names/hierarchy, including hidden categories. Names may repeat; keyword is a literal name substring, not a topic classifier. direct_transaction_count and subtree_transaction_count count all-history effective logical transactions, including hidden records and refunds; transfers count once. Zero direct count does not mean an unused parent. Counts are not date-filtered amounts. Paginated.",
 		data.ToolListTags:              "Discover tag IDs/names/groups, including hidden tags. Keyword searches names. Paginated.",
 		data.ToolQueryTransactions:     "Search logical transactions, newest first. Paginated details, NOT totals. Transfers appear once with both sides. Amount order requires currency and explicit transfer side.",
 		data.ToolGetTransaction:        "Read full effective transaction by string ID. Incoming-transfer IDs resolve to canonical outgoing records with both sides. Inaccessible/deleted IDs fail.",
