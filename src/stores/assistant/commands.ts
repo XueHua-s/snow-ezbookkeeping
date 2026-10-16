@@ -97,6 +97,8 @@ export function useAssistantCommands(
             return;
         }
         if (currentRoute() && receipt.conversationId && conversationId.value === (item.conversationId ?? '')) {
+            if (item.action === 'retry' && receipt.status === 'accepted' && typeof item.payload?.['userMessageId'] === 'string')
+                view.followLatestAnswer(item.payload['userMessageId']);
             if (receipt.conversationId === conversationId.value) {
                 const next = await result(api.get({ id: receipt.conversationId, limit: 30 })).catch(failure => {
                     if (valid() && currentRoute()) throw failure;

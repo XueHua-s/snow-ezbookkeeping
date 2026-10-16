@@ -10,7 +10,7 @@ vi.mock('@/locales/helpers.ts', () => ({ useI18n: () => ({ tt: (text: string) =>
 let wrapper: VueWrapper | undefined;
 const restoreAnchor = vi.fn();
 const messageListStub = defineComponent({ setup(_, { expose }) {
-    expose({ restoreAnchor });
+    expose({ restoreAnchor, captureAnchor: () => ({ messageId: 'answer', offset: 12, following: false }) });
     return () => h('div');
 } });
 function deferred() {
@@ -281,4 +281,37 @@ it('acknowledges branch recovery only after the target route is rendered', async
     await wrapper.setProps({ conversationId: 'branch' });
     await flushPromises();
     expect(mocks.store['acknowledgeBranchNavigation']).toHaveBeenCalledExactlyOnceWith('branch');
+});
+
+
+it('deduplicates version loads, preserves the cursor on stale results and restores the reading anchor', async () => {
+    wrapper = shallowMount(Workspace, { props: { variant: 'desktop', conversationId: 'one' }, global: { stubs: { AssistantExperienceMessageList: messageListStub } } });
+    await flushPromises();
+    const load = () => wrapper!.findComponent(messageListStub).vm.$emit('loadVersions', { id: 'question' });
+    load();
+    await flushPromises();
+    expect(restoreAnchor).toHaveBeenCalledWith({ messageId: 'answer', offset: 12, following: false });
+    let finish!: (result: undefined) => void;
+    vi.mocked(mocks.store['loadVersions'] as () => Promise<unknown>).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    load(); load();
+    expect(mocks.store['loadVersions']).toHaveBeenCalledTimes(2);
+    finish(undefined);
+    await flushPromises();
+    load();
+    await flushPromises();
+    expect(mocks.store['loadVersions']).toHaveBeenLastCalledWith('question', 'page-two');
+});
+
+it('resets version cursors atomically when the same conversation is reopened', async () => {
+    mocks.store['detail'] = { conversation: fixtureConversation, messages: [] };
+    wrapper = shallowMount(Workspace, { props: { variant: 'desktop', conversationId: '1' }, global: { stubs: { AssistantExperienceMessageList: messageListStub } } });
+    await flushPromises();
+    const load = () => wrapper!.findComponent(messageListStub).vm.$emit('loadVersions', { id: 'question' });
+    load(); await flushPromises();
+    load(); await flushPromises();
+    expect(mocks.store['loadVersions']).toHaveBeenLastCalledWith('question', 'page-two');
+    mocks.store['detail'] = undefined;
+    mocks.store['detail'] = { conversation: fixtureConversation, messages: [] };
+    load(); await flushPromises();
+    expect(mocks.store['loadVersions']).toHaveBeenLastCalledWith('question', undefined);
 });

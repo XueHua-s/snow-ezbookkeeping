@@ -5,6 +5,16 @@ import type * as DTO from '@/models/ai_assistant_conversation.ts';
 import { result, statusCode, type ReadingPosition } from './types.ts';
 import type { AssistantSession } from './session.ts';
 
+function mergeVersions(previous: readonly DTO.AssistantVersionDTO[], incoming: readonly DTO.AssistantVersionDTO[]) {
+    const versions = new Map(previous.map(version => [version.id, version]));
+    for (const version of incoming) {
+        const known = versions.get(version.id);
+        // A page captured before streaming completed must not regress a known final state.
+        if (!known || !terminal(known.state)) versions.set(version.id, version);
+    }
+    return [...versions.values()].sort((a, b) => b.attemptNumber - a.attemptNumber);
+}
+
 /** Owns the conversation window, read intent, and attached stream/poll resources. */
 export function useAssistantConversation(session: AssistantSession, synchronize: () => Promise<void>) {
     const { conversationId, recentConversationId, error, capabilities, restoreDraft, applyLocal, fail } = session;
@@ -164,13 +174,19 @@ export function useAssistantConversation(session: AssistantSession, synchronize:
         detail.value = {
             ...next,
             activeRun: retain(next.activeRun, previous.activeRun),
-            messages: next.messages.map((message) => ({
-                ...message,
-                selectedAnswer: retain(
-                    message.selectedAnswer,
-                    previous.messages.find((old) => old.id === message.id)?.selectedAnswer,
-                ),
-            })),
+            messages: next.messages.map((message) => {
+                const old = previous.messages.find(item => item.id === message.id);
+                const versions = mergeVersions(old?.versions ?? [], message.versions);
+                // Attempt numbers are sequential: a complete retained history remains complete
+                // even when the server's refreshed recent window advertises older answers.
+                const complete = versions.length > 0 && versions.length === Math.max(...versions.map(item => item.attemptNumber));
+                return {
+                    ...message,
+                    versions,
+                    hasMoreVersions: !complete && (message.hasMoreVersions || !!old?.hasMoreVersions),
+                    selectedAnswer: retain(message.selectedAnswer, old?.selectedAnswer),
+                };
+            }),
         };
     }
     function mergeSnapshot(snapshot: DTO.AssistantRunSnapshot) {
@@ -344,6 +360,11 @@ export function useAssistantConversation(session: AssistantSession, synchronize:
             [answer.userMessageId, answer],
         ]);
     }
+    function followLatestAnswer(userMessageId: string) {
+        // A confirmed regeneration supersedes even an outstanding historical read.
+        acceptedAnswers.set(userMessageId, ++answerTicket);
+        viewedVersions.value = Object.fromEntries(Object.entries(viewedVersions.value).filter(([id]) => id !== userMessageId));
+    }
     function isLatestMessage(id: string) {
         return (
             detail.value?.messages.find((message) => message.id === id)?.turnSequence ===
@@ -376,7 +397,7 @@ export function useAssistantConversation(session: AssistantSession, synchronize:
                     message.id === userMessageId
                         ? {
                               ...message,
-                              versions: next.items,
+                              versions: mergeVersions(message.versions, next.items),
                               hasMoreVersions: !!next.nextCursor,
                           }
                         : message,
@@ -422,6 +443,7 @@ export function useAssistantConversation(session: AssistantSession, synchronize:
         attach,
         detach,
         viewVersion,
+        followLatestAnswer,
         isLatestMessage,
         loadMemories,
         loadVersions,

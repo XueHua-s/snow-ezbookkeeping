@@ -34,6 +34,7 @@ const {
     removeLocalDraft,
     error,
     working,
+    answerNotice,
     historyOpen,
     archived,
     query,
@@ -53,7 +54,8 @@ const {
     continueConversation,
     retry,
     nextPage,
-    version
+    version,
+    useAnswer
 } = useAssistantCloudWorkspace(confirm, () => routeKey.value);
 const toolbar = useTemplateRef<InstanceType<typeof AssistantWorkspaceToolbar>>('toolbar');
 const historyManager = useTemplateRef<InstanceType<typeof AssistantConversationHistory>>('historyManager');
@@ -65,15 +67,29 @@ async function renameAndClose(item: AssistantConversationDTO, title: string) {
 const referenceDialog = useTemplateRef<InstanceType<typeof AssistantReferenceDialog>>('referenceDialog');
 const messageList = useTemplateRef<InstanceType<typeof AssistantExperienceMessageList>>('messageList');
 const versionCursors = new Map<string, string | undefined>();
+const versionLoads = new Map<string, symbol>();
 async function loadVersions(id: string) {
-    await run(async (current) => {
-        const result = await store.loadVersions(id, versionCursors.get(id));
-        if (current()) versionCursors.set(id, result?.nextCursor);
-    });
+    if (versionLoads.has(id) || working.value || store.busy) return;
+    const ticket = Symbol();
+    versionLoads.set(id, ticket);
+    const anchor = messageList.value?.captureAnchor();
+    try {
+        await run(async (current) => {
+            const result = await store.loadVersions(id, versionCursors.get(id));
+            if (result && current()) {
+                versionCursors.set(id, result.nextCursor);
+                answerNotice.value = tt('Earlier answers loaded. Use the arrows to browse.');
+                await nextTick();
+                if (current() && anchor) messageList.value?.restoreAnchor(anchor);
+            }
+        });
+    } finally {
+        if (versionLoads.get(id) === ticket) versionLoads.delete(id);
+    }
 }
 const ownerKey = computed(() => JSON.stringify([store.capabilities?.ownerScope, store.capabilities?.deletionEpoch]));
-const context = computed(() => JSON.stringify([ownerKey.value, store.conversationId, routeKey.value]));
-watch(context, () => versionCursors.clear(), { flush: 'sync' });
+const context = computed(() => JSON.stringify([ownerKey.value, store.conversationId, store.detail?.conversation.id, routeKey.value]));
+watch(context, () => { versionCursors.clear(); versionLoads.clear(); }, { flush: 'sync' });
 const { narrow, shellStyle, historyPanel, historyKey } = useAssistantWorkspacePanels({
     variant: () => props.variant,
     historyOpen,
@@ -105,7 +121,7 @@ function continueQuery() {
         void run(() =>
             store.send({
                 mode: 'next_page',
-                content: tt('Show the next page of the current query results'),
+                content: tt('Continue finding the remaining bills matching these conditions.'),
                 sourceMessageId: id
             })
         );
@@ -192,6 +208,7 @@ function fallbackFocus() {
                 @open-reference="emit('openReference', $event)"
                 @retry-question="retry($event, 'regenerate')"
             />
+            <p v-if="answerNotice" class="notice" role="status">{{ answerNotice }}</p>
             <p v-if="error || store.error" class="notice" role="alert">
                 {{ error || tt('Assistant request failed') }}
                 <button class="workspace-action" type="button" @click="run(() => store.synchronize())">
@@ -234,7 +251,8 @@ function fallbackFocus() {
                 :latest-message-id="latestMessageId"
                 :has-older="store.detail?.hasMore"
                 :loading-older="working"
-                :busy="store.busy"
+                :busy="store.busy || working"
+                :write-disabled-reason="disabledReason"
                 :anchor="anchor"
                 :examples="[
                     { text: tt('Compare this month with last month'), icon: mdiChartLine },
@@ -250,6 +268,7 @@ function fallbackFocus() {
                 @retry="retry"
                 @regenerate="retry($event, 'regenerate')"
                 @select-version="version"
+                @use-answer="useAnswer"
                 @load-versions="loadVersions($event.id)"
                 @next-page="nextPage"
             />

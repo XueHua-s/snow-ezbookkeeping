@@ -19,6 +19,7 @@ const props = defineProps<{
     olderError?: string;
     anchor?: AssistantReadingAnchor;
     busy?: boolean;
+    writeDisabledReason?: string;
     examples?: readonly { readonly text: string; readonly icon: string }[];
 }>();
 const emit = defineEmits<{
@@ -28,6 +29,7 @@ const emit = defineEmits<{
     retry: [message: AssistantMessageDTO];
     regenerate: [message: AssistantMessageDTO];
     selectVersion: [message: AssistantMessageDTO, id: string];
+    useAnswer: [message: AssistantMessageDTO];
     loadVersions: [message: AssistantMessageDTO];
     nextPage: [message: AssistantMessageDTO];
     example: [text: string];
@@ -136,10 +138,11 @@ defineExpose({
                         </p>
                         <AssistantExperienceEvidence
                             :answer="message.selectedAnswer"
-                            :can-page="!busy"
+                            :disabled-reason="writeDisabledReason"
+                            :can-page="!busy && message.selectedAnswer.state === 'completed' && (!isLatest(message, index) || message.selectedAnswer.assistantMessageId === message.selectedAssistantMessageId)"
                             :page-label="
                                 !isLatest(message, index)
-                                    ? tt('Continue this query in a new conversation')
+                                    ? tt('Continue finding bills in a new conversation')
                                     : undefined
                             "
                             @open-reference="emit('openReference', $event, message.selectedAnswer)"
@@ -162,8 +165,10 @@ defineExpose({
                                 isLatest(message, index) && message.selectedAnswer.state === 'completed'
                             "
                             :versions="message.versions"
+                            :write-disabled-reason="writeDisabledReason"
                             :selected-version-id="message.selectedAnswer.assistantMessageId"
-                            :context-version-id="message.selectedAssistantMessageId"
+                            :selected-attempt-number="message.selectedAnswer.attemptNumber"
+                            :can-use-answer="isLatest(message, index) && message.selectedAnswer.state === 'completed' && message.selectedAnswer.assistantMessageId !== message.selectedAssistantMessageId"
                             :has-more-versions="message.hasMoreVersions"
                             :disabled-reason="
                                 busy ? 'An answer is still being prepared. You can wait for it or stop it to send a new message.' : undefined
@@ -171,6 +176,7 @@ defineExpose({
                             @retry="emit('retry', message)"
                             @regenerate="emit('regenerate', message)"
                             @select-version="emit('selectVersion', message, $event)"
+                            @use-answer="emit('useAnswer', message)"
                             @load-versions="emit('loadVersions', message)"
                         />
                     </article>

@@ -13,12 +13,12 @@ function workspace(...args: Parameters<typeof useAssistantCloudWorkspace>) {
     scopes.push(scope);
     return scope.run(() => useAssistantCloudWorkspace(...args))!;
 }
-const message = { id: 'question', content: 'Original', versions: [], selectedAnswer: { assistantMessageId: 'answer', state: 'completed' } } as unknown as AssistantMessageDTO;
+const message = { id: 'question', selectedAssistantMessageId: 'answer', content: 'Original', versions: [], selectedAnswer: { assistantMessageId: 'answer', state: 'completed' } } as unknown as AssistantMessageDTO;
 beforeEach(() => {
     mocks.store = reactive({ draft: 'Untouched draft', detail: { messages: [message], conversation: { archived: false } }, viewedVersions: {}, online: true,
         capabilities: { generationAvailable: true, ownerScope: 'owner-a', deletionEpoch: 1 }, busy: false, pending: [], activePending: [], isLatestMessage: vi.fn().mockReturnValue(true), memories: { memoryUseEpoch: 4 },
         send: vi.fn().mockResolvedValue({}), branch: vi.fn().mockResolvedValue({ conversationId: 'branch' }), execute: vi.fn().mockResolvedValue({}),
-        removeDraft: vi.fn(), setDraft: vi.fn(), viewVersion: vi.fn(), selectVersion: vi.fn(), search: vi.fn(), loadHistory: vi.fn() });
+        removeDraft: vi.fn(), setDraft: vi.fn(), viewVersion: vi.fn(), selectVersion: vi.fn().mockResolvedValue({}), search: vi.fn(), loadHistory: vi.fn() });
 });
 describe('shared cloud product commands', () => {
     it('submits next page bound to displayed answer version', async () => {
@@ -156,4 +156,37 @@ it('keeps the active command and history when capabilities refresh without ident
     finish();
     await pending;
     expect(ui.working.value).toBe(false);
+});
+
+describe('browsing and adopting answers are separate intents', () => {
+    it('only reads when browsing even a successful answer', async () => {
+        const ui = workspace();
+        mocks.store['viewedVersions'] = { question: { ...message.selectedAnswer, assistantMessageId: 'earlier' } };
+        await ui.version(message, 'earlier');
+        expect(mocks.store['viewVersion']).toHaveBeenCalledWith('earlier');
+        expect(mocks.store['selectVersion']).not.toHaveBeenCalled();
+        await ui.useAnswer(message);
+        expect(mocks.store['selectVersion']).toHaveBeenCalledWith('question', 'earlier');
+        expect(ui.answerNotice.value).toBe('Your next question will continue from this answer.');
+    });
+    it.each(['failed', 'historical', 'busy', 'already adopted'])('does not adopt %s answers', async condition => {
+        const ui = workspace();
+        mocks.store['viewedVersions'] = { question: { ...message.selectedAnswer, assistantMessageId: condition === 'already adopted' ? 'answer' : 'earlier', state: condition === 'failed' ? 'failed' : 'completed' } };
+        if (condition === 'historical') vi.mocked(mocks.store['isLatestMessage'] as () => boolean).mockReturnValue(false);
+        if (condition === 'busy') mocks.store['busy'] = true;
+        await ui.useAnswer(message);
+        expect(mocks.store['selectVersion']).not.toHaveBeenCalled();
+    });
+    it('does not submit a continuation from an unadopted alternative', async () => {
+        const ui = workspace();
+        await ui.nextPage({ ...message, selectedAssistantMessageId: 'different' });
+        expect(mocks.store['send']).not.toHaveBeenCalled();
+    });
+    it('sends a natural follow-up bound to the adopted source and preserves the draft', async () => {
+        const ui = workspace();
+        await ui.nextPage(message);
+        expect(mocks.store['send']).toHaveBeenCalledWith({ mode: 'next_page', sourceMessageId: 'answer', content: 'Continue finding the remaining bills matching these conditions.' });
+        expect(mocks.store['setDraft']).not.toHaveBeenCalled();
+        expect(ui.input.value).toBe('Untouched draft');
+    });
 });

@@ -18,6 +18,7 @@ export function useAssistantCloudWorkspace(
     const { tt } = useI18n();
     const error = shallowRef('');
     const working = shallowRef(false);
+    const answerNotice = shallowRef('');
     const historyOpen = shallowRef(false);
     const archived = shallowRef(false);
     const query = shallowRef('');
@@ -35,6 +36,7 @@ export function useAssistantCloudWorkspace(
             working.value = false;
             error.value = '';
             retryQuerySource.value = '';
+            answerNotice.value = '';
         }
     );
     watch(
@@ -171,7 +173,9 @@ export function useAssistantCloudWorkspace(
         return store.isLatestMessage(message.id) ? run(() => store.retry(message.id, intent)) : branch(message);
     }
     async function nextPage(message: AssistantMessageDTO) {
+        if (working.value || store.busy || disabledReason.value) return;
         const answer = message.selectedAnswer;
+        if (answer?.state !== 'completed' || (store.isLatestMessage(message.id) && answer.assistantMessageId !== message.selectedAssistantMessageId)) return;
         retryQuerySource.value = answer?.assistantMessageId ?? '';
         if (!answer) return;
         if (!store.isLatestMessage(message.id)) {
@@ -182,7 +186,7 @@ export function useAssistantCloudWorkspace(
             await run(() =>
                 store.send({
                     mode: 'next_page',
-                    content: tt('Show the next page of the current query results'),
+                    content: tt('Continue finding the remaining bills matching these conditions.'),
                     sourceMessageId: answer.assistantMessageId
                 })
             );
@@ -197,13 +201,18 @@ export function useAssistantCloudWorkspace(
             })
         );
     }
-    async function version(message: AssistantMessageDTO, id: string) {
+    async function version(_message: AssistantMessageDTO, id: string) {
+        if (working.value || store.busy) return;
+        answerNotice.value = '';
+        await run(() => store.viewVersion(id));
+    }
+    async function useAnswer(message: AssistantMessageDTO) {
+        if (working.value || store.busy || disabledReason.value || !store.isLatestMessage(message.id)) return;
+        const answer = messages.value.find(item => item.id === message.id)?.selectedAnswer;
+        if (answer?.state !== 'completed' || answer.assistantMessageId === message.selectedAssistantMessageId) return;
         await run(async (current) => {
-            await store.viewVersion(id);
-            if (!current()) return;
-            const answer = store.viewedVersions[message.id];
-            if (store.isLatestMessage(message.id) && answer?.state === 'completed')
-                await store.selectVersion(message.id, id);
+            const result = await store.selectVersion(message.id, answer.assistantMessageId);
+            if (result && current()) answerNotice.value = tt('Your next question will continue from this answer.');
         });
     }
     async function removeLocalDraft(id: string) {
@@ -217,6 +226,7 @@ export function useAssistantCloudWorkspace(
         removeLocalDraft,
         error,
         working,
+        answerNotice,
         historyOpen,
         archived,
         query,
@@ -236,6 +246,7 @@ export function useAssistantCloudWorkspace(
         continueConversation,
         retry,
         nextPage,
-        version
+        version,
+        useAnswer
     };
 }

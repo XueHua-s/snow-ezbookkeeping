@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { mdiArrowRight } from '@mdi/js';
 import { useI18n } from '@/locales/helpers.ts';
 import { parseBigDecimal } from '@/lib/numeral.ts';
 import { DISPLAY_HIDDEN_AMOUNT } from '@/consts/numeral.ts';
 import type { AssistantRunSnapshot } from '@/models/ai_assistant_conversation.ts';
-const props = defineProps<{ answer: AssistantRunSnapshot; canPage?: boolean; pageLabel?: string }>();
+const props = defineProps<{ answer: AssistantRunSnapshot; canPage?: boolean; pageLabel?: string; disabledReason?: string }>();
 const emit = defineEmits<{ openReference: [id: string]; nextPage: [] }>();
 const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
 const warnings = computed(() => [...new Set(props.answer.queries.flatMap(query => query.warnings))]);
@@ -55,9 +56,14 @@ const references = computed(() =>
                 ><span>{{ tt('View Details') }}</span>
             </button>
         </div>
-        <button v-if="canPage && answer.pageableQueryId" class="more-bills" type="button" @click="emit('nextPage')">
-            {{ pageLabel || tt('View more bills') }}
-        </button>
+        <div v-if="canPage && answer.pageableQueryId" class="follow-up">
+            <span class="follow-up-label">{{ tt('Keep asking') }}</span>
+            <button class="more-bills" type="button" :disabled="!!disabledReason" :title="disabledReason ? tt(disabledReason) : undefined" @click="emit('nextPage')">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiArrowRight" /></svg>
+                {{ pageLabel || tt('Continue finding matching bills') }}
+            </button>
+            <span class="follow-up-hint">{{ tt('The assistant will continue this query in another answer.') }}</span>
+        </div>
     </section>
 </template>
 <style scoped>
@@ -71,9 +77,10 @@ const references = computed(() =>
     grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 8px;
 }
-.bills + .more-bills {
-    margin-block-start: 12px;
-}
+.follow-up { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-block-start: 12px; }
+.follow-up-label, .follow-up-hint { color: var(--assistant-muted, #6b8074); }
+.more-bills { display: inline-flex; align-items: center; gap: 8px; }
+.more-bills svg { width: 18px; height: 18px; flex-shrink: 0; fill: currentColor; }
 button {
     min-height: 44px;
     padding: 12px;
@@ -94,13 +101,14 @@ button {
 strong {
     font-variant-numeric: tabular-nums;
 }
-button:hover {
+button:disabled { opacity: .55; cursor: default; }
+button:hover:not(:disabled) {
     background: var(--assistant-tint, #e8f3e9);
 }
 button:focus-visible {
     outline: 2px solid var(--assistant-action, #278c62);
     outline-offset: 2px;
 }
-button:active { transform: scale(.99); }
+button:active:not(:disabled) { transform: scale(.99); }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }
 </style>

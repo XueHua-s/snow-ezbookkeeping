@@ -34,10 +34,10 @@ it('keeps bill navigation and pagination without technical query details or repe
     expect(document.body.textContent).toContain('More matching records are available.');
     await screen.getByRole('button', { name: /View Details/ }).click();
     expect(openReference).toHaveBeenCalledExactlyOnceWith('12');
-    await screen.getByRole('button', { name: 'View more bills' }).click();
+    await screen.getByRole('button', { name: 'Continue finding matching bills' }).click();
     expect(nextPage).toHaveBeenCalledTimes(1);
     await screen.rerender({ canPage: false });
-    expect(document.body.textContent).not.toContain('View more bills');
+    expect(document.body.textContent).not.toContain('Continue finding matching bills');
     expect(document.body.textContent).toContain('More matching records are available.');
     screen.unmount();
 });
