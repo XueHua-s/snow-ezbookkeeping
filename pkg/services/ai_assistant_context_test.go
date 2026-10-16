@@ -69,7 +69,7 @@ func TestAssistantContextThirtyTurnsTwoCompactions(t *testing.T) {
 			if len(snap.Turns) != i {
 				t.Fatalf("lost chain: %d wanted %d", len(snap.Turns), i)
 			}
-			changed, _, e := service.compact(ctx, run, snap, provider, 16000)
+			changed, _, e := service.compact(ctx, run, snap, provider, 16000, false)
 			if e != nil || !changed {
 				t.Fatal(changed, e)
 			}
@@ -121,7 +121,7 @@ func TestAssistantContextCompactionCASRejectsChangedVersion(t *testing.T) {
 			return assistantConversationSave(tx, c)
 		})
 	}}
-	if _, _, e = service.compact(ctx, run, snap, provider, 16000); e != models.AssistantReasonContextChanged {
+	if _, _, e = service.compact(ctx, run, snap, provider, 16000, false); e != models.AssistantReasonContextChanged {
 		t.Fatal(e)
 	}
 }

@@ -3149,7 +3149,7 @@
     "This item does not exist or is not accessible.": "This item does not exist or is not accessible.",
     "The request waited too long in the queue. You can retry.": "The request waited too long in the queue. You can retry.",
     "Generation timed out. The saved partial answer is kept; you can retry.": "Generation timed out. The saved partial answer is kept; you can retry.",
-    "The answer reached its execution limit. You can refine your question and retry.": "The answer reached its execution limit. You can refine your question and retry.",
+    "The assistant reached an execution limit. Your question is saved; you can retry here.": "The assistant reached an execution limit. Your question is saved; you can retry here.",
     "Generation is currently unavailable. Your saved conversations remain accessible.": "Generation is currently unavailable. Your saved conversations remain accessible.",
     "Check status": "Check status",
     "Clear all assistant data": "Clear all assistant data",

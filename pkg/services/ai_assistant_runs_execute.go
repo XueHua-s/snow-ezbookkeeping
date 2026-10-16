@@ -166,7 +166,7 @@ func (s *AssistantRunService) execute(parent context.Context, claimed *models.As
 				case data.ToolErrorBudgetExhausted, data.ToolErrorResultTooLarge:
 					reason = models.AssistantReasonExecutionLimit
 				case data.ToolErrorQueryTimeout:
-					reason = models.AssistantReasonRunTimeout
+					reason = models.AssistantReasonExecutionLimit
 				case data.ToolErrorInvalidCursor:
 					reason = models.AssistantReasonCursorExpired
 				}
@@ -177,7 +177,7 @@ func (s *AssistantRunService) execute(parent context.Context, claimed *models.As
 			if result.StopReason == llm.AssistantReasonContextBudget {
 				reason = models.AssistantReasonContextLimit
 			}
-			if errors.Is(runErr, context.DeadlineExceeded) || deadline.Err() == context.DeadlineExceeded {
+			if deadline.Err() == context.DeadlineExceeded {
 				reason = models.AssistantReasonRunTimeout
 			}
 			if reason == models.AssistantReasonOutputLimit || reason == models.AssistantReasonRunTimeout || result.State == llm.AssistantStateIncomplete {

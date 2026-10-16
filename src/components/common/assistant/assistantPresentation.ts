@@ -5,7 +5,7 @@ export const assistantStateLabels: Record<AssistantRunState, string> = {
 export const assistantReasonLabels: Record<AssistantReasonCode, string> = {
     queue_timeout: 'The request waited too long in the queue. You can retry.',
     run_timeout: 'Generation timed out. The saved partial answer is kept; you can retry.',
-    execution_limit: 'The answer reached its execution limit. You can refine your question and retry.',
+    execution_limit: 'The assistant reached an execution limit. Your question is saved; you can retry here.',
     generation_unavailable: 'Generation is currently unavailable. Your saved conversations remain accessible.',
     input_too_long: 'Input exceeds the limit. Your text has been kept.',
     conversation_conflict: 'This conversation changed. Review the latest messages before sending again.',

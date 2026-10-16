@@ -33,11 +33,13 @@ it.each(['canceled', 'incomplete'] as const)('keeps partial text and removes act
     screen.unmount();
 });
 
-it('keeps an empty failed attempt actionable without claiming partial text was shown', async () => {
-    const answer: AssistantRunSnapshot = { ...fixtureMessage.selectedAnswer!, content: '', processSummary: '', state: 'incomplete', reasonCode: 'context_limit', references: [] };
+it.each(['context_limit', 'execution_limit'] as const)('keeps an empty %s attempt actionable without claiming partial text was shown', async reasonCode => {
+    const answer: AssistantRunSnapshot = { ...fixtureMessage.selectedAnswer!, content: '', processSummary: '', state: 'incomplete', reasonCode, references: [] };
     const screen = await render(Messages, { props: { messages: [{ ...fixtureMessage, selectedAnswer: answer }] } });
     expect(document.body.textContent).toContain('Your question is saved; you can retry here.');
     expect(document.body.textContent).not.toContain('Partial text may be unreliable.');
+    expect(document.body.textContent).not.toContain('Generation timed out.');
+    expect(document.body.textContent).not.toContain('The model service is unavailable.');
     expect(document.querySelector('.generation-indicator')).toBeNull();
     screen.unmount();
 });

@@ -3139,7 +3139,7 @@
     "This item does not exist or is not accessible.": "此內容不存在或不可訪問。",
     "The request waited too long in the queue. You can retry.": "請求排隊超時，你可以重試。",
     "Generation timed out. The saved partial answer is kept; you can retry.": "生成超時，已儲存的部分回答仍然保留，你可以重試。",
-    "The answer reached its execution limit. You can refine your question and retry.": "本次回答已達到執行上限，可以調整問題後重試。",
+    "The assistant reached an execution limit. Your question is saved; you can retry here.": "本次查詢已達到執行限制。你的問題已儲存，可以在目前對話中重試。",
     "Generation is currently unavailable. Your saved conversations remain accessible.": "目前無法生成回答，仍可訪問已儲存的會話。",
     "Check status": "檢查狀態",
     "Clear all assistant data": "清空全部助手資料",

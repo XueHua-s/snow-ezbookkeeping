@@ -94,7 +94,7 @@ func TestAssistantCompactionBatchesWholeTurnsAndPreservesFrozenRemainder(t *test
 			if err != nil {
 				t.Fatal(err)
 			}
-			changed, calls, err := s.compact(core.NewNullContext(), run, snap, p, 16000)
+			changed, calls, err := s.compact(core.NewNullContext(), run, snap, p, 16000, false)
 			if err != nil || !changed || calls != 1 {
 				t.Fatal(changed, calls, err)
 			}
@@ -112,7 +112,7 @@ func TestAssistantCompactionBatchesWholeTurnsAndPreservesFrozenRemainder(t *test
 			} else if fresh.Conversation.SummaryThrough != 2 {
 				t.Fatal("wrong summary boundary", fresh.Conversation.SummaryThrough)
 			}
-			changed, calls, err = s.compact(core.NewNullContext(), run, fresh, p, 16000)
+			changed, calls, err = s.compact(core.NewNullContext(), run, fresh, p, 16000, false)
 			if err != nil || !changed || calls != 1 {
 				t.Fatal(changed, calls, err)
 			}
@@ -154,11 +154,8 @@ func TestAssistantCompactionFailurePreservesHistoryAndReason(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			changed, calls, err := s.compact(core.NewNullContext(), run, snap, p, 16000)
-			want := failure
-			if !errors.Is(failure, context.Canceled) && !errors.Is(failure, context.DeadlineExceeded) {
-				want = models.AssistantReasonProviderUnavailable
-			}
+			changed, calls, err := s.compact(core.NewNullContext(), run, snap, p, 16000, false)
+			want := models.AssistantReasonProviderUnavailable
 			if changed || calls != 1 || err != want {
 				t.Fatal(changed, calls, err)
 			}
@@ -312,7 +309,7 @@ func TestAssistantPrepareReservesAnswerRoundAndStopsCanceledCompaction(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, calls, err := s.compact(core.NewAssistantContext(ctx, "canceled", "", ""), run, snap, p, 16000)
+	changed, calls, err := s.compact(core.NewAssistantContext(ctx, "canceled", "", ""), run, snap, p, 16000, false)
 	if changed || calls != 0 || err == nil || p.calls != 0 {
 		t.Fatal("canceled compaction called model", changed, calls, err, p.calls)
 	}

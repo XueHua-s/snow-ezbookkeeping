@@ -283,3 +283,23 @@ Validation: `go test ./pkg/api ./pkg/services -count=1` and `go vet ./...` passe
 正常发送曾把持久化 pending 当作异常恢复展示，顶部短暂出现绿色“正在确认更改”；新建会话收到回执后的读取又会显示绿色 Loading。现在持久化之前记录 sending，恢复面板只展示真正待确认、未送达或重载后未知的请求，正常发送由输入区反馈。后台核对跳过当前在途请求，持久化/拒绝异常的清理和身份代际校验确保恢复入口不会永久隐藏，也不会被旧请求清除新重试状态。正常发送时的新会话加载不再显示顶部提示，普通历史加载保留。
 
 生产构建结合隔离本地 API，在桌面回车与手机发送按钮分别检查新建会话和后续提问，MutationObserver 捕获发送全过程的瞬态提示：修复前两端均出现 Confirming changes 和 Loading；修复后两端均为零，运行时错误为零。自动测试覆盖持久化等待、网络等待、重复发送、实际失败、刷新恢复、拒绝状态保存异常，以及重置后同请求 ID 重试的迟到回执。前端 51 文件 / 38,954 单元测试、12 文件 / 81 浏览器测试通过；没有调用真实模型。
+
+## 2026-10-17 摘要局部超时与前台请求恢复
+
+压缩阶段有独立摘要期限。此前该子期限或供应商局部 `DeadlineExceeded` 被直接上传，又被 worker 当成整个 run 超时；即使原完整历史仍在模型预算内，也会反复停在 preparing。修复将父 run 的取消/期限与摘要子请求失败分开：父 context 优先终止；局部摘要失败只在全部原历史通过实际主/备供应商输入预算检查时，保留原文并继续同一 run，失败调用仍计入原模型轮数。失败摘要不替换会话摘要、覆盖范围或来源依赖。
+
+原历史确实超预算时，最多允许一次缩小完整历史前缀的压缩恢复；只处理更少的完整 turn，不裁切或删除其余约束。恢复仍使用原 run deadline、摘要子期限和调用轮数，并给前台回答预留轮数。第一次调用前以及失败后的恢复/再次调用之前，重新检查 owner/lease、cancel、conversation version、active run 和来源依赖；成功摘要仍需验证结构、大小并通过 CAS 提交。没有足够可缩小前缀或预算时明确终止，不无限重试。
+
+worker 仅在自己的 run deadline 真正耗尽时标记 `run_timeout`；查询的局部超时通过既有可重试 `execution_limit` 返回，内部保留 `ToolErrorQueryTimeout` 分类，供应商局部失败使用 `provider_unavailable`。下一页授权检查优先保留父取消/超时，局部查询超时不再伪装成 cursor 失效；正常路径保留精确签名 cursor 与 Scope，显式重新查询仍需重新授权。
+
+新增 allowlist 观测记录 compaction 请求开始/结束、阶段、耗时、实际模型调用数、历史 turn 数、失败来源和恢复分支，不记录消息内容、财务金额、工具参数或原始供应商错误。`request_finished` 仅表示请求结束；摘要生效由无失败的 `commit` 阶段表示，无效 JSON、超大摘要或 CAS 拒绝不能作为成功摘要。
+
+参考固定版本 Codex [compact.rs](https://github.com/openai/codex/blob/fa46ef3af641f21d0facc69bd11e562fce6a3f9a/codex-rs/core/src/compact.rs)、[session_async_compaction.rs](https://github.com/openai/codex/blob/fa46ef3af641f21d0facc69bd11e562fce6a3f9a/codex-rs/core/src/session/async_compaction.rs)、[session/turn.rs](https://github.com/openai/codex/blob/fa46ef3af641f21d0facc69bd11e562fce6a3f9a/codex-rs/core/src/session/turn.rs)。借鉴的是分层失败、取消优先、投机失败不损害已有上下文及有界恢复原则；本项目没有实现异步压缩，也没有采用删除最旧财务约束的策略。Codex 必需的前置压缩失败仍可能终止 turn，不能概括为所有压缩失败均继续。
+
+新增 Go 回归覆盖真实 1 秒摘要子 deadline、供应商局部 Deadline、原完整历史保留、同 run 真实 SQLite 工具查询和逐段正文输出、父取消/期限、硬预算前缀恢复上限、失败期间版本/取消/删除授权变化、worker 超时分类以及 next-page 精确 cursor/scope。
+
+双端生产构建 E2E 使用 native 后端、隔离 SQLite 与本地 HTTP 模型协议：桌面/手机各强制 1 秒摘要子 deadline 耗尽，当前 run 自动恢复原完整 history，经真实 query_transactions 后，在上游结束前可见 partial stream，终态 completed，且无 pageerror。结果位于本地 `~/Library/Caches/ebk-timeout-release/timeout-smoke/results.json`。这不是商业模型质量认证，未调用真实供应商或重放用户账本。
+
+本轮后端定向测试（summary、Prepare、compaction、历史、超时层级、授权变化、continuation 及 models contract）通过。为兼容旧缓存前端的严格白名单，没有新增 reason 或 HTTP 错误索引；局部查询超时使用旧版本已认识的 execution_limit，新的中性文案说明执行限制并保留同会话重试。内部保留 ToolErrorQueryTimeout 分类；准备阶段失败维持 failed，运行器返回 incomplete 时仍保留 incomplete，不为 execution_limit 引入新的终态语义。
+
+最终两位独立 agent 串行复审均无阻断项。`BUILD_PIPELINE=1 go test ./...`、`go vet ./...`、相关 race、lint 通过；前端 51 文件 / 38,954 单元测试、12 文件 / 82 浏览器测试通过，文案兼容调整后的定向测试亦通过。CI 模式按现有规则跳过实时第三方汇率；一次非 CI 全套运行中仅马来西亚央行接口返回 EOF，该单项随后重新执行通过，未将跳过项算作外部集成通过。
