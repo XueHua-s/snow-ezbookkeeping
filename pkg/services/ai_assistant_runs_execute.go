@@ -76,6 +76,10 @@ func (s *AssistantRunService) execute(parent context.Context, claimed *models.As
 			}
 			buffer.Lock()
 			defer buffer.Unlock()
+			if event.Type == llm.AssistantEventReplyReset {
+				buffer.content = ""
+				buffer.dirty = true
+			}
 			if event.Type == llm.AssistantEventReplyDelta {
 				if len(buffer.content)+len(event.Delta) > limits.ResponseBytes {
 					remaining := limits.ResponseBytes - len(buffer.content)
@@ -162,7 +166,9 @@ func (s *AssistantRunService) execute(parent context.Context, claimed *models.As
 				case data.ToolErrorBudgetExhausted, data.ToolErrorResultTooLarge:
 					reason = models.AssistantReasonExecutionLimit
 				case data.ToolErrorQueryTimeout:
-					reason = models.AssistantReasonRunTimeout
+					reason = models.AssistantReasonExecutionLimit
+				case data.ToolErrorNotFoundOrNotAccessible:
+					reason = models.AssistantReasonNotAccessible
 				case data.ToolErrorInvalidCursor:
 					reason = models.AssistantReasonCursorExpired
 				}
@@ -173,7 +179,7 @@ func (s *AssistantRunService) execute(parent context.Context, claimed *models.As
 			if result.StopReason == llm.AssistantReasonContextBudget {
 				reason = models.AssistantReasonContextLimit
 			}
-			if errors.Is(runErr, context.DeadlineExceeded) || deadline.Err() == context.DeadlineExceeded {
+			if deadline.Err() == context.DeadlineExceeded {
 				reason = models.AssistantReasonRunTimeout
 			}
 			if reason == models.AssistantReasonOutputLimit || reason == models.AssistantReasonRunTimeout || result.State == llm.AssistantStateIncomplete {

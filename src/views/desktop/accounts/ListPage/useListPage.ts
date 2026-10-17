@@ -54,9 +54,7 @@ export function useListPage() {
         allAccounts,
         allCategorizedAccountsMap,
         allAccountCount,
-        netAssets,
         totalAssets,
-        totalLiabilities,
         canShowAvailableCredit,
         accountCategoryTotalBalance,
         accountBalance,
@@ -449,7 +447,7 @@ export function useListPage() {
 
     return {
         tt, loading, showHidden, displayOrderModified, showAccountBalance, customAccountCategoryOrder, useLastReconciledTime,
-        allCategorizedAccountsMap, allAccountCount, netAssets, totalAssets, totalLiabilities, canShowAvailableCredit,
+        allCategorizedAccountsMap, allAccountCount, totalAssets, canShowAvailableCredit,
         accountCategoryTotalBalance, accountBalance, accountAvailableCredit, confirmDialog, snackbar, editDialog,
         reconciliationStatementDialog, moveAllTransactionsDialog, clearAllTransactionsDialog, activeAccountCategoryType,
         activeTab, activeSubAccount, showAccountsIncludedInTotalDialog, showCustomDateRangeDialog,

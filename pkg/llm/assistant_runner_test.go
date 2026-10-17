@@ -134,7 +134,7 @@ func TestAssistantRunnerCorrectsErrorsWithoutEmptySuccess(t *testing.T) {
 		t.Run(fmt.Sprint(correct), func(t *testing.T) {
 			e := &runnerExecutor{execute: func(_ core.Context, call data.ToolCall) data.ToolResult {
 				if call.ID == "bad" {
-					return data.ToolResult{Error: &data.ToolError{Code: data.ToolErrorInvalidArgument}, QueryID: "fake", Scope: &data.QueryScope{}, References: []data.TransactionReference{{ID: "fake"}}, HasMore: true, NextCursor: "fake"}
+					return data.ToolResult{Error: &data.ToolError{Code: data.ToolErrorInvalidArgument, Field: "date"}, QueryID: "fake", Scope: &data.QueryScope{}, References: []data.TransactionReference{{ID: "fake"}}, HasMore: true, NextCursor: "fake"}
 				}
 				return runnerSuccess(call.ID)
 			}}
@@ -377,4 +377,26 @@ func TestAssistantRunnerBudgetsRetainEvidence(t *testing.T) {
 		_, err := NewAssistantRunner(m, runnerScript(t), &runnerExecutor{}).Run(runnerContext(), in, nil)
 		runnerRequireCode(t, err, data.ToolErrorBudgetExhausted)
 	})
+}
+
+func TestAssistantRunnerHonorsAcceptedRequestBytes(t *testing.T) {
+	calls := 0
+	p := runnerModel(func(_ core.Context, _ int64, in data.ToolTurnInput, _ data.DisplayEventSink) (data.TurnResponse, error) {
+		calls++
+		if in.MaxRequestBytes != 2048 {
+			t.Fatal("accepted request budget replaced", in.MaxRequestBytes)
+		}
+		return data.TurnResponse{Completed: true, Content: "answer"}, nil
+	})
+	input := AssistantRunInput{UID: 7, Mode: "chat", Messages: []data.ConversationMessage{{Role: data.ConversationRoleUser, Content: "hello"}}, MaxRequestBytes: 2048, MaxInputTokens: 16000}
+	runner := NewAssistantRunner(p, nil, &runnerExecutor{})
+	result, err := runner.Run(core.NewNullContext(), input, nil)
+	if err != nil || result.State != AssistantStateCompleted || calls != 1 {
+		t.Fatal(result, err, calls)
+	}
+	input.MaxRequestBytes = 100
+	result, err = runner.Run(core.NewNullContext(), input, nil)
+	if err == nil || result.StopReason != AssistantReasonContextBudget || calls != 1 {
+		t.Fatal("byte limit bypassed", result, err, calls)
+	}
 }

@@ -4,6 +4,8 @@ import type { AssistantLocalPending } from '@/lib/assistant_local_storage.ts';
 import type * as DTO from '@/models/ai_assistant_conversation.ts';
 import { result, statusCode, isCommandRejection, type WriteAction, type WriteInput } from './types.ts';
 import { prepareAssistantDataClear } from './dataClear.ts';
+import { getSessionCurrentLanguageKey, getTimeZone } from '@/lib/settings.ts';
+import { getBrowserTimezoneName } from '@/lib/datetime.ts';
 import type { AssistantSession } from './session.ts';
 import type { AssistantConversation } from './conversation.ts';
 import type { useAssistantHistory } from './history.ts';
@@ -91,9 +93,12 @@ export function useAssistantCommands(
                 applyLocal(saved);
             }
             if (currentRoute() && conversationId.value === receipt.conversationId) await open();
+            if (valid()) await loadHistory();
             return;
         }
         if (currentRoute() && receipt.conversationId && conversationId.value === (item.conversationId ?? '')) {
+            if (item.action === 'retry' && receipt.status === 'accepted' && typeof item.payload?.['userMessageId'] === 'string')
+                view.followLatestAnswer(item.payload['userMessageId']);
             if (receipt.conversationId === conversationId.value) {
                 const next = await result(api.get({ id: receipt.conversationId, limit: 30 })).catch(failure => {
                     if (valid() && currentRoute()) throw failure;
@@ -118,6 +123,7 @@ export function useAssistantCommands(
             if (!valid()) return;
             if (
                 item.rejected ||
+                delivery.value[item.clientRequestId] === 'sending' ||
                 item.resolvedConversationId ||
                 (item.action !== 'clearAllData' && item.expectedDeletionEpoch !== capabilities.value?.deletionEpoch)
             )
@@ -170,6 +176,9 @@ export function useAssistantCommands(
             if (statusCode(failure) === 401) throw failure;
             if (valid() && authenticated.value) await reconcilePending();
             if (valid()) throw failure;
+        } finally {
+            // Explicit recovery retries enter dispatch without executeOnce's persistence guard.
+            if (valid() && delivery.value[item.clientRequestId] === 'sending') delete delivery.value[item.clientRequestId];
         }
         return undefined;
     }
@@ -235,14 +244,21 @@ export function useAssistantCommands(
                 typeof value['sourceConversationId'] === 'string' ? value['sourceConversationId'] : undefined,
             payload: request as AssistantLocalPending['payload'],
         };
-        const saved = await owner.savePending(item).catch((failure) => {
-            if (valid()) throw failure;
-        });
-        if (!saved || !valid()) return;
-        applyLocal(saved);
-        if (action === 'send' && currentRoute() && draft.value === value['content']) await setDraft('');
-        if (!valid()) return;
-        return dispatch(item);
+        // Publish delivery intent before persistence can notify subscribers about this command.
+        delivery.value[item.clientRequestId] = 'sending';
+        try {
+            const saved = await owner.savePending(item).catch((failure) => {
+                if (valid()) throw failure;
+            });
+            if (!saved || !valid()) return;
+            applyLocal(saved);
+            if (action === 'send' && currentRoute() && draft.value === value['content']) await setDraft('');
+            if (!valid()) return;
+            return await dispatch(item);
+        } finally {
+            // Persistence failure and invalidation must not leave a recoverable command hidden.
+            if (valid() && delivery.value[item.clientRequestId] === 'sending') delete delivery.value[item.clientRequestId];
+        }
     }
     function prepareDataClear(newOperation = false) {
         return prepareAssistantDataClear(
@@ -337,8 +353,11 @@ export function useAssistantCommands(
             new TextEncoder().encode(content).byteLength > (limits?.inputBytes ?? 16384)
         )
             throw new Error('input_too_long');
-        if (submitting.value || busy.value || activePending.value.length || !capabilities.value?.generationAvailable)
-            throw new Error('already_running');
+        if (!capabilities.value?.generationAvailable) throw new Error('generation_unavailable');
+        // Repeated clicks and a delivery receipt still in flight are not active model runs.
+        // Keep the draft and let reconciliation finish without dispatching a duplicate command.
+        if (submitting.value || activePending.value.length) return undefined;
+        if (busy.value) throw new Error('already_running');
         const valid = session.capture();
         submitting.value = true;
         try {
@@ -349,8 +368,10 @@ export function useAssistantCommands(
                 content,
                 sourceMessageId: options.sourceMessageId,
                 restartQuery: options.restartQuery,
-                locale: options.locale,
-                timezone: options.timezone,
+                // Capture the user's date context in the persisted command, so a
+                // delivery retry cannot silently change its calendar boundaries.
+                locale: options.locale || getSessionCurrentLanguageKey() || 'en',
+                timezone: options.timezone || getTimeZone().trim() || getBrowserTimezoneName(),
             });
         } finally {
             if (valid()) submitting.value = false;

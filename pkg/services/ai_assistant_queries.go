@@ -48,6 +48,8 @@ type AssistantQueryService struct {
 }
 type assistantToolHandler func(*assistantQueryExecution) (data.ToolResult, error)
 type assistantQueryExecution struct {
+	QueryID         string
+	QueriedAt       string
 	Service         *AssistantQueryService
 	Context         core.Context
 	View            datastore.AssistantReadView
@@ -108,13 +110,13 @@ func NewAssistantQueryService(store *datastore.DataStore, uid int64, options Ass
 }
 func (s *AssistantQueryService) Definitions() []data.ToolDefinition {
 	descriptions := map[data.ToolName]string{
-		data.ToolListAccounts:          "Discover effective account IDs, names, parent hierarchy and hidden state, in stable ID order. Hidden accounts are included. Resolve ambiguous names before filtering transactions or balances; continue with the returned cursor.",
-		data.ToolListCategories:        "Discover effective income/expense/transfer category IDs and parent hierarchy, including hidden categories. Names are not unique: use IDs and resolve ambiguity before querying. Results are paginated.",
-		data.ToolListTags:              "Discover effective tag IDs, names and tag groups, including hidden tags. Name search is a case-insensitive literal substring. Results are paginated.",
-		data.ToolQueryTransactions:     "Search all effective historical and future logical transactions, including hidden data. Returns one page, never a financial total. Use aggregate_transactions for complete totals. Transfers appear once with both sides and matched sides. Default newest-first; amount ordering requires one currency and an explicit transfer side when transfers are included.",
-		data.ToolGetTransaction:        "Read one authenticated effective transaction by string ID, including its full business details. An incoming-transfer ID resolves to the canonical outgoing transaction with both account sides. Deleted or inaccessible IDs fail explicitly.",
-		data.ToolAggregateTransactions: "Calculate exact statistics across ALL matching transactions, never a detail-page sum. Totals are complete even when groups are paginated. Currencies and income/expense/transfer_in/transfer_out/balance_modification flows stay separate; group counts may not be additive. Supports named periods and ordinal-aligned comparison. Defaults to count/sum with no history cutoff.",
-		data.ToolGetAccountBalances:    "Read CURRENT signed balances of all effective leaf accounts, including hidden accounts. Parent accounts are not double-counted. Returns paginated details and complete per-currency totals; liability outstanding is the negative signed balance. Historical balances and currency conversion are unsupported.",
+		data.ToolListAccounts:          "Discover account IDs/names/hierarchy/hidden state, ordered by ID. Paginated; resolve ambiguous names before filtering.",
+		data.ToolListCategories:        "Discover category IDs/names/hierarchy, including hidden categories. Names may repeat; keyword is a literal name substring, not a topic classifier. direct_transaction_count and subtree_transaction_count count all-history effective logical transactions, including hidden records and refunds; transfers count once. Zero direct count does not mean an unused parent. Counts are not date-filtered amounts. Paginated.",
+		data.ToolListTags:              "Discover tag IDs/names/groups, including hidden tags. Keyword searches names. Paginated.",
+		data.ToolQueryTransactions:     "Search logical transactions, newest first. Paginated details, NOT totals. Transfers appear once with both sides. Amount order requires currency and explicit transfer side.",
+		data.ToolGetTransaction:        "Read full effective transaction by string ID. Incoming-transfer IDs resolve to canonical outgoing records with both sides. Inaccessible/deleted IDs fail.",
+		data.ToolAggregateTransactions: "Exact full-scope statistics and named-period comparisons. Complete totals with paginated groups; separate currencies/flows. Overlapping group counts are not additive.",
+		data.ToolGetAccountBalances:    "CURRENT signed leaf-account balances (including hidden); paginated details, complete currency totals. No parent double-counting, historical reconstruction or conversion.",
 	}
 	definitions := make([]data.ToolDefinition, 0, len(assistantToolNames))
 	for _, name := range assistantToolNames {
@@ -192,9 +194,14 @@ func (s *AssistantQueryService) Execute(c core.Context, call data.ToolCall) (res
 	defer cancel()
 	qc := core.NewAssistantContext(ctx, c.GetContextId(), c.GetClientLocale(), c.ClientIP())
 	queriedAt := s.now().UTC().Format(time.RFC3339)
+	queryID := make([]byte, 16)
+	if _, err := rand.Read(queryID); err != nil {
+		return assistantFailure(err)
+	}
+	queryIDText := hex.EncodeToString(queryID)
 	err = s.database.WithAssistantReadView(qc, func(view datastore.AssistantReadView) error {
 		defer func() { read = view.Observations().RowsRead }()
-		execution := &assistantQueryExecution{Service: s, Context: qc, View: view, Tool: call.Name, Args: args, Cursor: cursor}
+		execution := &assistantQueryExecution{Service: s, Context: qc, View: view, Tool: call.Name, Args: args, Cursor: cursor, QueryID: queryIDText, QueriedAt: queriedAt}
 		if err := execution.prepare(); err != nil {
 			return err
 		}
@@ -228,11 +235,7 @@ func (s *AssistantQueryService) Execute(c core.Context, call data.ToolCall) (res
 		result.Scope = execution.Scope
 		result.QueriedAt = queriedAt
 		if result.QueryID == "" {
-			id := make([]byte, 16)
-			if _, err = rand.Read(id); err != nil {
-				return err
-			}
-			result.QueryID = hex.EncodeToString(id)
+			result.QueryID = queryIDText
 		}
 		if result.Warnings == nil {
 			result.Warnings = []string{}

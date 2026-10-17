@@ -52,7 +52,7 @@
 - User deletion/disable: `pkg/services/users_access.go`; clear-all versus ledger-only clear: `pkg/api/data_managements_clear.go`; bounded physical cleanup: `pkg/services/ai_assistant_cleanup*.go`.
 - Ledger-only deletion/context fencing: `pkg/services/ai_assistant_storage_ledger.go`, `pkg/services/transactions_clear_context.go`; memory list/export projection: `pkg/services/ai_assistant_memories_projection.go`.
 - Deletion keeps epoch and minimum body-free receipts; replay cannot delete newly created data. Background cleanup never accesses embedding records.
-- Canonical scope: `AI_ASSISTANT_EXPERIENCE_PLAN.md`; current requirement-by-requirement evidence: `docs/ai-assistant-experience-verification.md`. Old harness reports cover only their stated scenarios.
+- Current behavior and requirement-by-requirement evidence: `docs/ai-assistant-experience-verification.md`. Old harness reports cover only their stated scenarios.
 
 ## Validation Infrastructure
 

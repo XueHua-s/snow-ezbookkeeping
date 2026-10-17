@@ -3,7 +3,6 @@ import { useAssistantWorkspaceScope } from './useAssistantWorkspaceScope.ts';
 import { useAssistantStore } from '@/stores/assistant.ts';
 import type {
     AssistantConversationDTO,
-    AssistantMemoryDTO,
     AssistantMessageDTO
 } from '@/models/ai_assistant_conversation.ts';
 import { assistantReasonLabels } from '@/components/common/assistant/assistantPresentation.ts';
@@ -19,17 +18,13 @@ export function useAssistantCloudWorkspace(
     const { tt } = useI18n();
     const error = shallowRef('');
     const working = shallowRef(false);
+    const answerNotice = shallowRef('');
     const historyOpen = shallowRef(false);
-    const memoryOpen = shallowRef(false);
     const archived = shallowRef(false);
     const query = shallowRef('');
     const historySearching = shallowRef(false);
     const includeVersions = shallowRef(false);
-    const editing = shallowRef<AssistantMessageDTO>();
-    const editText = shallowRef('');
-    const summaryOpen = shallowRef(false);
     const retryQuerySource = shallowRef('');
-    const summaryPeriod = shallowRef(tt('This month'));
     let pendingCount = 0;
     const captureScope = useAssistantWorkspaceScope(
         () => [store.capabilities?.ownerScope, store.capabilities?.deletionEpoch, store.conversationId, routeKey()],
@@ -40,21 +35,17 @@ export function useAssistantCloudWorkspace(
             pendingCount = 0;
             working.value = false;
             error.value = '';
-            editing.value = undefined;
-            editText.value = '';
             retryQuerySource.value = '';
-            summaryOpen.value = false;
+            answerNotice.value = '';
         }
     );
     watch(
         [() => store.capabilities?.ownerScope, () => store.capabilities?.deletionEpoch],
         () => {
             historyOpen.value = false;
-            memoryOpen.value = false;
             query.value = '';
             includeVersions.value = false;
             archived.value = false;
-            summaryPeriod.value = tt('This month');
         },
         { flush: 'sync' }
     );
@@ -70,10 +61,9 @@ export function useAssistantCloudWorkspace(
         }))
     );
     const input = computed({
-        get: () => (editing.value ? editText.value : store.draft),
+        get: () => store.draft,
         set: (value) => {
-            if (editing.value) editText.value = value;
-            else void store.setDraft(value);
+            void store.setDraft(value);
         }
     });
     const disabledReason = computed(() =>
@@ -165,29 +155,8 @@ export function useAssistantCloudWorkspace(
         if (!authorized()) return;
         return run(() => store.execute('delete', { id: item.id, expectedMetadataVersion: item.metadataVersion }));
     }
-    async function clear() {
-        const authorized = await requestConfirmation(
-            tt(
-                'Clear all assistant data, including conversations, archives, memories and local drafts? Your bills will not be deleted.'
-            )
-        );
-        if (!authorized()) return;
-        return run(() => store.execute('clear', {}));
-    }
-    function edit(message: AssistantMessageDTO) {
-        if (store.busy) return;
-        editing.value = message;
-        editText.value = message.content;
-    }
-    async function send() {
-        if (editing.value) {
-            const target = editing.value;
-            const text = editText.value;
-            await run(async (current) => {
-                const receipt = await store.branch(target.id, 'edit', text);
-                if (receipt && current()) editing.value = undefined;
-            });
-        } else await run(() => store.send());
+    function send() {
+        return run(() => store.send());
     }
     function branch(message: AssistantMessageDTO) {
         return run(() => store.branch(message.id, 'regenerate', message.content));
@@ -204,7 +173,9 @@ export function useAssistantCloudWorkspace(
         return store.isLatestMessage(message.id) ? run(() => store.retry(message.id, intent)) : branch(message);
     }
     async function nextPage(message: AssistantMessageDTO) {
+        if (working.value || store.busy || disabledReason.value) return;
         const answer = message.selectedAnswer;
+        if (answer?.state !== 'completed' || (store.isLatestMessage(message.id) && answer.assistantMessageId !== message.selectedAssistantMessageId)) return;
         retryQuerySource.value = answer?.assistantMessageId ?? '';
         if (!answer) return;
         if (!store.isLatestMessage(message.id)) {
@@ -215,7 +186,7 @@ export function useAssistantCloudWorkspace(
             await run(() =>
                 store.send({
                     mode: 'next_page',
-                    content: tt('Show the next page of the current query results'),
+                    content: tt('Continue finding the remaining bills matching these conditions.'),
                     sourceMessageId: answer.assistantMessageId
                 })
             );
@@ -230,59 +201,23 @@ export function useAssistantCloudWorkspace(
             })
         );
     }
-    async function version(message: AssistantMessageDTO, id: string) {
-        await run(async (current) => {
-            await store.viewVersion(id);
-            if (!current()) return;
-            const answer = store.viewedVersions[message.id];
-            if (store.isLatestMessage(message.id) && answer?.state === 'completed')
-                await store.selectVersion(message.id, id);
-        });
+    async function version(_message: AssistantMessageDTO, id: string) {
+        if (working.value || store.busy) return;
+        answerNotice.value = '';
+        await run(() => store.viewVersion(id));
     }
-    function summary() {
-        return run(async (current) => {
-            await store.send({ mode: 'summary', content: `${tt('Generate AI Summary')}: ${summaryPeriod.value}` });
-            if (current()) summaryOpen.value = false;
+    async function useAnswer(message: AssistantMessageDTO) {
+        if (working.value || store.busy || disabledReason.value || !store.isLatestMessage(message.id)) return;
+        const answer = messages.value.find(item => item.id === message.id)?.selectedAnswer;
+        if (answer?.state !== 'completed' || answer.assistantMessageId === message.selectedAssistantMessageId) return;
+        await run(async (current) => {
+            const result = await store.selectVersion(message.id, answer.assistantMessageId);
+            if (result && current()) answerNotice.value = tt('Your next question will continue from this answer.');
         });
     }
     async function removeLocalDraft(id: string) {
         const authorized = await requestConfirmation(tt('Delete this local draft?'));
         if (authorized()) await run(() => store.removeDraft(id));
-    }
-    function showMemories() {
-        memoryOpen.value = true;
-        return run(() => store.loadMemories());
-    }
-    function saveMemory(item: AssistantMemoryDTO | undefined, text: string) {
-        return run(() =>
-            store.execute('saveMemory', {
-                id: item?.id,
-                expectedVersion: item?.version ?? 0,
-                expectedMemoryUseEpoch: store.memories?.memoryUseEpoch ?? 0,
-                text,
-                key: item?.key ?? crypto.randomUUID(),
-                type: item?.type ?? 'preference',
-                intent: item?.status === 'candidate' ? 'confirm' : item ? 'correct' : 'add'
-            })
-        );
-    }
-    async function forget(item?: AssistantMemoryDTO) {
-        const authorized = await requestConfirmation(
-            tt(
-                item
-                    ? 'Forget this memory? Original conversations remain.'
-                    : 'Forget all memories? Original conversations remain.'
-            )
-        );
-        if (!authorized()) return;
-        return run(() =>
-            store.execute('deleteMemory', {
-                id: item?.id,
-                all: !item,
-                expectedVersion: item?.version ?? 0,
-                expectedMemoryUseEpoch: store.memories?.memoryUseEpoch ?? 0
-            })
-        );
     }
     return {
         store,
@@ -291,16 +226,13 @@ export function useAssistantCloudWorkspace(
         removeLocalDraft,
         error,
         working,
+        answerNotice,
         historyOpen,
-        memoryOpen,
         archived,
         query,
         historySearching,
         includeVersions,
-        editing,
         input,
-        summaryOpen,
-        summaryPeriod,
         retryQuerySource,
         restartQuery,
         messages,
@@ -310,17 +242,11 @@ export function useAssistantCloudWorkspace(
         rename,
         archive,
         remove,
-        clear,
-        edit,
         send,
-        branch,
         continueConversation,
         retry,
         nextPage,
         version,
-        summary,
-        showMemories,
-        saveMemory,
-        forget
+        useAnswer
     };
 }

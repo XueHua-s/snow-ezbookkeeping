@@ -259,32 +259,16 @@ const {
 
 <style>
 .account-overview-card {
-    background-color: var(--f7-color-yellow);
+    background-color: var(--app-tint);
 }
 
 .dark .account-overview-card {
-    background-color: var(--f7-theme-color);
+    background-color: var(--app-tint);
 }
 
 .dark .account-overview-card a {
     color: var(--f7-text-color);
     opacity: 0.6;
-}
-
-.net-assets {
-    font-size: 1.5em;
-}
-
-.account-overview-info {
-    opacity: 0.6;
-}
-
-.account-overview-info > span {
-    margin-inline-end: 4px;
-}
-
-.account-overview-info > span:last-child {
-    margin-inline-end: 0;
 }
 
 .account-list {

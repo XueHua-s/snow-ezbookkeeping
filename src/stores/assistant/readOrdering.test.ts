@@ -140,3 +140,43 @@ describe('same-route assistant read intent', () => {
     });
 
 });
+
+it('retains more than twenty loaded answers and refreshes duplicate metadata', async () => {
+    await store.initialize();
+    const versions = Array.from({ length: 40 }, (_, i) => ({ id: String(i + 1), attemptNumber: i + 1, state: 'completed' as const, createdAt: '' }));
+    mocks.api['get']!.mockResolvedValueOnce(response({ ...conversation(), messages: [{ id: 'question', versions: versions.slice(20).map(version => version.id === '21' ? { ...version, state: 'running' } : version), hasMoreVersions: true }] }));
+    await store.open('1');
+    mocks.api['versions']!.mockResolvedValueOnce(response({ items: [...versions.slice(0, 21), { ...versions[21], state: 'running' }], nextCursor: undefined }));
+    await store.loadVersions('question', 'older');
+    const message = store.detail!.messages[0]!;
+    expect(message.versions).toHaveLength(40);
+    expect(message.versions.map(item => item.attemptNumber)).toEqual(Array.from({ length: 40 }, (_, i) => 40 - i));
+    expect(message.versions.find(item => item.id === '21')?.state).toBe('completed');
+    expect(message.versions.find(item => item.id === '22')?.state).toBe('completed');
+    expect(message.hasMoreVersions).toBe(false);
+});
+
+it('preserves loaded answer pages and completion across server detail refreshes', async () => {
+    await store.initialize();
+    const versions = Array.from({ length: 45 }, (_, i) => ({ id: String(i + 1), attemptNumber: i + 1, state: 'completed' as const, createdAt: '' }));
+    const detail = (metadataVersion: number) => ({ ...conversation('1', { metadataVersion }), messages: [{ id: 'question', versions: versions.slice(-5), hasMoreVersions: true }] });
+    mocks.api['get']!.mockResolvedValueOnce(response(detail(1)));
+    await store.open('1');
+    mocks.api['versions']!.mockResolvedValueOnce(response({ items: versions.slice(25), nextCursor: 'older' }));
+    await store.loadVersions('question');
+    async function refresh(metadataVersion: number) {
+        mocks.api['state']!.mockResolvedValueOnce(response({ id: '1', accessible: true, contextVersion: 1, metadataVersion }));
+        mocks.api['get']!.mockResolvedValueOnce(response(detail(metadataVersion)));
+        await store.synchronize();
+    }
+    await refresh(2);
+    expect(store.detail!.messages[0]!.versions).toHaveLength(20);
+    mocks.api['versions']!.mockResolvedValueOnce(response({ items: versions.slice(5, 25), nextCursor: 'oldest' }));
+    await store.loadVersions('question', 'older');
+    expect(store.detail!.messages[0]!.versions).toHaveLength(40);
+    mocks.api['versions']!.mockResolvedValueOnce(response({ items: versions.slice(0, 5) }));
+    await store.loadVersions('question', 'oldest');
+    await refresh(3);
+    expect(store.detail!.messages[0]!.versions).toHaveLength(45);
+    expect(store.detail!.messages[0]!.hasMoreVersions).toBe(false);
+});

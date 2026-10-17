@@ -49,7 +49,7 @@ try {
             value.ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
             assert(!value.disabled && value.ratio >= 4.5, JSON.stringify(value));
             assert.equal(value.colorScheme, dark ? 'dark' : 'light');
-            if (state === 'focus') assert.equal(value.outlineColor, dark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)');
+            if (state === 'focus') assert(await send.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth) >= 2), 'Send has a visible focus outline');
             colors.push({ state, ...value });
             if (state === 'pressed') { await page.mouse.move(0, 0); await page.mouse.up(); }
         }
@@ -59,12 +59,12 @@ try {
         await send.click();
         await page.getByRole('heading', { name: 'Verified isolated ledger' }).waitFor({ timeout: 30000 });
         await input.fill('Next question');
-        await page.getByLabel('More', { exact: true }).click();
-        const title = page.locator('.full-title');
-        assert.equal(await title.innerText(), await page.locator('.toolbar-title').innerText());
+        const title = page.locator('.toolbar-title');
+        assert.equal(await title.getAttribute('title'), await title.innerText());
         assert(await title.isVisible());
+        assert.equal(await page.locator('.cloud-toolbar summary').count(), 0);
+        assert.equal(await page.getByRole('button', { name: /Export|Long-term memory|Clear all assistant data/ }).count(), 0);
         await page.screenshot({ path: `${artifacts}/${variant}-${dark ? 'dark' : 'light'}-title.png` });
-        await page.keyboard.press('Escape');
         const history = page.getByRole('button', { name: 'Conversation history', exact: true });
         await history.click();
         await page.waitForFunction(() => document.querySelector('.cloud-history')?.matches(':modal'));
@@ -79,13 +79,17 @@ try {
             assert(await page.locator('.cloud-history').evaluate(el => el.contains(document.activeElement)));
         }
         await page.screenshot({ path: `${artifacts}/${variant}-${dark ? 'dark' : 'light'}-history.png` });
-        await page.locator('.cloud-history summary').first().click();
         await page.getByRole('button', { name: 'Rename', exact: true }).click();
         await page.getByRole('textbox', { name: 'Conversation title' }).focus();
         await page.keyboard.press('Escape');
         assert(await page.locator('.cloud-history').evaluate(el => el.matches(':modal')));
         assert.equal(await page.getByRole('textbox', { name: 'Conversation title' }).count(), 0);
-        assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'SUMMARY');
+        assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Rename');
+        const deleteButton = page.getByRole('button', { name: 'Delete', exact: true });
+        await deleteButton.click();
+        await page.getByRole('dialog', { name: 'Confirm', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
+        assert.equal(await deleteButton.evaluate(el => el === document.activeElement), true);
+        assert(await page.locator('.cloud-history').evaluate(el => el.matches(':modal')));
         await page.keyboard.press('Escape');
         await page.waitForFunction(() => !document.querySelector('.cloud-history'));
         assert.equal(await history.evaluate(el => el === document.activeElement), true);

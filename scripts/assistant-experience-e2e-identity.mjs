@@ -4,18 +4,10 @@ import { resolve } from 'node:path';
 const prefix = 'v1/llm/assistant/';
 const question = page => page.getByPlaceholder('Ask your personal finance question');
 const history = page => page.getByRole('navigation', { name: 'Conversation history', exact: true });
-async function deadline(promise, label) {
-    let timer;
-    try {
-        return await Promise.race([promise, new Promise((_, reject) => {
-            timer = setTimeout(() => reject(new Error(`${label} timed out`)), 20000);
-        })]);
-    } finally { clearTimeout(timer); }
-}
-async function more(page, name) {
-    const button = page.locator('.cloud-toolbar').getByRole('button', { name, exact: true });
-    if (!await button.isVisible()) await page.locator('.cloud-toolbar summary').click();
-    await button.click();
+async function requestDelete(page) {
+    if (!await history(page).isVisible()) await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
+    await history(page).getByRole('button', { name: 'Delete', exact: true }).first().click();
+    await page.getByRole('dialog', { name: 'Confirm', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).waitFor();
 }
 async function command(env, login, path, payload = {}) {
     const caps = await env.api(prefix + 'capabilities', undefined, login.token);
@@ -73,6 +65,7 @@ export async function identityFlows({ env, browser, variant, production = false,
         if (await page.evaluate(() => localStorage.getItem('ebk_user_token')) !== login.token) {
             await nativeIdentitySwitch(page, switcher, login);
             await question(page).waitFor();
+            await page.waitForFunction(() => !new URLSearchParams(location.hash.split('?')[1]).get('conversationId') && !document.querySelector('.cloud-history'));
         }
         const id = new URLSearchParams(url.split('?')[1]).get('conversationId');
         if (id) {
@@ -84,6 +77,7 @@ export async function identityFlows({ env, browser, variant, production = false,
             await page.locator('.cloud-toolbar').getByRole('button', { name: 'New conversation', exact: true }).click();
         }
         await question(page).waitFor();
+        await page.waitForFunction(() => !document.querySelector('.cloud-history'));
     }
     async function seed(login, text) {
         await open(login);
@@ -127,19 +121,13 @@ export async function identityFlows({ env, browser, variant, production = false,
         page.on('request', request => {
             if (request.method() === 'POST' && /assistant\/(conversations\/(clear|delete|update)|memories\/(save|delete))\.json/.test(request.url())) writes.push(request.url());
         });
-        for (const editor of ['confirmation', 'memory', 'history']) {
+        for (const editor of ['confirmation', 'history']) {
             await open(first, a.url);
             await page.getByRole('heading', { name: 'Verified isolated ledger' }).waitFor();
             if (editor === 'confirmation') {
-                await more(page, 'Clear all assistant data');
-                await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).waitFor();
-            } else if (editor === 'memory') {
-                await more(page, 'Long-term memory');
-                await page.locator('.memories').getByRole('button', { name: 'Edit', exact: true }).click();
-                await page.getByLabel('Memory text', { exact: true }).fill('Unsubmitted old owner memory');
+                await requestDelete(page);
             } else {
                 await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
-                await history(page).locator('.history-item summary').click();
                 await history(page).getByRole('button', { name: 'Rename', exact: true }).click();
                 await history(page).getByLabel('Conversation title', { exact: true }).fill('Unsubmitted old owner title');
             }
@@ -152,13 +140,8 @@ export async function identityFlows({ env, browser, variant, production = false,
             assert.ok(!frame.inputs.some(text => text.includes('Unsubmitted old owner')));
             assert.equal(await page.locator('.memories form, .history-item form, .confirmation-dialog[open]').count(), 0);
             await open(second, b.url);
-            if (editor === 'memory') {
-                await more(page, 'Long-term memory');
-                await page.getByRole('button', { name: 'Add memory', exact: true }).click();
-                assert.equal(await page.getByLabel('Memory text', { exact: true }).inputValue(), '');
-            } else if (editor === 'history') {
+            if (editor === 'history') {
                 await page.getByRole('button', { name: 'Conversation history', exact: true }).click();
-                await history(page).locator('.history-item summary').click();
                 await history(page).getByRole('button', { name: 'Rename', exact: true }).click();
                 assert.equal(await history(page).getByLabel('Conversation title', { exact: true }).inputValue(), beforeB.conversation.title);
             }
@@ -167,85 +150,46 @@ export async function identityFlows({ env, browser, variant, production = false,
             assert.equal(writes.length, 0);
             note(`native storage switch with ${editor} open: first receiving RAF clears old UI; both owners' server objects unchanged; no write request`);
         }
-        // Export response is obtained from the actual server, then held before delivery.
+        // Removed controls must stay unreachable across identities and route changes.
         for (const boundary of ['owner', 'route']) {
             await open(first, a.url);
-            await page.getByRole('heading', { name: 'Verified isolated ledger' }).waitFor();
-            let reached, rejectBarrier, release, completed;
-            const atBarrier = new Promise((resolve, reject) => { reached = resolve; rejectBarrier = reject; });
-            const barrier = new Promise(resolve => { release = resolve; });
-            const done = new Promise(resolve => { completed = resolve; });
-            const timer = setTimeout(() => rejectBarrier(new Error('Export response barrier timed out')), 20000);
-            // Attach rejection immediately even if the user action fails before awaiting the barrier.
-            void atBarrier.catch(() => {});
+            assert.equal(await page.locator('.cloud-toolbar summary, .memories, .export-dialog').count(), 0);
+            assert.equal(await page.getByRole('button', { name: /Export|Long-term memory|Clear all assistant data/ }).count(), 0);
             const downloads = [];
             const onDownload = download => downloads.push(download.suggestedFilename());
             page.on('download', onDownload);
-            const pattern = '**/api/v1/llm/assistant/conversations/export.json';
-            let requestSeen = false;
-            let deliveryError;
-            let cancelled = false;
-            const onFailure = request => {
-                if (request.url().endsWith('/conversations/export.json')) cancelled = request.failure()?.errorText === 'net::ERR_ABORTED';
-            };
-            page.on('requestfailed', onFailure);
-            await page.route(pattern, async route => {
-                requestSeen = true;
-                try {
-                    const response = await route.fetch({ timeout: 15000 });
-                    assert.equal(response.status(), 200);
-                    assert.match(await response.text(), /Verified isolated ledger/);
-                    reached(); await barrier;
-                    await route.fulfill({ response });
-                } catch (error) { deliveryError = error; rejectBarrier(error); }
-                finally { completed(); }
-            });
-            try {
-                await more(page, 'Export');
-                await page.getByRole('button', { name: 'Download', exact: true }).click();
-                await atBarrier;
-                clearTimeout(timer);
-                if (boundary === 'owner') {
-                    await nativeIdentitySwitch(page, switcher, second);
-                    await question(page).waitFor();
-                }
-                else {
-                    const exportingURL = page.url();
-                    await page.goBack({ waitUntil: 'domcontentloaded' });
-                    assert.notEqual(page.url(), exportingURL);
-                }
-                await page.waitForFunction(() => !document.querySelector('.export-dialog[open]'));
-                release(); await deadline(done, 'Export delivery');
-                await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
-                if (deliveryError) assert.ok(cancelled && /cancel|abort|Invalid InterceptionId/i.test(String(deliveryError)), String(deliveryError));
-                assert.equal(cancelled, true, 'identity/route change must cancel the real export transport');
-                assert.deepEqual(downloads, []);
-            } finally {
-                clearTimeout(timer); release();
-                try { if (requestSeen) await deadline(done, 'Export cleanup'); }
-                finally {
-                    await page.unroute(pattern);
-                    page.off('download', onDownload); page.off('requestfailed', onFailure);
-                }
+            await requestDelete(page);
+            const staleConfirm = await page.getByRole('dialog', { name: 'Confirm', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).elementHandle();
+            if (boundary === 'owner') {
+                await nativeIdentitySwitch(page, switcher, second);
+            } else {
+                const previousURL = page.url();
+                await page.goBack({ waitUntil: 'domcontentloaded' });
+                assert.notEqual(page.url(), previousURL);
             }
+            await page.waitForFunction(() => !document.querySelector('.confirmation-dialog[open]'));
+            await staleConfirm.evaluate(button => button.click());
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+            assert.deepEqual(downloads, []);
+            page.off('download', onDownload);
             assert.deepEqual(await snapshot(first, a.id), beforeA);
             assert.deepEqual(await snapshot(second, b.id), beforeB);
-            note(`real server export held in flight then ${boundary} change: no download or server mutation (native cancellation; noncooperative response covered separately by component tests)`);
+            assert.equal(writes.length, 0);
+            note(`pending single deletion then ${boundary} change: stale control cannot mutate either owner; removed export/memory controls absent and no download`);
             if (boundary === 'route' && variant === 'mobile' && !await question(page).isVisible()) {
                 await page.getByRole('link').filter({ hasText: 'Private assistant for personal bills and bookkeeping suggestions' }).click();
                 await question(page).waitFor();
             }
-            // Ensure next loop's identity event is not a same-value write.
             await open(second, b.url);
         }
         // Same-owner deletion epoch invalidates a pending confirmation in another live app tab.
         await open(first, a.url);
         await switcher.goto(a.url); await switcher.reload({ waitUntil: 'domcontentloaded' }); await question(switcher).waitFor();
-        await more(page, 'Clear all assistant data');
-        const staleConfirm = await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).elementHandle();
-        await more(switcher, 'Clear all assistant data');
-        await switcher.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
-        await switcher.waitForFunction(() => !document.querySelector('.confirmation-dialog[open]'));
+        await requestDelete(page);
+        const staleConfirm = await page.getByRole('dialog', { name: 'Confirm', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).elementHandle();
+        await command(env, first, 'conversations/clear');
+        // Exercise the retained server epoch boundary without restoring the removed bulk-delete UI.
+        await page.evaluate(() => window.dispatchEvent(new Event('online')));
         await page.waitForFunction(() => !document.querySelector('.confirmation-dialog[open]'));
         const freshCaps = await env.api(prefix + 'capabilities', undefined, first.token);
         assert.ok(freshCaps.deletionEpoch > caps.deletionEpoch);
@@ -259,7 +203,7 @@ export async function identityFlows({ env, browser, variant, production = false,
         assert.equal((await env.api(prefix + 'capabilities', undefined, first.token)).deletionEpoch, freshCaps.deletionEpoch);
         assert.deepEqual(await snapshot(second, b.id), beforeB);
         assert.equal(writes.length, 0);
-        note('native second app clear advances epoch: old confirmation declines; retained old control cannot delete new epoch memory; other owner unchanged');
+        note('server API clear and capability refresh advance epoch: old confirmation declines; retained old control cannot delete new epoch memory; other owner unchanged');
         assert.equal(errors.length, 0, errors.join('\n'));
     } catch (error) {
         await page.screenshot({ path: resolve(env.artifacts, `${variant}-identity-failure.png`) });

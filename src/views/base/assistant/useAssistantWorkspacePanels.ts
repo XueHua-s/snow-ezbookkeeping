@@ -3,8 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, useTemplate
 interface PanelOptions {
     variant: () => 'desktop' | 'mobile';
     historyOpen: Ref<boolean>;
-    memoryOpen: Ref<boolean>;
-    showMemories: () => Promise<unknown>;
     captureScope: () => () => boolean;
 }
 
@@ -13,41 +11,23 @@ export function useAssistantWorkspacePanels(options: PanelOptions) {
     const viewport = shallowRef(0);
     const narrow = shallowRef(false);
     const historyPanel = useTemplateRef<HTMLElement>('historyPanel');
-    const memoryRegion = useTemplateRef<HTMLElement>('memoryRegion');
-    let memoryTrigger: HTMLElement | null = null;
-    async function openMemories() {
-        const current = options.captureScope();
-        const active = document.activeElement as HTMLElement;
-        memoryTrigger = active;
-        await options.showMemories();
-        await nextTick();
-        if (!current()) return;
-        const heading = memoryRegion.value?.querySelector('h2');
-        if (heading) {
-            heading.tabIndex = -1;
-            heading.focus();
-        }
-    }
-    watch(options.memoryOpen, async (visible) => {
-        const current = options.captureScope();
-        if (!visible) {
-            await nextTick();
-            if (current() && memoryTrigger?.isConnected) memoryTrigger.focus();
-        }
-    });
     watch(historyPanel, (panel) => {
         if (panel instanceof HTMLDialogElement && !panel.open) panel.showModal();
     }, { flush: 'post' });
     let historyTrigger: HTMLElement | null = null;
-    watch(options.historyOpen, async (visible) => {
+    watch(options.historyOpen, async (visible, _previous, onCleanup) => {
+        let cancelled = false;
+        onCleanup(() => { cancelled = true; });
         const current = options.captureScope();
         if (visible) {
             historyTrigger = document.activeElement as HTMLElement;
             await nextTick();
-            if (current() && narrow.value) historyPanel.value?.querySelector<HTMLButtonElement>('button')?.focus();
+            if (!cancelled && current() && narrow.value) historyPanel.value?.querySelector<HTMLButtonElement>('button')?.focus();
         } else {
+            // Release native modality before restoring focus; the leave transition retains the DOM.
+            if (historyPanel.value instanceof HTMLDialogElement) historyPanel.value.close();
             await nextTick();
-            if (current() && historyTrigger?.isConnected) historyTrigger.focus();
+            if (!cancelled && current() && historyTrigger?.isConnected) historyTrigger.focus();
         }
     });
     function historyKey(event: KeyboardEvent) {
@@ -96,5 +76,5 @@ export function useAssistantWorkspacePanels(options: PanelOptions) {
         window.removeEventListener('resize', updateViewport);
         window.visualViewport?.removeEventListener('resize', updateViewport);
     });
-    return { narrow, shellStyle, historyPanel, openMemories, historyKey };
+    return { narrow, shellStyle, historyPanel, historyKey };
 }

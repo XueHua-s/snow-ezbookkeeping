@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mdiClose, mdiRefresh } from '@mdi/js';
 import { nextTick, onBeforeUnmount, useTemplateRef, watch } from 'vue';
 import { useAssistantStore } from '@/stores/assistant.ts';
 import { useI18n } from '@/locales/helpers.ts';
@@ -63,7 +64,7 @@ defineExpose({ check: checkReference });
 <template>
     <dialog
         ref="referenceNotice"
-        class="export-dialog reference-notice"
+        class="reference-notice assistant-dialog"
         :aria-label="tt('View Details')"
         @cancel.prevent="dismissReference"
     >
@@ -71,7 +72,7 @@ defineExpose({ check: checkReference });
             {{ tt(referenceLabels[reference.state.value]) }}
         </p>
         <button
-            class="reference-action"
+            class="assistant-action"
             v-if="reference.state.value === 'changed' || reference.state.value === 'unverified'"
             type="button"
             @click="reference.viewCurrent"
@@ -79,47 +80,25 @@ defineExpose({ check: checkReference });
             {{ tt('View current bill') }}
         </button>
         <button
-            class="reference-action"
+            class="assistant-action"
             v-if="reference.state.value === 'changed' && !store.busy && store.capabilities?.generationAvailable"
             type="button"
             @click="queryReferenceAgain"
-        >
-            {{ tt('Ask this question again') }}
+         :aria-label="tt('Ask this question again')" :title="tt('Ask this question again')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiRefresh" /></svg>
         </button>
         <button
-            class="reference-action"
+            class="assistant-action"
             v-if="reference.state.value === 'unavailable' || reference.state.value === 'failed'"
             type="button"
             @click="reference.retry"
-        >
-            {{ tt('Retry') }}
+         :aria-label="tt('Retry')" :title="tt('Retry')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiRefresh" /></svg>
         </button>
-        <button class="reference-action" type="button" @click="dismissReference">{{ tt('Close') }}</button>
+        <button class="assistant-action" type="button" @click="dismissReference" :aria-label="tt('Close')" :title="tt('Close')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiClose" /></svg>
+        </button>
     </dialog>
 </template>
-<style scoped>
-.reference-notice {
-    max-height: 80dvh;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    max-width: min(90vw, 500px);
-    border-radius: 16px;
-    padding: 24px;
-    background: var(--assistant-surface, Canvas);
-    color: inherit;
-}
-.reference-action {
-    color: inherit;
-    font: inherit;
-    min-height: 44px;
-    padding: 8px;
-    border: 1px solid rgb(127 127 127 / 90%);
-    border-radius: 8px;
-    background: transparent;
-    cursor: pointer;
-}
-.reference-action:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-}
-</style>
+<style scoped src="./assistantAction.css"></style>
+<style scoped src="./assistantDialog.css"></style>

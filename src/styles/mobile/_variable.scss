@@ -19,7 +19,7 @@
     --f7-notification-title-text-transform: unset;
 
     --ebk-icon-default-color: #000;
-    --ebk-primary-color: 198, 126, 72;
+    --ebk-primary-color: var(--app-primary-rgb);
     --ebk-chevron-icon-color: rgba(0, 0, 0, 0.2);
     --ebk-transaction-tag-chip-bg-color: rgba(0, 0, 0, 0.04);
 }
@@ -53,3 +53,35 @@
     --f7-theme-color-shade: var(--f7-color-gray-shade);
     --f7-theme-color-tint: var(--f7-color-gray-tint);
 }
+
+// Framework7 derives its component colors from these semantic tokens.
+:root.ios, :root.ios.dark {
+    --f7-theme-color: var(--app-primary);
+    --f7-theme-color-rgb: var(--app-primary-rgb);
+    --f7-theme-color-shade: var(--app-primaryDarken);
+    --f7-theme-color-tint: color-mix(in srgb, var(--app-primary), white 15%);
+    --f7-theme-color-text-color: var(--app-primary);
+    --f7-button-fill-text-color: var(--app-onPrimary);
+    --f7-page-bg-color: var(--app-background);
+    --f7-list-strong-bg-color: var(--app-surface);
+    --f7-card-bg-color: var(--app-surface);
+    --f7-block-strong-bg-color: var(--app-surface);
+    --f7-bars-bg-color: var(--app-surface);
+    --f7-text-color: var(--app-text);
+}
+
+// F7 also emits fixed colors for explicit color="primary" and utility classes.
+// Override their tokens so they follow the active palette after a theme switch.
+html:root.ios .color-primary {
+    --f7-ios-primary: var(--app-primary);
+    --f7-ios-primary-rgb: var(--app-primary-rgb);
+    --f7-ios-primary-shade: var(--app-primaryDarken);
+    --f7-ios-primary-tint: color-mix(in srgb, var(--app-primary), white 15%);
+    --f7-button-fill-text-color: var(--app-onPrimary);
+    --f7-swipeout-button-text-color: var(--app-onPrimary);
+}
+
+.ios .text-color-primary { --f7-theme-color-text-color: var(--app-primary); }
+.ios .bg-color-primary { --f7-theme-color-bg-color: var(--app-primary); }
+.ios .border-color-primary { --f7-theme-color-border-color: var(--app-primary); }
+.ios .ripple-color-primary { --f7-theme-color-ripple-color: rgba(var(--app-primary-rgb), 0.3); }

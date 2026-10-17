@@ -183,17 +183,18 @@ func normalizeAssistantArgs(name data.ToolName, m map[string]any) (assistantQuer
 	for _, entry := range []struct {
 		m      map[string]any
 		key    string
+		path   string
 		target *[]string
 		ids    bool
-	}{{m, "account_ids", &a.AccountIDs, true}, {fm, "account_ids", &a.Filter.AccountIDs, true}, {fm, "category_ids", &a.Filter.CategoryIDs, true}, {fm, "tag_ids", &a.Filter.TagIDs, true}, {fm, "types", &a.Filter.Types, false}} {
+	}{{m, "account_ids", "account_ids", &a.AccountIDs, true}, {fm, "account_ids", "filter.account_ids", &a.Filter.AccountIDs, true}, {fm, "category_ids", "filter.category_ids", &a.Filter.CategoryIDs, true}, {fm, "tag_ids", "filter.tag_ids", &a.Filter.TagIDs, true}, {fm, "types", "filter.types", &a.Filter.Types, false}} {
 		if v := entry.m[entry.key]; v != nil && len(*entry.target) == 0 {
-			return a, assistantInvalid(entry.key)
+			return a, assistantInvalid(entry.path)
 		}
 		if entry.ids {
 			for i, s := range *entry.target {
 				id, e := assistantID(s)
 				if e != nil {
-					return a, e
+					return a, assistantInvalid(entry.path)
 				}
 				(*entry.target)[i] = strconv.FormatInt(id, 10)
 			}
@@ -201,10 +202,10 @@ func normalizeAssistantArgs(name data.ToolName, m map[string]any) (assistantQuer
 		*entry.target = canonicalStrings(*entry.target)
 	}
 	if len(a.Filter.TagIDs) == 0 && fm["tag_match"] != nil {
-		return a, assistantInvalid("tag_match")
+		return a, assistantInvalid("filter.tag_match")
 	}
 	if a.Filter.NoTags && len(a.Filter.TagIDs) > 0 {
-		return a, assistantInvalid("no_tags")
+		return a, assistantInvalid("filter.no_tags")
 	}
 	if len(a.Filter.Types) == 0 {
 		a.Filter.Types = []string{"balance_modification", "expense", "income", "transfer"}
@@ -212,50 +213,52 @@ func normalizeAssistantArgs(name data.ToolName, m map[string]any) (assistantQuer
 	if name == data.ToolGetTransaction {
 		id, e := assistantID(a.TransactionID)
 		if e != nil {
-			return a, e
+			return a, assistantInvalid("transaction_id")
 		}
 		a.TransactionID = strconv.FormatInt(id, 10)
 	}
 	for _, bound := range []struct {
-		s **string
-		n **int64
-	}{{&a.Filter.StartTime, &a.Filter.StartMillis}, {&a.Filter.EndTime, &a.Filter.EndMillis}} {
+		s    **string
+		n    **int64
+		path string
+	}{{&a.Filter.StartTime, &a.Filter.StartMillis, "filter.start_time"}, {&a.Filter.EndTime, &a.Filter.EndMillis, "filter.end_time"}} {
 		if *bound.s != nil {
 			s, n, e := assistantTime(**bound.s)
 			if e != nil {
-				return a, e
+				return a, assistantInvalid(bound.path)
 			}
 			*bound.s = &s
 			*bound.n = &n
 		}
 	}
 	if a.Filter.StartMillis != nil && a.Filter.EndMillis != nil && *a.Filter.StartMillis >= *a.Filter.EndMillis {
-		return a, assistantInvalid("end_time")
+		return a, assistantInvalid("filter.end_time")
 	}
 	if a.Filter.Currency != "" {
 		a.Filter.Currency = strings.ToUpper(a.Filter.Currency)
 		if len(a.Filter.Currency) != 3 || strings.Trim(a.Filter.Currency, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") != "" {
-			return a, assistantInvalid("currency")
+			return a, assistantInvalid("filter.currency")
 		}
 	}
 	for _, bound := range []struct {
-		s **string
-		n **int64
-	}{{&a.Filter.AmountMin, &a.Filter.MinMinor}, {&a.Filter.AmountMax, &a.Filter.MaxMinor}} {
+		s    **string
+		n    **int64
+		path string
+	}{{&a.Filter.AmountMin, &a.Filter.MinMinor, "filter.amount_min"}, {&a.Filter.AmountMax, &a.Filter.MaxMinor, "filter.amount_max"}} {
 		if *bound.s != nil {
 			n, s, e := assistantAmount(**bound.s)
 			if e != nil {
-				return a, e
+				return a, assistantInvalid(bound.path)
 			}
 			*bound.s = &s
 			*bound.n = &n
 		}
 	}
 	if (a.Filter.MinMinor != nil || a.Filter.MaxMinor != nil) && a.Filter.Currency == "" {
-		return a, assistantInvalid("currency")
+		return a, assistantInvalid("filter.currency")
 	}
 	if a.Filter.MinMinor != nil && a.Filter.MaxMinor != nil && *a.Filter.MinMinor > *a.Filter.MaxMinor {
-		return a, assistantInvalid("amount_max")
+		return a, assistantInvalid("filter.amount_max")
 	}
 	a.Filter.Keyword = strings.ToLower(a.Filter.Keyword)
 	a.Keyword = strings.ToLower(a.Keyword)

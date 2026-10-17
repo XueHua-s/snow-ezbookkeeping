@@ -60,6 +60,12 @@ func assistantError(code data.ToolErrorCode) error {
 	return &data.ToolError{Code: code, Message: messages[code], Retryable: code == data.ToolErrorUpstreamFailed || code == data.ToolErrorProtocol}
 }
 
+func assistantContextError() error {
+	e := assistantError(data.ToolErrorBudgetExhausted).(*data.ToolError)
+	e.UpstreamContext = true
+	return e
+}
+
 func (p *assistantToolProvider) RunToolTurn(c core.Context, uid int64, input data.ToolTurnInput, emit data.DisplayEventSink) (data.TurnResponse, error) {
 	var zero data.TurnResponse
 	if err := c.Err(); err != nil {
@@ -88,7 +94,7 @@ func (p *assistantToolProvider) RunToolTurn(c core.Context, uid int64, input dat
 			return zero, assistantTransportError(c, readErr)
 		}
 		if isContextLimit(b) {
-			return zero, assistantError(data.ToolErrorBudgetExhausted)
+			return zero, assistantContextError()
 		}
 		return zero, assistantError(data.ToolErrorUpstreamFailed)
 	}
@@ -98,14 +104,14 @@ func (p *assistantToolProvider) RunToolTurn(c core.Context, uid int64, input dat
 		if p.responses {
 			turn, outputs, err = readResponsesToolStream(resp.Body, emit)
 		} else {
-			turn, err = readChatToolStream(resp.Body)
+			turn, err = readChatToolStream(resp.Body, emit)
 		}
 	} else {
 		var b []byte
 		b, err = readAssistantBody(resp.Body)
 		if err == nil {
 			if isContextLimit(b) {
-				err = assistantError(data.ToolErrorBudgetExhausted)
+				err = assistantContextError()
 			} else if p.responses {
 				turn, outputs, err = parseResponsesToolTurn(b)
 			} else {
@@ -223,7 +229,7 @@ func (p *assistantToolProvider) toolRequestBody(input data.ToolTurnInput, displa
 			tools = append(tools, map[string]any{"type": "function", "function": fn})
 		}
 	}
-	body := map[string]any{"model": p.model, "tools": tools, "stream": p.stream || (p.responses && display)}
+	body := map[string]any{"model": p.model, "tools": tools, "stream": p.stream || display}
 	if input.MaxOutputTokens > 0 {
 		if p.responses {
 			body["max_output_tokens"] = input.MaxOutputTokens
@@ -281,8 +287,8 @@ func (p *assistantToolProvider) toolRequestBody(input data.ToolTurnInput, displa
 	if limit <= 0 {
 		limit = assistantDefaultRequestBytes
 	}
-	// One token per UTF-8 wire byte is conservative for unknown tokenizers and includes private state.
-	if len(b) > limit || (input.MaxInputTokens > 0 && len(b) > input.MaxInputTokens) {
+	// Check the actual wire body, including private Responses continuation state.
+	if !data.AssistantRequestFits(b, input.MaxInputTokens, limit) {
 		return nil, nil, assistantError(data.ToolErrorBudgetExhausted)
 	}
 	return b, items, nil

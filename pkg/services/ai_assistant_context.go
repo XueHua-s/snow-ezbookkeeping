@@ -6,22 +6,23 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/llm"
 	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
 	"github.com/mayswind/ezbookkeeping/pkg/llm/provider"
+	"github.com/mayswind/ezbookkeeping/pkg/log"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
 	"github.com/mayswind/ezbookkeeping/pkg/settings"
 	"time"
 )
 
 type AssistantContextService struct {
-	storage   *AssistantStorageService
-	config    func() *settings.Config
-	providers func() (provider.LargeLanguageModelToolProvider, provider.LargeLanguageModelToolProvider, error)
+	storage           *AssistantStorageService
+	config            func() *settings.Config
+	observeCompaction func(core.Context, assistantCompactionObservation)
+	providers         func() (provider.LargeLanguageModelToolProvider, provider.LargeLanguageModelToolProvider, error)
 }
 
 func NewAssistantContextService(storage *AssistantStorageService, config func() *settings.Config) *AssistantContextService {
-	return &AssistantContextService{storage: storage, config: config, providers: llm.Container.GetAIAssistantToolProviders}
+	return &AssistantContextService{storage: storage, config: config, providers: llm.Container.GetAIAssistantToolProviders, observeCompaction: logAssistantCompaction}
 }
 
-// Unknown tokenizers use the UTF-8 byte count as a conservative token ceiling.
 // Both model windows reserve output and protocol room before selecting history.
 func assistantContextBudget(c settings.AIAssistantExperienceConfig) int {
 	window := min(c.PrimaryContextTokens, c.FallbackContextTokens)
@@ -31,9 +32,13 @@ func assistantContextBudget(c settings.AIAssistantExperienceConfig) int {
 	}
 	return min(c.Limits.InputTokens, int(window-reserved))
 }
-func assistantContextFits(messages []data.ConversationMessage, tools []data.ToolDefinition, budget int) bool {
+func assistantContextFits(messages []data.ConversationMessage, tools []data.ToolDefinition, budget int, requestBytes ...int) bool {
 	raw, e := json.Marshal(data.ToolTurnInput{Messages: messages, Tools: tools})
-	return e == nil && len(raw) <= budget && len(raw) <= llm.AssistantMaxModelRequestBytes
+	limit := llm.AssistantMaxModelRequestBytes
+	if len(requestBytes) > 0 {
+		limit = requestBytes[0]
+	}
+	return budget > 0 && e == nil && data.AssistantRequestFits(raw, budget, limit)
 }
 
 // Prepare selects server-owned history, memory and tools under the run's accepted
@@ -41,6 +46,9 @@ func assistantContextFits(messages []data.ConversationMessage, tools []data.Tool
 // a storage transaction. The returned dependencies must be revalidated before
 // generation and every checkpoint; selection alone does not freeze authorization.
 func (s *AssistantContextService) Prepare(ctx core.Context, run *models.AssistantMessage) (*AssistantPreparedRun, error) {
+	if err := assistantPreparationContextError(ctx, run); err != nil {
+		return nil, err
+	}
 	cfg := s.config()
 	if !cfg.EnableAIAssistant {
 		return nil, models.AssistantReasonProviderUnavailable
@@ -99,7 +107,7 @@ func (s *AssistantContextService) Prepare(ctx core.Context, run *models.Assistan
 		}
 		history = append(history, assistantContextMessages(snap.Frozen)...)
 		var recent []assistantContextTurn
-		for _, t := range snap.Turns {
+		for _, t := range assistantContextTurns(snap.Turns, snap.Unresolved) {
 			if t.Question.TurnSequence > snap.Conversation.SummaryThrough {
 				recent = append(recent, t)
 			}
@@ -116,40 +124,63 @@ func (s *AssistantContextService) Prepare(ctx core.Context, run *models.Assistan
 		return nil, e
 	}
 	calls := uint32(0)
-	raw, _ := json.Marshal(data.ToolTurnInput{Messages: messages, Tools: tools.Definitions()})
 	base, _ := llm.BuildAssistantMessages(run.Mode, snap.Question.Content, nil, time.Now().In(location), run.Locale, modelContinuation, scope)
 	base[0].Content += "\n" + assistantCompactToolRules
-	baseRaw, _ := json.Marshal(data.ToolTurnInput{Messages: base, Tools: tools.Definitions()})
-	if len(baseRaw) > budget || len(baseRaw) > llm.AssistantMaxModelRequestBytes {
+	requestBytes := min(limits.Limits.RequestBytes, llm.AssistantMaxModelRequestBytes)
+	if !assistantProviderContextFits(primary, fallback, base, tools.Definitions(), budget, requestBytes, limits.Limits.OutputTokens) {
 		return nil, models.AssistantReasonContextLimit
 	}
-	recentCount := 0
-	for _, t := range snap.Turns {
-		if t.Question.TurnSequence > snap.Conversation.SummaryThrough {
-			recentCount++
+	// Compact before history consumes the room needed for fresh tool evidence.
+	// Keep at least one model call for answering and never discard an uncovered turn.
+	recoveryUsed := false
+	for calls+1 < runtime.MaxRounds {
+		if err := assistantPreparationContextError(ctx, run); err != nil {
+			return nil, err
 		}
-	}
-	if len(snap.Frozen) > 0 || (recentCount > 1 && len(raw)-len(baseRaw) > (budget-len(baseRaw))*3/4) {
-		if runtime.MaxRounds < 2 {
-			return nil, models.AssistantReasonContextLimit
-		}
-		changed, err := s.compact(ctx, run, snap, primary, budget)
-		calls = 1
+		raw, err := json.Marshal(data.ToolTurnInput{Messages: messages, Tools: tools.Definitions()})
 		if err != nil {
-			if len(snap.Frozen) > 0 || !assistantContextFits(messages, tools.Definitions(), budget) {
-				return nil, models.AssistantReasonContextLimit
+			return nil, err
+		}
+		if len(snap.Frozen) == 0 && data.AssistantRequestFits(raw, budget/2, requestBytes/2) {
+			break
+		}
+		fitsOriginal := assistantProviderContextFits(primary, fallback, messages, tools.Definitions(), budget, requestBytes, limits.Limits.OutputTokens)
+		changed, used, err := s.compact(ctx, run, snap, primary, budget, !fitsOriginal && !recoveryUsed && calls+2 < runtime.MaxRounds)
+		if used > 1 {
+			recoveryUsed = true
+		}
+		calls += used
+		if err != nil {
+			if parentErr := assistantPreparationContextError(ctx, run); parentErr != nil {
+				return nil, parentErr
 			}
-		} else if changed {
-			messages, e = build()
-			if e != nil {
-				return nil, e
+			// A transient summary failure can leave a still-fitting prompt usable.
+			// Cancellation and stale authorization must always stop preparation.
+			if (err == models.AssistantReasonProviderUnavailable || err == models.AssistantReasonContextLimit) && fitsOriginal {
+				s.compactionObservation(ctx, assistantCompactionObservation{Stage: "recovery", Recovery: "original_history", ModelCalls: used})
+				break
 			}
+			return nil, err
+		}
+		if !changed {
+			break
+		}
+		messages, e = build()
+		if e != nil {
+			return nil, e
 		}
 	}
-	if !assistantContextFits(messages, tools.Definitions(), budget) {
+	if err := assistantPreparationContextError(ctx, run); err != nil {
+		return nil, err
+	}
+	if !assistantProviderContextFits(primary, fallback, messages, tools.Definitions(), budget, requestBytes, limits.Limits.OutputTokens) {
 		return nil, models.AssistantReasonContextLimit
 	}
-	return &AssistantPreparedRun{Runner: llm.NewAssistantRunner(primary, fallback, tools), Dependencies: snap.Dependencies, Input: llm.AssistantRunInput{UID: run.Uid, Mode: run.Mode, Messages: messages, Continuation: continuation, MaxRounds: runtime.MaxRounds, PriorModelCalls: calls, MaxInputTokens: budget, MaxOutputTokens: limits.Limits.OutputTokens, RunTimeout: time.Until(time.UnixMilli(run.Deadline)), QueryTimeout: time.Duration(runtime.QueryTimeout) * time.Millisecond}}, nil
+	return &AssistantPreparedRun{Runner: llm.NewAssistantRunner(primary, fallback, tools), Dependencies: snap.Dependencies, Input: llm.AssistantRunInput{UID: run.Uid, Mode: run.Mode, Messages: messages, Continuation: continuation, MaxRounds: runtime.MaxRounds, Observe: func(o llm.AssistantObservation) {
+		// Only allowlisted metadata; never message text, tool arguments, or private state.
+		encoded, _ := json.Marshal(o)
+		log.Infof(ctx, "[assistant] %s", encoded)
+	}, PriorModelCalls: calls, MaxInputTokens: budget, MaxRequestBytes: requestBytes, MaxOutputTokens: limits.Limits.OutputTokens, RunTimeout: time.Until(time.UnixMilli(run.Deadline)), QueryTimeout: time.Duration(runtime.QueryTimeout) * time.Millisecond}}, nil
 }
 
 func (s *AssistantContextService) acceptedPolicy(run *models.AssistantMessage) (AssistantRunPolicy, error) {
@@ -158,4 +189,25 @@ func (s *AssistantContextService) acceptedPolicy(run *models.AssistantMessage) (
 		return policy, models.AssistantReasonStorageUnavailable
 	}
 	return policy, nil
+}
+
+// Recovery is safe only if each possible adapter accepts the complete original
+// input, including its actual wire representation and reserved output budget.
+func assistantProviderContextFits(primary, fallback provider.LargeLanguageModelToolProvider, messages []data.ConversationMessage, tools []data.ToolDefinition, budget, requestBytes, output int) bool {
+	input := data.ToolTurnInput{Messages: messages, Tools: tools, MaxInputTokens: budget, MaxRequestBytes: requestBytes, MaxOutputTokens: output}
+	for _, p := range []provider.LargeLanguageModelToolProvider{primary, fallback} {
+		if p == nil {
+			continue
+		}
+		if counter, ok := p.(interface {
+			CheckToolTurnInput(data.ToolTurnInput) error
+		}); ok {
+			if counter.CheckToolTurnInput(input) != nil {
+				return false
+			}
+		} else if !assistantContextFits(messages, tools, budget, requestBytes) {
+			return false
+		}
+	}
+	return true
 }

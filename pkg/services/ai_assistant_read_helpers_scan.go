@@ -6,8 +6,6 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
 	"strconv"
-	"strings"
-	"time"
 )
 
 // ScanTransactions reads the entire effective ledger in bounded storage batches.
@@ -117,8 +115,10 @@ func (e *assistantQueryExecution) ReadTransaction(id string) (*assistantLogicalT
 // last accepted key. The execution wrapper independently checks the final size.
 func (e *assistantQueryExecution) PageFits(result data.ToolResult) bool {
 	result.Scope = e.Scope
-	result.QueriedAt = e.Service.now().UTC().Format(time.RFC3339)
-	result.QueryID = strings.Repeat("0", 32)
+	// Use the actual eventual metadata: placeholder IDs and a later clock read
+	// can change BPE counts across a boundary after the last page was accepted.
+	result.QueriedAt = e.QueriedAt
+	result.QueryID = e.QueryID
 	if result.Warnings == nil {
 		result.Warnings = []string{}
 	}

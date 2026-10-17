@@ -69,7 +69,7 @@ export interface AIAssistantChatResponse {
     readonly continuation?: AIAssistantContinuation;
 }
 
-export type AIAssistantChatStreamChunkType = 'status' | 'thinking_delta' | 'reply_delta' | 'references' | 'done';
+export type AIAssistantChatStreamChunkType = 'status' | 'thinking_delta' | 'reply_delta' | 'reply_reset' | 'references' | 'done';
 
 export interface AIAssistantChatStreamChunk {
     readonly type: AIAssistantChatStreamChunkType;

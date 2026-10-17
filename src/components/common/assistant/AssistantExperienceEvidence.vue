@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { mdiArrowRight } from '@mdi/js';
 import { useI18n } from '@/locales/helpers.ts';
 import { parseBigDecimal } from '@/lib/numeral.ts';
-import { ASSISTANT_TOOL_LABELS } from '@/consts/assistant.ts';
 import { DISPLAY_HIDDEN_AMOUNT } from '@/consts/numeral.ts';
 import type { AssistantRunSnapshot } from '@/models/ai_assistant_conversation.ts';
-const props = defineProps<{ answer: AssistantRunSnapshot; canPage?: boolean; pageLabel?: string }>();
+const props = defineProps<{ answer: AssistantRunSnapshot; canPage?: boolean; pageLabel?: string; disabledReason?: string }>();
 const emit = defineEmits<{ openReference: [id: string]; nextPage: [] }>();
 const { tt, formatAmountToLocalizedNumeralsWithCurrency } = useI18n();
+const warnings = computed(() => [...new Set(props.answer.queries.flatMap(query => query.warnings))]);
+const hasPageDetails = computed(() => props.answer.queries.some(query => query.coverage === 'page'));
 const references = computed(() =>
     props.answer.references
         .filter((item) => /^[1-9]\d*$/.test(item.id))
@@ -32,46 +34,9 @@ const references = computed(() =>
 </script>
 <template>
     <section class="evidence">
-        <div v-for="query in answer.queries" :key="query.queryId">
-            <p v-if="query.coverage !== 'all_matching'">{{ tt('Current page only') }}</p>
-            <p v-for="warning in query.warnings" :key="warning" role="note">{{ tt(warning) }}</p>
-        </div>
-        <details v-if="answer.queries.length">
-            <summary>{{ tt('Query Evidence') }} · {{ answer.queries.length }}</summary>
-            <section v-for="query in answer.queries" :key="query.queryId" class="query">
-                <strong
-                    >{{ tt(ASSISTANT_TOOL_LABELS[query.tool]) }} ·
-                    {{
-                        tt(query.coverage === 'all_matching' ? 'All matching records' : 'Current page only')
-                    }}</strong
-                >
-                <p>
-                    {{ query.scope.startTime || tt('No start limit') }} →
-                    {{ query.scope.endTime || tt('No end limit') }}
-                </p>
-                <p>
-                    {{
-                        tt(query.scope.includesHidden ? 'Hidden records included' : 'Hidden records excluded')
-                    }}
-                    · {{ tt('Deleted records excluded') }}
-                </p>
-                <p v-if="query.scope.accountIds?.length">
-                    {{ tt('Selected accounts: {count}', { count: query.scope.accountIds.length }) }}
-                </p>
-                <p v-if="query.scope.categoryIds?.length">
-                    {{ tt('Selected categories: {count}', { count: query.scope.categoryIds.length }) }}
-                </p>
-                <p v-if="query.scope.currency">{{ tt('Currency') }}: {{ query.scope.currency }}</p>
-                <p v-if="query.scope.keyword">{{ tt('Keyword') }}: {{ query.scope.keyword }}</p>
-                <p>
-                    {{ tt('Timezone') }}: {{ query.scope.timezone }} · {{ tt('Read at') }}:
-                    {{ query.queriedAt }}
-                </p>
-                <p v-for="period in query.scope.periods" :key="period.name">
-                    {{ period.name }}: {{ period.startTime }} → {{ period.endTime }}
-                </p>
-            </section>
-        </details>
+        <p v-for="warning in warnings" :key="warning" role="note">{{ tt(warning) }}</p>
+        <p v-if="hasPageDetails">{{ tt('Displayed details cover this page only.') }}</p>
+        <p v-if="answer.pageableQueryId">{{ tt('More matching records are available.') }}</p>
         <div v-if="references.length" class="bills">
             <button
                 v-for="item in references"
@@ -91,9 +56,14 @@ const references = computed(() =>
                 ><span>{{ tt('View Details') }}</span>
             </button>
         </div>
-        <button v-if="canPage && answer.pageableQueryId" type="button" @click="emit('nextPage')">
-            {{ pageLabel || tt('View more bills') }}
-        </button>
+        <div v-if="canPage && answer.pageableQueryId" class="follow-up">
+            <span class="follow-up-label">{{ tt('Keep asking') }}</span>
+            <button class="more-bills" type="button" :disabled="!!disabledReason" :title="disabledReason ? tt(disabledReason) : undefined" @click="emit('nextPage')">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiArrowRight" /></svg>
+                {{ pageLabel || tt('Continue finding matching bills') }}
+            </button>
+            <span class="follow-up-hint">{{ tt('The assistant will continue this query in another answer.') }}</span>
+        </div>
     </section>
 </template>
 <style scoped>
@@ -102,30 +72,26 @@ const references = computed(() =>
     font-size: 0.85em;
     line-height: 1.65;
 }
-summary {
-    min-height: 44px;
-    padding: 10px 0;
-    cursor: pointer;
-}
-.query {
-    border-inline-start: 2px solid rgb(127 127 127 / 50%);
-    padding-inline-start: 12px;
-}
 .bills {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 8px;
 }
+.follow-up { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-block-start: 12px; }
+.follow-up-label, .follow-up-hint { color: var(--assistant-muted, #6b8074); }
+.more-bills { display: inline-flex; align-items: center; gap: 8px; }
+.more-bills svg { width: 18px; height: 18px; flex-shrink: 0; fill: currentColor; }
 button {
     min-height: 44px;
     padding: 12px;
-    border: 1px solid rgb(127 127 127 / 90%);
-    border-radius: 10px;
-    background: transparent;
+    border: 1px solid var(--assistant-border, #e5ece4);
+    border-radius: 17px;
+    background: var(--assistant-card, #fff);
     color: inherit;
     font: inherit;
     text-align: start;
     cursor: pointer;
+    transition: background 180ms ease, transform 180ms ease;
 }
 .bills button {
     display: flex;
@@ -135,12 +101,14 @@ button {
 strong {
     font-variant-numeric: tabular-nums;
 }
-button:hover {
-    background: rgb(127 127 127 / 10%);
+button:disabled { opacity: .55; cursor: default; }
+button:hover:not(:disabled) {
+    background: var(--assistant-tint, #e8f3e9);
 }
-button:focus-visible,
-summary:focus-visible {
-    outline: 2px solid currentColor;
+button:focus-visible {
+    outline: 2px solid var(--assistant-action, #278c62);
     outline-offset: 2px;
 }
+button:active:not(:disabled) { transform: scale(.99); }
+@media (prefers-reduced-motion: reduce) { button { transition: none; } }
 </style>

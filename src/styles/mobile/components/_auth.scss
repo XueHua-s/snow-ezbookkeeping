@@ -8,7 +8,7 @@
 }
 
 .login-page {
-    --ebk-login-page-background-color: #fff;
+    --ebk-login-page-background-color: var(--app-background);
     --f7-login-screen-content-bg-color:
         radial-gradient(circle 110px at calc(100% - 18px) -18px, rgba(var(--ebk-primary-color), 0.08) 0 104px, transparent 110px),
         radial-gradient(circle 85px at 9px calc(100% + 11px), rgba(var(--ebk-primary-color), 0.05) 0 80px, transparent 85px),
@@ -22,7 +22,7 @@
 
 .dark .login-page,
 .dark.login-page {
-    --ebk-login-page-background-color: #000;
+    --ebk-login-page-background-color: var(--app-background);
     --f7-login-screen-content-bg-color:
         radial-gradient(circle 110px at calc(100% - 18px) -18px, rgba(var(--ebk-primary-color), 0.12) 0 104px, transparent 110px),
         radial-gradient(circle 85px at 9px calc(100% + 11px), rgba(var(--ebk-primary-color), 0.08) 0 80px, transparent 85px),
@@ -109,7 +109,7 @@
 
     .login-page-primary-action > .list-button {
         background: var(--f7-theme-color);
-        color: #fff;
+        color: var(--app-onPrimary);
         box-shadow: 0 8px 20px rgba(var(--ebk-primary-color), 0.22);
     }
 

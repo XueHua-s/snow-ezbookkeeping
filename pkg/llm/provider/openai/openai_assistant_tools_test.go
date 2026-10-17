@@ -261,6 +261,13 @@ func TestAssistantResponsesPrivateStateAndNeutralFallback(t *testing.T) {
 	requireAssistantCode(t, err, data.ToolErrorBudgetExhausted)
 	require.Len(t, requests, 2)
 	next.MaxRequestBytes = 128 * 1024
+	next.MaxInputTokens = data.EstimateAssistantTokens(string(wire)) - 1
+	_, err = p.RunToolTurn(core.NewNullContext(), 1, next, nil)
+	requireAssistantCode(t, err, data.ToolErrorBudgetExhausted)
+	require.Len(t, requests, 2)
+	next.MaxInputTokens = data.EstimateAssistantTokens(string(wire))
+	_, _, err = p.toolRequestBody(next, false)
+	require.NoError(t, err)
 	fallback := assistantTestProvider(server.URL, false, false, 2000)
 	_, _, err = fallback.toolRequestBody(next, false)
 	requireAssistantCode(t, err, data.ToolErrorProviderUnsupported)
@@ -284,7 +291,12 @@ func TestAssistantResponsesStreamAssemblyAndDisplay(t *testing.T) {
 		`{"type":"response.output_item.done","output_index":1,"item":{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"list_accounts","arguments":"{\"keyword\":\"x\"}"}}`,
 	}
 	var displayed []string
-	turn, outputs, err := readResponsesToolStream(strings.NewReader(assistantSSE(append(prefix, completed)...)), func(e data.DisplayEvent) error { displayed = append(displayed, e.ThinkingDelta); return nil })
+	turn, outputs, err := readResponsesToolStream(strings.NewReader(assistantSSE(append(prefix, completed)...)), func(e data.DisplayEvent) error {
+		if e.ThinkingDelta != "" {
+			displayed = append(displayed, e.ThinkingDelta)
+		}
+		return nil
+	})
 	require.NoError(t, err)
 	require.True(t, turn.Completed)
 	require.Len(t, turn.ToolCalls, 1)

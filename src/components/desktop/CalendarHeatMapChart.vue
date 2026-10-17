@@ -5,6 +5,7 @@
 </template>
 
 <script setup lang="ts">
+import { APP_THEME } from '@/consts/theme.mts';
 import { computed } from 'vue';
 import { useTheme } from 'vuetify';
 import type { ECElementEvent } from 'echarts/core';
@@ -191,7 +192,7 @@ const chartOptions = computed<object>(() => {
                 max: heatMapData.value.maxValue.toDoubleNumber(),
                 calculable: true,
                 inRange: {
-                    color: isDarkMode.value ? [ '#1a1a1a', '#c67e48' ] : [ '#faf8f4', '#c67e48' ]
+                    color: isDarkMode.value ? [ APP_THEME.dark.background, APP_THEME.dark.primary ] : [ APP_THEME.light.background, APP_THEME.light.primary ]
                 },
                 textStyle: {
                     color: isDarkMode.value ? '#888' : '#666'
@@ -222,8 +223,8 @@ const chartOptions = computed<object>(() => {
                 right: 20,
                 cellSize: ['auto', 20],
                 itemStyle: {
-                    color: isDarkMode.value ? '#060504' : '#ffffff',
-                    borderColor: isDarkMode.value ? '#4f4f4f' : '#e1e6f2'
+                    color: isDarkMode.value ? APP_THEME.dark.surface : APP_THEME.light.surface,
+                    borderColor: isDarkMode.value ? APP_THEME.dark.border : APP_THEME.light.border
                 },
                 splitLine: {
                     show: false

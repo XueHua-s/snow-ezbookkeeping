@@ -78,9 +78,27 @@ func TestObservationHasExplicitNoStatusAndAllowlistedFields(t *testing.T) {
 	if fields["firstStatusMilliseconds"] != float64(0) {
 		t.Fatal("actual zero-latency status must differ from not applicable")
 	}
+	if _, present := fields["contextFailureSource"]; present {
+		t.Fatal("empty context failure source must be omitted")
+	}
+	if count, present := fields["contextRecoveryAttempts"]; present && count != float64(0) {
+		t.Fatal("unused recovery counter must be zero when emitted")
+	}
+	record.ContextFailureSource = "upstream_input"
+	record.ContextRecoveryAttempts = 1
+	encoded, err = json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if fields["contextFailureSource"] != "upstream_input" || fields["contextRecoveryAttempts"] != float64(1) {
+		t.Fatal("controlled context telemetry missing")
+	}
 	// Guard the complete record surface: adding arbitrary context/maps/errors
 	// makes secret/financial payload logging too easy and requires explicit review.
-	want := []string{"Kind", "RequestID", "Tool", "RowsRead", "ResultRecords", "SerializedBytes", "DurationMilliseconds", "Rounds", "Executions", "CacheHits", "Reason", "FirstStatusMilliseconds"}
+	want := []string{"ContextFailureSource", "ContextRecoveryAttempts", "Kind", "RequestID", "Tool", "RowsRead", "ResultRecords", "SerializedBytes", "DurationMilliseconds", "Rounds", "Executions", "CacheHits", "Reason", "FirstStatusMilliseconds"}
 	typ := reflect.TypeOf(record)
 	if typ.NumField() != len(want) {
 		t.Fatal("telemetry surface changed; review privacy allowlist")

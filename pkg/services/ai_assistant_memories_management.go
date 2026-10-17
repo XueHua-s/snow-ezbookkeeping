@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"github.com/mayswind/ezbookkeeping/pkg/core"
+	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
 	"strings"
 )
@@ -151,7 +152,7 @@ func (s *AssistantMemoryService) selectContext(ctx core.Context, snap *assistant
 				continue
 			}
 			item := "\n" + m.Text
-			if len(text)+len(item) > limit {
+			if data.EstimateAssistantTokens(text+item) > limit {
 				continue
 			}
 			text += item

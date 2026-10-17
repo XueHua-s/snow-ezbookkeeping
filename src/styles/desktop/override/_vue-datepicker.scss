@@ -1,7 +1,8 @@
 /** Replacing the default style of @vuepic/vue-datepicker **/
 .dp--theme-light,
 .dp--theme-dark {
-    --dp-primary-color: #c67e48;
+    --dp-primary-color: var(--app-primary);
+    --dp-primary-text-color: var(--app-onPrimary);
     --dp-text-color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
 }
 

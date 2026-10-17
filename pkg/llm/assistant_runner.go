@@ -8,6 +8,7 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
 	"github.com/mayswind/ezbookkeeping/pkg/llm/provider"
 	"github.com/mayswind/ezbookkeeping/pkg/settings"
+	"strings"
 	"time"
 )
 
@@ -50,25 +51,29 @@ type assistantCallIdentity struct {
 }
 
 type assistantRun struct {
-	runner       *AssistantRunner
-	input        AssistantRunInput
-	result       AssistantRunResult
-	observation  AssistantObservation
-	started      time.Time
-	c            core.Context
-	cancel       context.CancelFunc
-	sink         EventSink
-	writeErr     error
-	visible      bool
-	cache        map[[32]byte]*assistantCachedResult
-	ids          map[string]assistantCallIdentity
-	unresolved   map[data.ToolName]*data.ToolError
-	queryIDs     map[string]bool
-	referenceIDs map[string]bool
-	lastFailure  string
+	runner            *AssistantRunner
+	input             AssistantRunInput
+	result            AssistantRunResult
+	observation       AssistantObservation
+	started           time.Time
+	c                 core.Context
+	cancel            context.CancelFunc
+	sink              EventSink
+	writeErr          error
+	visible           bool
+	cache             map[[32]byte]*assistantCachedResult
+	ids               map[string]assistantCallIdentity
+	unresolved        map[[32]byte]assistantUnresolvedCall
+	toolRound         int
+	queryIDs          map[string]bool
+	referenceIDs      map[string]bool
+	lastFailure       string
+	workingRecoveries int
+	archivedResults   map[[32]byte]bool
+	recoveredReads    map[[32]byte]bool
 }
 
-// Run buffers assistant text until a complete tool-free terminal turn. Errors
+// Run streams provisional assistant text, retracting tool-turn preambles. Errors
 // retain confirmed evidence; callers own serialization of the sole terminal event.
 func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink EventSink) (result AssistantRunResult, err error) {
 	defaults := (&settings.Config{}).GetAIAssistantRuntimeConfig()
@@ -88,7 +93,7 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 	run := &assistantRun{runner: r, input: input, started: r.now(), c: core.NewAssistantContext(parent, c.GetContextId(), c.GetClientLocale(), c.ClientIP()), cancel: cancel, sink: sink,
 		result:      AssistantRunResult{Mode: input.Mode, State: AssistantStateRequesting},
 		observation: AssistantObservation{Kind: AssistantObservationRun, RequestID: c.GetContextId(), Rounds: input.PriorModelCalls},
-		cache:       map[[32]byte]*assistantCachedResult{}, ids: map[string]assistantCallIdentity{}, unresolved: map[data.ToolName]*data.ToolError{}, queryIDs: map[string]bool{}, referenceIDs: map[string]bool{}}
+		cache:       map[[32]byte]*assistantCachedResult{}, ids: map[string]assistantCallIdentity{}, unresolved: map[[32]byte]assistantUnresolvedCall{}, queryIDs: map[string]bool{}, referenceIDs: map[string]bool{}}
 	defer func() {
 		if input.Finalize != nil {
 			if writeErr := input.Finalize(run.result, err); writeErr != nil {
@@ -128,6 +133,7 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 	}
 	current := r.primary
 	switched := false
+	contextRetried := false
 	var state any
 	calls := 0
 	for {
@@ -137,27 +143,57 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		if run.observation.Rounds >= input.MaxRounds {
 			return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonRoundBudget)
 		}
-		turnInput := data.ToolTurnInput{Messages: messages, Tools: definitions, State: state, MaxRequestBytes: AssistantMaxModelRequestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
-		body, marshalErr := json.Marshal(turnInput)
-		if marshalErr != nil {
-			return run.result, run.stop(data.ToolErrorProtocol, AssistantReasonProtocolError)
+		requestBytes := input.MaxRequestBytes
+		if requestBytes <= 0 || requestBytes > AssistantMaxModelRequestBytes {
+			requestBytes = AssistantMaxModelRequestBytes
 		}
-		if len(body) > AssistantMaxModelRequestBytes || (input.MaxInputTokens > 0 && len(body) > input.MaxInputTokens) {
-			return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonContextBudget)
+		turnInput := data.ToolTurnInput{Messages: messages, Tools: definitions, State: state, MaxRequestBytes: requestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
+		if preflightErr := assistantToolRequestError(current, turnInput); preflightErr != nil {
+			if assistantErrorCode(preflightErr) != data.ToolErrorBudgetExhausted {
+				return run.result, run.stop(assistantErrorCode(preflightErr), assistantReason(assistantErrorCode(preflightErr)))
+			}
+			turnInput = compactAssistantWorkingContext(turnInput)
+			if !assistantToolRequestFits(current, turnInput) {
+				turnInput, _ = run.recoverWorkingContext(turnInput)
+			}
+			if preflightErr = assistantToolRequestError(current, turnInput); preflightErr != nil {
+				if assistantErrorCode(preflightErr) == data.ToolErrorBudgetExhausted {
+					run.observation.ContextFailureSource = "local_input"
+				}
+				return run.result, run.stop(assistantErrorCode(preflightErr), assistantReason(assistantErrorCode(preflightErr)))
+			}
+			messages, state = turnInput.Messages, turnInput.State
 		}
 		if err = run.emit(AssistantEvent{Type: AssistantEventStatus, Status: AssistantStatusQuerying}); err != nil {
 			return run.result, run.writeFailure()
 		}
 		var display data.DisplayEventSink
+		toolTurn := false
 		if sink != nil {
 			display = func(event data.DisplayEvent) error {
-				if event.ThinkingDelta == "" {
-					return nil
+				if event.ReplyReset {
+					toolTurn = true
+					if err := run.resetReply(); err != nil {
+						return err
+					}
 				}
-				if e := run.emit(AssistantEvent{Type: AssistantEventThinkingDelta, Delta: event.ThinkingDelta}); e != nil {
-					return e
+				if event.ThinkingDelta != "" {
+					if err := run.emit(AssistantEvent{Type: AssistantEventThinkingDelta, Delta: event.ThinkingDelta}); err != nil {
+						return err
+					}
+					run.result.Thinking += event.ThinkingDelta
 				}
-				run.result.Thinking += event.ThinkingDelta
+				if !toolTurn && len(run.unresolved) == 0 && event.ReplyDelta != "" {
+					if run.result.Reply == "" {
+						if err := run.emit(AssistantEvent{Type: AssistantEventStatus, Status: AssistantStatusAnswering}); err != nil {
+							return err
+						}
+					}
+					if err := run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: event.ReplyDelta}); err != nil {
+						return err
+					}
+					run.result.Reply += event.ReplyDelta
+				}
 				return nil
 			}
 		}
@@ -175,8 +211,10 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		if turnErr != nil {
 			if turn.OutputLimited {
 				if len(turn.ToolCalls) == 0 && len(run.unresolved) == 0 && turn.Content != "" {
-					run.result.Reply = turn.Content
-					if e := run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: turn.Content}); e != nil {
+					if e := run.finishReply(turn.Content); e != nil {
+						if run.writeErr == nil {
+							return run.result, run.stop(data.ToolErrorProtocol, AssistantReasonProtocolError)
+						}
 						return run.result, run.writeFailure()
 					}
 				}
@@ -190,6 +228,24 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 				// eligible for the same one-time fallback as other transport failures.
 				turnErr = assistantRunnerError(data.ToolErrorUpstreamFailed)
 			}
+			var providerError *data.ToolError
+			if errors.As(turnErr, &providerError) && providerError.UpstreamContext && !contextRetried && run.result.Reply == "" && input.MaxOutputTokens > 1 {
+				// Providers may count reserved output against their context window.
+				// Retry once with less output reservation; never discard ledger facts.
+				contextRetried = true
+				run.observation.ContextRecoveryAttempts++
+				run.observation.ContextFailureSource = "upstream_input"
+				input.MaxOutputTokens = max(1, input.MaxOutputTokens/2)
+				working := compactAssistantWorkingContext(turnInput)
+				if recovered, changed := run.recoverWorkingContext(working); changed {
+					working = recovered
+				}
+				messages, state = working.Messages, nil
+				continue
+			}
+			if providerError != nil && providerError.UpstreamContext {
+				run.observation.ContextFailureSource = "upstream_input"
+			}
 			code := assistantErrorCode(turnErr)
 			if !switched && !run.visible && r.fallback != nil && (code == data.ToolErrorUpstreamFailed || code == data.ToolErrorProtocol) {
 				current = r.fallback
@@ -201,11 +257,11 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		}
 		if len(turn.ToolCalls) == 0 {
 			// A model's completed text cannot turn a failed financial query into an
-			// empty ledger or a verified answer. A corrected success of that tool must
+			// empty ledger or a verified answer. A successful retry of that query must
 			// resolve the error before this request can complete.
 			if len(run.unresolved) > 0 {
 				for _, failure := range run.unresolved {
-					return run.result, run.stop(failure.Code, assistantReason(failure.Code))
+					return run.result, run.stop(failure.failure.Code, assistantReason(failure.failure.Code))
 				}
 			}
 			if err = run.emit(AssistantEvent{Type: AssistantEventStatus, Status: AssistantStatusAnswering}); err != nil {
@@ -216,15 +272,19 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 					return run.result, run.writeFailure()
 				}
 			}
-			if turn.Content != "" {
-				if err = run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: turn.Content}); err != nil {
+			if err = run.finishReply(turn.Content); err != nil {
+				if run.writeErr != nil {
 					return run.result, run.writeFailure()
 				}
+				return run.result, run.stop(data.ToolErrorProtocol, AssistantReasonProtocolError)
 			}
-			run.result.Reply = turn.Content
 			run.result.State = AssistantStateCompleted
 			run.observation.Reason = AssistantReasonCompleted
+			run.observation.ContextFailureSource = ""
 			return run.result, nil
+		}
+		if err = run.resetReply(); err != nil {
+			return run.result, run.writeFailure()
 		}
 		if len(turn.ToolCalls) > AssistantMaxToolCalls-calls {
 			return run.result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonCallBudget)
@@ -242,40 +302,18 @@ func (r *AssistantRunner) Run(c core.Context, input AssistantRunInput, sink Even
 		calls += len(turn.ToolCalls)
 		// Preserve this exact assistant prefix for same-adapter opaque state replay.
 		messages = append(messages, data.ConversationMessage{Role: data.ConversationRoleAssistant, Content: turn.Content, ToolCalls: turn.ToolCalls})
-		for i, call := range turn.ToolCalls {
-			if err = run.contextError(); err != nil {
-				return run.result, err
-			}
-			var fits func(data.ToolResult) bool
-			if input.MaxInputTokens > 0 {
-				fits = func(result data.ToolResult) bool {
-					candidate := append(append([]data.ConversationMessage(nil), messages...), data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: call.ID, ToolResult: &result})
-					// Supply bounded placeholders for the other calls in this same assistant
-					// turn so protocol validation sees a complete call/result chain.
-					for _, pending := range turn.ToolCalls[i+1:] {
-						placeholder := data.ToolResult{OK: false, Error: &data.ToolError{Code: data.ToolErrorBudgetExhausted, Message: "Reserved pending result"}}
-						candidate = append(candidate, data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: pending.ID, ToolResult: &placeholder})
-					}
-					next := data.ToolTurnInput{Messages: candidate, Tools: definitions, State: turn.State, MaxRequestBytes: AssistantMaxModelRequestBytes, MaxInputTokens: input.MaxInputTokens, MaxOutputTokens: input.MaxOutputTokens}
-					if !assistantToolRequestFits(current, next) {
-						return false
-					}
-					if !switched && r.fallback != nil {
-						next.State = nil
-						if !assistantToolRequestFits(r.fallback, next) {
-							return false
-						}
-					}
-					return true
-				}
-			}
-			result, executionErr := run.execute(call, keys[i], allowed[call.Name], fits)
-			if executionErr != nil {
-				return run.result, executionErr
-			}
-			messages = append(messages, data.ConversationMessage{Role: data.ConversationRoleTool, ToolCallID: call.ID, ToolResult: &result})
+		turnInput.Messages, turnInput.State = messages, turn.State
+		run.toolRound++
+		messages, err = run.executeTurnTools(current, switched, turn, turnInput, allowed, keys)
+		if err != nil {
+			return run.result, err
 		}
 		state = turn.State
+		if run.workingRecoveries > 0 {
+			state = nil
+		}
+		working := compactAssistantWorkingContext(data.ToolTurnInput{Messages: messages, State: state})
+		messages, state = working.Messages, working.State
 	}
 }
 
@@ -331,12 +369,47 @@ func (run *assistantRun) stop(code data.ToolErrorCode, reason AssistantStopReaso
 }
 
 func assistantToolRequestFits(p provider.LargeLanguageModelToolProvider, input data.ToolTurnInput) bool {
+	return assistantToolRequestError(p, input) == nil
+}
+
+func assistantToolRequestError(p provider.LargeLanguageModelToolProvider, input data.ToolTurnInput) error {
 	if counter, ok := p.(interface {
 		CheckToolTurnInput(data.ToolTurnInput) error
 	}); ok {
-		err := counter.CheckToolTurnInput(input)
-		return err == nil
+		return counter.CheckToolTurnInput(input)
 	}
-	body, e := json.Marshal(input)
-	return e == nil && len(body) <= input.MaxRequestBytes && (input.MaxInputTokens <= 0 || len(body)+1024 <= input.MaxInputTokens)
+	body, err := json.Marshal(input)
+	if err != nil {
+		return assistantRunnerError(data.ToolErrorProtocol)
+	}
+	if !data.AssistantRequestFits(body, input.MaxInputTokens, input.MaxRequestBytes) {
+		return assistantRunnerError(data.ToolErrorBudgetExhausted)
+	}
+	return nil
+}
+
+// resetReply retracts provisional tool preambles before any query executes.
+func (run *assistantRun) resetReply() error {
+	if run.result.Reply == "" {
+		return nil
+	}
+	if err := run.emit(AssistantEvent{Type: AssistantEventReplyReset}); err != nil {
+		return err
+	}
+	run.result.Reply = ""
+	return nil
+}
+
+func (run *assistantRun) finishReply(content string) error {
+	if !strings.HasPrefix(content, run.result.Reply) {
+		return assistantRunnerError(data.ToolErrorProtocol)
+	}
+	tail := content[len(run.result.Reply):]
+	if tail != "" {
+		if err := run.emit(AssistantEvent{Type: AssistantEventReplyDelta, Delta: tail}); err != nil {
+			return err
+		}
+	}
+	run.result.Reply = content
+	return nil
 }

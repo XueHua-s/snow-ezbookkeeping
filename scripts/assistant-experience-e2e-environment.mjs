@@ -24,6 +24,7 @@ export async function environment(options = {}) {
     await mkdir(artifacts, { recursive: true });
     await mkdir(resolve(directory, 'storage'));
     let calls = 0;
+    let providerError;
     const failedOnce = new Set();
     const provider = httpServer(async (req, res) => {
         if (req.method !== 'POST') { res.end(JSON.stringify({ calls })); return; }
@@ -39,6 +40,12 @@ export async function environment(options = {}) {
             res.end(JSON.stringify({ id: 'isolated-compaction', object: 'chat.completion', model: 'isolated-protocol', choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify({ topic: 'Isolated synthetic ledger verification', confirmedConstraints: [], resolvedReferences: [], openQuestions: [] }) }, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 30, total_tokens: 130 } }));
             return;
         }
+        try {
+            if (await options.respondToProvider?.({ request, res })) return;
+        } catch (error) {
+            providerError = error;
+            res.writeHead(500); res.end('Isolated provider assertion failed'); return;
+        }
 
         if (latest.includes('E2E_FAIL_ONCE') && !failedOnce.has(latest)) { failedOnce.add(latest); res.writeHead(503); res.end(); return; }
         if (latest.includes('E2E_FAIL') && !latest.includes('E2E_FAIL_ONCE')) { res.writeHead(503); res.end(); return; }
@@ -52,6 +59,21 @@ export async function environment(options = {}) {
         }
         const lastUser = request.messages?.findLastIndex(message => message.role === 'user') ?? -1;
         const toolResult = request.messages?.slice(lastUser + 1).some(message => message.role === 'tool');
+        if (toolResult && options.streamAnswer) {
+            if (request.stream !== true) { res.writeHead(400); res.end('Streaming must be requested'); return; }
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            const frame = (content, finish = null) => `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: finish }] })}\n\n`;
+            res.write(frame('Live verified answer: '));
+            res.write(frame('CNY 123.45.'));
+            options.onAnswerStarted?.();
+            await options.beforeAnswerCompleted?.();
+            if (!res.destroyed) {
+                res.write(frame(' Completed after the held upstream response.', 'stop'));
+                res.end('data: [DONE]\n\n');
+            }
+            return;
+        }
         const message = toolResult ? { role: 'assistant', content: options.answerContent ?? (continuation?.cursor ? '## Verified next page of isolated ledger' : '## Verified isolated ledger\n\nThe synthetic expense is **CNY 123.45**.\n\n```text\n  preserved indentation\n```') } : {
             role: 'assistant', content: null, tool_calls: [{ id: 'query-1', type: 'function', function: { name: continuation?.tool || 'query_transactions', arguments: JSON.stringify(continuation?.cursor ? { cursor: continuation.cursor, page_size: options.queryPageSize ?? 10 } : { filter: { types: ['expense'] }, page_size: options.queryPageSize ?? 10 }) } }]
         };
@@ -184,7 +206,7 @@ export async function environment(options = {}) {
             return { ...login, fixtureIds: { accountId: account.id, categoryId: category.id, transactionId: transaction.id } };
         }
         return { url, base, api, user, artifacts, directory, setGeneration, invalidate: () => vite?.moduleGraph.invalidateAll(), calls: () => calls,
-            close, runtime: container };
+            close, runtime: container, providerError: () => providerError };
     } catch (error) {
         try { await close(); } catch (cleanupError) {
             throw new AggregateError([error, cleanupError], 'Isolated startup and cleanup failed');

@@ -9,10 +9,11 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/llm/data"
 )
 
-func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool, fits func(data.ToolResult) bool) (data.ToolResult, error) {
+func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool, fits func(data.ToolResult) bool, recoverContext ...func() bool) (data.ToolResult, error) {
 	start := run.runner.now()
 	var result data.ToolResult
 	cached := false
+	executions := 0
 	if previous, exists := run.ids[call.ID]; exists {
 		result = previous.result
 		cached = true
@@ -22,21 +23,34 @@ func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool,
 	}
 	if cached {
 		previous := run.cache[key]
-		if result.OK && previous != nil && previous.reuses >= 1 {
+		if result.OK && previous != nil && previous.reuses >= 1 && !(run.archivedResults[key] && !run.recoveredReads[key]) {
 			return result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonNoProgress)
 		}
-		if previous != nil {
+		if run.archivedResults[key] && !run.recoveredReads[key] {
+			if run.recoveredReads == nil {
+				run.recoveredReads = map[[32]byte]bool{}
+			}
+			run.recoveredReads[key] = true
+		} else if previous != nil {
 			previous.reuses++
 		}
 	} else if !allowed {
 		result = data.ToolResult{Error: assistantRunnerError(data.ToolErrorInvalidArgument)}
 	} else {
+		executions++
 		ctx, cancel := context.WithTimeout(run.c, run.input.QueryTimeout)
 		queryContext := core.NewAssistantContext(ctx, run.c.GetContextId(), run.c.GetClientLocale(), run.c.ClientIP())
 		if executor, ok := run.runner.executor.(interface {
 			ExecuteForContext(core.Context, data.ToolCall, func(data.ToolResult) bool) data.ToolResult
 		}); ok && fits != nil {
 			result = executor.ExecuteForContext(queryContext, call, fits)
+			if result.Error != nil && result.Error.Code == data.ToolErrorBudgetExhausted && len(recoverContext) > 0 && queryContext.Err() == nil && recoverContext[0]() {
+				priorMetrics := result.Metrics
+				executions++
+				result = executor.ExecuteForContext(queryContext, call, fits)
+				result.Metrics.RowsRead += priorMetrics.RowsRead
+				result.Metrics.ResultRecords += priorMetrics.ResultRecords
+			}
 		} else {
 			result = run.runner.executor.Execute(queryContext, call)
 		}
@@ -47,6 +61,11 @@ func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool,
 			if errors.Is(queryErr, context.Canceled) {
 				result.Error = assistantRunnerError(data.ToolErrorCanceled)
 			}
+		}
+	}
+	if cached && result.OK && fits != nil && !fits(result) {
+		if len(recoverContext) == 0 || !recoverContext[0]() || !fits(result) {
+			result = data.ToolResult{Error: assistantRunnerError(data.ToolErrorBudgetExhausted)}
 		}
 	}
 	if result.OK && result.Error != nil || !result.OK && result.Error == nil {
@@ -71,10 +90,10 @@ func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool,
 		observation.CacheHits = 1
 		run.observation.CacheHits++
 	} else if allowed {
-		observation.Executions = 1
+		observation.Executions = executions
 		observation.RowsRead = result.Metrics.RowsRead
 		observation.ResultRecords = result.Metrics.ResultRecords
-		run.observation.Executions++
+		run.observation.Executions += executions
 		run.observation.RowsRead += observation.RowsRead
 		run.observation.ResultRecords += observation.ResultRecords
 	}
@@ -99,11 +118,14 @@ func (run *assistantRun) execute(call data.ToolCall, key [32]byte, allowed bool,
 		if run.cache[key] == nil {
 			run.cache[key] = &assistantCachedResult{result: result}
 		}
-		delete(run.unresolved, call.Name)
+		run.resolveFailure(call, key)
 		run.lastFailure = ""
 	} else {
 		code := assistantErrorCode(result.Error)
-		run.unresolved[call.Name] = assistantRunnerError(code)
+		if code == data.ToolErrorBudgetExhausted || code == data.ToolErrorResultTooLarge {
+			run.observation.ContextFailureSource = "tool_result"
+		}
+		run.recordFailure(call, key, *result.Error)
 		failure := string(key[:]) + string(code)
 		if failure == run.lastFailure {
 			return result, run.stop(data.ToolErrorBudgetExhausted, AssistantReasonRepeatedError)

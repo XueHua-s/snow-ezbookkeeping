@@ -89,6 +89,6 @@ export async function identityBoundary({ env, page, identity, variant, results, 
     await nativeIdentitySwitch(page, restorer, identity);
     await restorer.close();
     await page.goto(location, { waitUntil: 'domcontentloaded', timeout: 120000 }); await page.reload();
-    await page.getByRole('heading', { name: 'Verified isolated ledger' }).waitFor();
+    await page.getByRole('heading', { name: 'Verified isolated ledger' }).last().waitFor();
     results.push({ variant, scenario: attemptBFCache ? 'history navigation after native identity switch hides prior owner; original history remains readable' : 'native storage event first receiving RAF hides prior answer; original owner reopens formal history', status: 'PASS' });
 }

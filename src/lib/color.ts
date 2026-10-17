@@ -1,3 +1,4 @@
+import { APP_THEME } from '@/consts/theme.mts';
 import type {
     ColorValue,
     ColorStyleValue,
@@ -71,9 +72,9 @@ export function getContrastIconColor(backgroundColor: ColorValue): ColorValue {
     const normalizedColor = backgroundColor.replace(/^#/, '');
 
     if (!/^[0-9a-fA-F]{6}$/.test(normalizedColor) || normalizedColor.toLowerCase() === DEFAULT_MOBILE_OVERVIEW_WIDGET_LIGHT_BACKGROUND_COLOR) {
-        return '7f5e4b';
+        return APP_THEME.light.text.slice(1);
     } else if (normalizedColor.toLowerCase() === DEFAULT_MOBILE_OVERVIEW_WIDGET_DARK_BACKGROUND_COLOR) {
-        return 'ffffff99';
+        return APP_THEME.dark.text.slice(1);
     }
 
     const useDarkIcon = getContrastTextColor(normalizedColor) === '000000';

@@ -50,37 +50,12 @@ defineExpose({ confirm });
 </script>
 
 <template>
-    <dialog :aria-label="tt('Confirm')" :aria-describedby="messageId" ref="dialog" class="confirmation-dialog" @cancel.prevent="finish(false)">
+    <dialog :aria-label="tt('Confirm')" :aria-describedby="messageId" ref="dialog" class="confirmation-dialog assistant-dialog" @cancel.prevent="finish(false)">
         <p :id="messageId">{{ text }}</p>
-        <button class="dialog-action" type="button" autofocus @click="finish(false)">{{ tt('Cancel') }}</button>
-        <button class="dialog-action" type="button" @click="finish(true)">{{ tt('Confirm') }}</button>
+        <button class="assistant-action" type="button" autofocus @click="finish(false)">{{ tt('Cancel') }}</button>
+        <button class="assistant-action" type="button" @click="finish(true)">{{ tt('Confirm') }}</button>
     </dialog>
 </template>
 
-<style scoped>
-.confirmation-dialog {
-    max-width: min(90vw, 500px);
-    max-height: 85dvh;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    overflow-wrap: anywhere;
-    border-radius: 16px;
-    padding: 24px;
-    background: var(--assistant-surface, Canvas);
-    color: inherit;
-}
-.dialog-action {
-    color: inherit;
-    font: inherit;
-    min-height: 44px;
-    padding: 8px;
-    border: 1px solid rgb(127 127 127 / 90%);
-    border-radius: 8px;
-    background: transparent;
-    cursor: pointer;
-}
-.dialog-action:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-}
-</style>
+<style scoped src="./assistantAction.css"></style>
+<style scoped src="./assistantDialog.css"></style>

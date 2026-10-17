@@ -41,7 +41,9 @@ openai_model_id = your-tool-capable-model
 request_timeout = 180000
 ```
 
-浏览器 JSON 与 SSE 使用同一执行器，上游协议由 provider 配置选择：`llm_provider = openai` 使用 Chat Completions，`chat_completions_stream = true` 强制使用流式 Chat Completions；`llm_provider = openai_responses_compatible` 使用 Responses。Responses 配置填写 `openai_compatible_base_url`、`openai_compatible_api_key` 和 `openai_compatible_model_id`，对应密钥文件变量为 `EBKCFP_LLM_ASSISTANT_OPENAI_COMPATIBLE_API_KEY`（备用段同理）。主备模型均须支持其配置协议的完整工具调用和可靠结束标志；其他不具备工具能力的 provider 会明确失败。
+浏览器 JSON 与 SSE 使用同一执行器，上游协议由 provider 配置选择：`llm_provider = openai` 使用 Chat Completions，交互式助手生成在存在事件接收端时自动请求流式正文；`chat_completions_stream = true` 还可强制其他 Chat Completions 调用使用流式传输；`llm_provider = openai_responses_compatible` 使用 Responses。Responses 配置填写 `openai_compatible_base_url`、`openai_compatible_api_key` 和 `openai_compatible_model_id`，对应密钥文件变量为 `EBKCFP_LLM_ASSISTANT_OPENAI_COMPATIBLE_API_KEY`（备用段同理）。主备模型均须支持其配置协议的完整工具调用和可靠结束标志；其他不具备工具能力的 provider 会明确失败。
+
+工具轮之间会将重复字段的结果无损编码为 `column_rows` 表格，为后续分析预留上下文；模型需要遵循随请求提供的列与行映射说明。金额、完整汇总和分页语义保持不变。供应商明确拒绝上下文时，尚未输出正文的请求最多自动重试一次，并减少输出预留；这不能保证任意供应商的纯输入上限都可恢复。日志中的 `contextFailureSource` 区分本地输入、工具结果及上游拒绝，`contextRecoveryAttempts` 记录恢复次数，不记录问题或账本正文。
 
 模型工具轮完整结束后才执行查询；带工具的轮次正文不作为最终答案。SSE 实时输出状态及允许展示的思考，最终正文可能在完整轮次结束后才出现。一次请求最多切换备用模型一次，已经发送正文或思考后不再切换。识图备用接口只接管识图请求。
 
@@ -89,6 +91,10 @@ go test -count=1 -timeout=12m -run '^TestAIDeploymentIntegration$' ./pkg/api
 ## 持久化助手与运行边界
 
 新页面通过 `/api/v1/llm/assistant/capabilities.json` 读取服务器有效限制与生成可用性。`[assistant_experience]` 是保存容量、Unicode/UTF-8 输入、上下文窗口、租约、订阅和后台整理预算的配置入口；默认值和边界见随版本发布的 `conf/ezbookkeeping.ini`。不要用浏览器配置覆盖服务器配额。`[llm_assistant]` 的模型与工具只读规则仍适用于新旧接口。
+
+上下文预算与存储容量独立计算：`*_bytes` 限制仍按 UTF-8 字节执行；`*_tokens` 使用内置 BPE 词表估算并预留 20% 余量，不再把中文 UTF-8 字节数当作 token 数。估算覆盖提示词、工具定义、历史、工具结果及供应商请求体中的续接状态，但不保证与每个兼容模型的 tokenizer 完全一致；真实上游超限仍会明确报告。请求体仍受配置字节限额及 128 KiB 硬上限约束。
+
+历史接近预算时，按完整已结束问答分批生成摘要，为新的工具证据预留空间；唯一一轮长历史也可摘要。当前问题和未覆盖历史不会被截断或静默丢弃，原记录始终保留。分支历史只移除已成功纳入摘要的上下文引用。摘要调用（包括失败调用）计入本次轮数和截止时间，至少保留一轮用于回答；单个历史问答本身已超过摘要输入预算时仍明确停止。
 
 正式记录属于认证用户，保存于服务器数据库；模型调用会将本轮所需问题、历史、摘要、已启用记忆及查询结果发送给配置的供应商。长期记忆默认关闭，可以在设置中开启、检查来源、确认候选、更正或遗忘。遗忘阻止该来源重新提取，原聊天仍保留；移除原聊天需删除会话。
 

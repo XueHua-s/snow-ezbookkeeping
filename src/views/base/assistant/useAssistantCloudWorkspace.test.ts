@@ -13,42 +13,23 @@ function workspace(...args: Parameters<typeof useAssistantCloudWorkspace>) {
     scopes.push(scope);
     return scope.run(() => useAssistantCloudWorkspace(...args))!;
 }
-const message = { id: 'question', content: 'Original', versions: [], selectedAnswer: { assistantMessageId: 'answer', state: 'completed' } } as unknown as AssistantMessageDTO;
+const message = { id: 'question', selectedAssistantMessageId: 'answer', content: 'Original', versions: [], selectedAnswer: { assistantMessageId: 'answer', state: 'completed' } } as unknown as AssistantMessageDTO;
 beforeEach(() => {
     mocks.store = reactive({ draft: 'Untouched draft', detail: { messages: [message], conversation: { archived: false } }, viewedVersions: {}, online: true,
         capabilities: { generationAvailable: true, ownerScope: 'owner-a', deletionEpoch: 1 }, busy: false, pending: [], activePending: [], isLatestMessage: vi.fn().mockReturnValue(true), memories: { memoryUseEpoch: 4 },
         send: vi.fn().mockResolvedValue({}), branch: vi.fn().mockResolvedValue({ conversationId: 'branch' }), execute: vi.fn().mockResolvedValue({}),
-        removeDraft: vi.fn(), setDraft: vi.fn(), viewVersion: vi.fn(), selectVersion: vi.fn(), search: vi.fn(), loadHistory: vi.fn() });
+        removeDraft: vi.fn(), setDraft: vi.fn(), viewVersion: vi.fn(), selectVersion: vi.fn().mockResolvedValue({}), search: vi.fn(), loadHistory: vi.fn() });
 });
 describe('shared cloud product commands', () => {
-    it('creates an edit branch without sending, preserving the original draft', async () => {
-        const ui = workspace(); ui.edit(message); ui.input.value = 'Edited question'; await ui.send();
-        expect(mocks.store['branch']).toHaveBeenCalledWith('question', 'edit', 'Edited question');
-        expect(mocks.store['send']).not.toHaveBeenCalled(); expect(mocks.store['draft']).toBe('Untouched draft'); expect(ui.editing.value).toBeUndefined();
-    });
-    it('keeps edit text after a branch creation failure', async () => {
-        vi.mocked(mocks.store['branch'] as () => Promise<unknown>).mockRejectedValue(new Error('offline'));
-        const ui = workspace(); ui.edit(message); ui.input.value = 'Edited question'; await ui.send();
-        expect(ui.editing.value?.id).toBe('question'); expect(ui.input.value).toBe('Edited question'); expect(ui.error.value).toBe('Assistant request failed');
-    });
     it('submits next page bound to displayed answer version', async () => {
         const ui = workspace(); await ui.nextPage(message);
         expect(mocks.store['send']).toHaveBeenCalledWith(expect.objectContaining({ mode: 'next_page', sourceMessageId: 'answer' }));
     });
-    it('requires confirmation for clear and delete', async () => {
+    it('requires confirmation for deletion', async () => {
         const confirm = vi.fn().mockResolvedValue(false); const ui = workspace(confirm);
-        await ui.clear(); await ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
-        expect(mocks.store['execute']).not.toHaveBeenCalled(); confirm.mockResolvedValue(true); await ui.clear();
-        expect(mocks.store['execute']).toHaveBeenCalledWith('clear', {});
-    });
-    it('distinguishes memory add/correct/confirm and includes server epoch', async () => {
-        const ui = workspace(); await ui.saveMemory(undefined, 'Budget preference');
-        expect(mocks.store['execute']).toHaveBeenCalledWith('saveMemory', expect.objectContaining({ intent: 'add', expectedMemoryUseEpoch: 4, text: 'Budget preference' }));
-    });
-    it('summary confirms its period without treating unsent draft as a filter', async () => {
-        const ui = workspace(); ui.summaryPeriod.value = '2026-01-01 to 2026-01-31'; await ui.summary();
-        expect(mocks.store['send']).toHaveBeenCalledWith({ mode: 'summary', content: 'Generate AI Summary: 2026-01-01 to 2026-01-31' });
-        expect(mocks.store['draft']).toBe('Untouched draft');
+        await ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
+        expect(mocks.store['execute']).not.toHaveBeenCalled(); confirm.mockResolvedValue(true); await ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
+        expect(mocks.store['execute']).toHaveBeenCalledWith('delete', { id: 'c', expectedMetadataVersion: 7 });
     });
     it('treats the end of a historical window as a branch, not the end of the server conversation', async () => {
         vi.mocked(mocks.store['isLatestMessage'] as () => boolean).mockReturnValue(false);
@@ -70,13 +51,13 @@ describe('shared cloud product commands', () => {
 });
 
 describe('workspace operation scope', () => {
-    it.each(['clear', 'remove', 'forget', 'nextPage'] as const)('ignores %s confirmation after owner changes', async command => {
+    it.each(['remove', 'nextPage'] as const)('ignores %s confirmation after owner changes', async command => {
         let decide!: (accepted: boolean) => void;
         const ui = workspace(() => new Promise(resolve => { decide = resolve; }));
         vi.mocked(mocks.store['isLatestMessage'] as () => boolean).mockReturnValue(false);
-        const pending = command === 'clear' ? ui.clear() : command === 'remove'
+        const pending = command === 'remove'
             ? ui.remove({ id: 'old', metadataVersion: 1 } as AssistantConversationDTO)
-            : command === 'forget' ? ui.forget() : ui.nextPage(message);
+            : ui.nextPage(message);
         (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = 'owner-b';
         decide(true);
         await pending;
@@ -119,33 +100,28 @@ describe('workspace invalidation boundaries', () => {
         await pending;
         expect(mocks.store['removeDraft']).not.toHaveBeenCalled();
     });
-    it('does not let a confirmed clear use the next deletion epoch', async () => {
+
+    it('does not let a confirmed deletion use the next deletion epoch', async () => {
         let decide!: (value: boolean) => void;
         const ui = workspace(() => new Promise(resolve => { decide = resolve; }));
-        const pending = ui.clear();
+        const pending = ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
         (mocks.store['capabilities'] as { deletionEpoch: number }).deletionEpoch++;
         decide(true);
         await pending;
         expect(mocks.store['execute']).not.toHaveBeenCalled();
     });
-    it('resets owner input and closes editors but preserves same-owner history when navigating', () => {
+    it('resets owner filters but preserves same-owner history when navigating', () => {
         const route = shallowRef('one');
         const ui = workspace(undefined, () => route.value);
         ui.historyOpen.value = true;
-        ui.memoryOpen.value = true;
         ui.query.value = 'Private query';
         ui.includeVersions.value = true;
-        ui.summaryPeriod.value = 'Private period';
-        ui.edit(message);
         route.value = 'two';
-        expect(ui.editing.value).toBeUndefined();
         expect(ui.query.value).toBe('Private query');
         (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = 'new-owner';
         expect(ui.historyOpen.value).toBe(false);
-        expect(ui.memoryOpen.value).toBe(false);
         expect(ui.query.value).toBe('');
         expect(ui.includeVersions.value).toBe(false);
-        expect(ui.summaryPeriod.value).toBe('This month');
     });
     it('does not let old same-scope completion clear working while another action remains', async () => {
         const ui = workspace();
@@ -162,24 +138,55 @@ describe('workspace invalidation boundaries', () => {
 it('rechecks authority at the command boundary after the confirmation microtask', async () => {
     let decide!: (value: boolean) => void;
     const ui = workspace(() => new Promise(resolve => { decide = resolve; }));
-    const pending = ui.clear();
+    const pending = ui.remove({ id: 'c', metadataVersion: 7 } as AssistantConversationDTO);
     decide(true);
     queueMicrotask(() => { (mocks.store['capabilities'] as { ownerScope: string }).ownerScope = 'b'; });
     await pending;
     expect(mocks.store['execute']).not.toHaveBeenCalled();
 });
 
-it('keeps the active command and editor when capabilities refresh without identity changes', async () => {
+it('keeps the active command and history when capabilities refresh without identity changes', async () => {
     const ui = workspace();
-    ui.edit(message);
     ui.historyOpen.value = true;
     let finish!: () => void;
     const pending = ui.run(() => new Promise<void>(resolve => { finish = resolve; }));
     mocks.store['capabilities'] = { ...(mocks.store['capabilities'] as object) };
     expect(ui.working.value).toBe(true);
-    expect(ui.editing.value?.id).toBe(message.id);
     expect(ui.historyOpen.value).toBe(true);
     finish();
     await pending;
     expect(ui.working.value).toBe(false);
+});
+
+describe('browsing and adopting answers are separate intents', () => {
+    it('only reads when browsing even a successful answer', async () => {
+        const ui = workspace();
+        mocks.store['viewedVersions'] = { question: { ...message.selectedAnswer, assistantMessageId: 'earlier' } };
+        await ui.version(message, 'earlier');
+        expect(mocks.store['viewVersion']).toHaveBeenCalledWith('earlier');
+        expect(mocks.store['selectVersion']).not.toHaveBeenCalled();
+        await ui.useAnswer(message);
+        expect(mocks.store['selectVersion']).toHaveBeenCalledWith('question', 'earlier');
+        expect(ui.answerNotice.value).toBe('Your next question will continue from this answer.');
+    });
+    it.each(['failed', 'historical', 'busy', 'already adopted'])('does not adopt %s answers', async condition => {
+        const ui = workspace();
+        mocks.store['viewedVersions'] = { question: { ...message.selectedAnswer, assistantMessageId: condition === 'already adopted' ? 'answer' : 'earlier', state: condition === 'failed' ? 'failed' : 'completed' } };
+        if (condition === 'historical') vi.mocked(mocks.store['isLatestMessage'] as () => boolean).mockReturnValue(false);
+        if (condition === 'busy') mocks.store['busy'] = true;
+        await ui.useAnswer(message);
+        expect(mocks.store['selectVersion']).not.toHaveBeenCalled();
+    });
+    it('does not submit a continuation from an unadopted alternative', async () => {
+        const ui = workspace();
+        await ui.nextPage({ ...message, selectedAssistantMessageId: 'different' });
+        expect(mocks.store['send']).not.toHaveBeenCalled();
+    });
+    it('sends a natural follow-up bound to the adopted source and preserves the draft', async () => {
+        const ui = workspace();
+        await ui.nextPage(message);
+        expect(mocks.store['send']).toHaveBeenCalledWith({ mode: 'next_page', sourceMessageId: 'answer', content: 'Continue finding the remaining bills matching these conditions.' });
+        expect(mocks.store['setDraft']).not.toHaveBeenCalled();
+        expect(ui.input.value).toBe('Untouched draft');
+    });
 });

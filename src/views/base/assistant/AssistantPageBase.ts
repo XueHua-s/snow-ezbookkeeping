@@ -98,6 +98,12 @@ export function useAssistantPageBase(): AssistantSession {
                         patchMessage(messageId, { thinking });
                     }
                 },
+                onReplyReset: () => {
+                    if (isCurrent()) {
+                        reply = '';
+                        patchMessage(messageId, { content: reply });
+                    }
+                },
                 onReplyDelta: delta => {
                     if (isCurrent()) {
                         reply += delta;

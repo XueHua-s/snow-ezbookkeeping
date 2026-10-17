@@ -36,12 +36,13 @@ try {
         await page.keyboard.press('Tab');
         const metrics = await page.locator('.cloud-toolbar').evaluate(toolbar => ({
             titleWidth: toolbar.querySelector('.toolbar-title').getBoundingClientRect().width,
-            controls: [...toolbar.querySelectorAll(':scope > button, :scope > details > summary')].map(el => ({ name: el.getAttribute('aria-label'), width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height })),
+            controls: [...toolbar.querySelectorAll(':scope > button')].map(el => ({ name: el.getAttribute('aria-label'), width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height })),
             viewport: innerWidth,
             documentWidth: document.documentElement.scrollWidth,
             table: (() => { const el = document.querySelector('.assistant-markdown table'); return { width: el.clientWidth, scrollWidth: el.scrollWidth, overflow: getComputedStyle(el).overflowX, numerals: getComputedStyle(el).fontVariantNumeric }; })()
         }));
         assert(metrics.titleWidth >= 150);
+        assert.deepEqual(metrics.controls.map(control => control.name), ['Conversation history', 'New conversation']);
         assert(metrics.controls.every(control => control.name && control.width >= 44 && control.height >= 44));
         assert(metrics.documentWidth <= metrics.viewport);
         assert.equal(metrics.table.overflow, 'auto');

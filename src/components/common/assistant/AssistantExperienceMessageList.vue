@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useTemplateRef, watch, nextTick } from 'vue';
+import { mdiArrowDown, mdiArrowTopRight, mdiAutoFix } from '@mdi/js';
 import { useI18n } from '@/locales/helpers.ts';
 import type { AssistantMessageDTO, AssistantRunSnapshot } from '@/models/ai_assistant_conversation.ts';
 import {
@@ -18,7 +19,8 @@ const props = defineProps<{
     olderError?: string;
     anchor?: AssistantReadingAnchor;
     busy?: boolean;
-    examples?: readonly string[];
+    writeDisabledReason?: string;
+    examples?: readonly { readonly text: string; readonly icon: string }[];
 }>();
 const emit = defineEmits<{
     loadOlder: [];
@@ -26,9 +28,8 @@ const emit = defineEmits<{
     openReference: [id: string, answer: AssistantRunSnapshot];
     retry: [message: AssistantMessageDTO];
     regenerate: [message: AssistantMessageDTO];
-    edit: [message: AssistantMessageDTO];
-    branch: [message: AssistantMessageDTO];
     selectVersion: [message: AssistantMessageDTO, id: string];
+    useAnswer: [message: AssistantMessageDTO];
     loadVersions: [message: AssistantMessageDTO];
     nextPage: [message: AssistantMessageDTO];
     example: [text: string];
@@ -75,24 +76,22 @@ defineExpose({
                     <button type="button" @click="emit('loadOlder')">{{ tt('Retry') }}</button>
                 </p>
                 <div v-if="!messages.length" class="welcome">
+                    <div class="welcome-tag"><span class="welcome-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path :d="mdiAutoFix" /></svg></span>{{ tt('Your personal finance companion') }}</div>
                     <h2>{{ tt('How can I help with your finances?') }}</h2>
-                    <p>
-                        {{
-                            tt(
-                                'Conversations are saved on this server and sent to the configured model service when generating.'
-                            )
-                        }}
-                    </p>
+                    <p class="welcome-intro">{{ tt('Understand your spending, explore your balances, and plan what comes next.') }}</p>
                     <div class="examples">
                         <button
                             v-for="example in examples"
-                            :key="example"
+                            :key="example.text"
                             type="button"
-                            @click="emit('example', example)"
+                            @click="emit('example', example.text)"
                         >
-                            {{ example }}
+                            <span class="example-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path :d="example.icon" /></svg></span>
+                            <span>{{ example.text }}</span>
+                            <svg class="example-arrow" viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiArrowTopRight" /></svg>
                         </button>
                     </div>
+                    <p class="welcome-disclosure">{{ tt('Conversations are saved on this server and sent to the configured model service when generating.') }}</p>
                 </div>
                 <section
                     v-for="(message, index) in messages"
@@ -102,26 +101,26 @@ defineExpose({
                 >
                     <div class="question">
                         <div class="question-text">{{ message.content }}</div>
-                        <AssistantExperienceActions
-                            :content="message.content"
-                            edit
-                            :disabled-reason="
-                                busy ? 'Stop generation before editing or regenerating.' : undefined
-                            "
-                            @edit="emit('edit', message)"
-                        />
+                        <AssistantExperienceActions :content="message.content" />
                     </div>
                     <article
                         v-if="message.selectedAnswer"
                         :data-message-id="message.selectedAnswer.assistantMessageId"
                         class="answer"
                     >
+                        <header class="answer-heading">
+                            <span class="answer-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path :d="mdiAutoFix" /></svg></span>
+                            <span>{{ tt('AI Assistant') }}</span>
+                            <span v-if="message.selectedAnswer.state === 'completed'" class="answer-complete">{{ tt('Answer completed') }}</span>
+                        </header>
                         <AssistantMarkdownContent
-                            v-if="message.selectedAnswer.content"
+                            v-if="message.selectedAnswer.content || message.selectedAnswer.processSummary"
+                            class="answer-content"
                             :content="message.selectedAnswer.content"
                             :thinking="message.selectedAnswer.processSummary"
                         />
-                        <p class="run-status" role="status" aria-live="polite">
+                        <p v-if="message.selectedAnswer.state !== 'completed'" class="run-status" role="status" aria-live="polite">
+                            <span v-if="['queued', 'preparing', 'running', 'cancel_requested'].includes(message.selectedAnswer.state)" class="generation-indicator" aria-hidden="true"><i /><i /><i /></span>
                             {{ tt(assistantStateLabels[message.selectedAnswer.state]) }}
                         </p>
                         <p v-if="message.selectedAnswer.reasonCode" class="run-error" role="alert">
@@ -129,6 +128,7 @@ defineExpose({
                         </p>
                         <p
                             v-if="
+                                message.selectedAnswer.content &&
                                 ['failed', 'incomplete', 'interrupted', 'canceled'].includes(
                                     message.selectedAnswer.state
                                 )
@@ -138,10 +138,11 @@ defineExpose({
                         </p>
                         <AssistantExperienceEvidence
                             :answer="message.selectedAnswer"
-                            :can-page="!busy"
+                            :disabled-reason="writeDisabledReason"
+                            :can-page="!busy && message.selectedAnswer.state === 'completed' && (!isLatest(message, index) || message.selectedAnswer.assistantMessageId === message.selectedAssistantMessageId)"
                             :page-label="
                                 !isLatest(message, index)
-                                    ? tt('Continue this query in a new conversation')
+                                    ? tt('Continue finding bills in a new conversation')
                                     : undefined
                             "
                             @open-reference="emit('openReference', $event, message.selectedAnswer)"
@@ -163,18 +164,19 @@ defineExpose({
                             :regenerate="
                                 isLatest(message, index) && message.selectedAnswer.state === 'completed'
                             "
-                            :branch="!isLatest(message, index)"
                             :versions="message.versions"
+                            :write-disabled-reason="writeDisabledReason"
                             :selected-version-id="message.selectedAnswer.assistantMessageId"
-                            :context-version-id="message.selectedAssistantMessageId"
+                            :selected-attempt-number="message.selectedAnswer.attemptNumber"
+                            :can-use-answer="isLatest(message, index) && message.selectedAnswer.state === 'completed' && message.selectedAnswer.assistantMessageId !== message.selectedAssistantMessageId"
                             :has-more-versions="message.hasMoreVersions"
                             :disabled-reason="
-                                busy ? 'Stop generation before editing or regenerating.' : undefined
+                                busy ? 'An answer is still being prepared. You can wait for it or stop it to send a new message.' : undefined
                             "
                             @retry="emit('retry', message)"
                             @regenerate="emit('regenerate', message)"
-                            @branch="emit('branch', message)"
                             @select-version="emit('selectVersion', message, $event)"
+                            @use-answer="emit('useAnswer', message)"
                             @load-versions="emit('loadVersions', message)"
                         />
                     </article>
@@ -185,12 +187,15 @@ defineExpose({
             v-if="!scrolling.following.value"
             type="button"
             class="latest"
+            :aria-label="tt(scrolling.unread.value ? 'New content · Back to latest' : 'Back to latest')"
+            :title="tt(scrolling.unread.value ? 'New content · Back to latest' : 'Back to latest')"
             @click="
                 emit('latest');
                 scrolling.scrollToLatest();
             "
         >
-            {{ tt(scrolling.unread.value ? 'New content · Back to latest' : 'Back to latest') }}
+<svg viewBox="0 0 24 24" aria-hidden="true"><path :d="mdiArrowDown" /></svg>
+            <span v-if="scrolling.unread.value" class="unread-dot" aria-hidden="true" />
         </button>
     </section>
 </template>
@@ -231,14 +236,18 @@ defineExpose({
 .question-text {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    background: rgb(127 127 127 / 12%);
+    background: var(--assistant-tint, #e8f3e9);
     padding: 12px 16px;
-    border-radius: 18px;
+    border-radius: 20px 20px 6px 20px;
 }
 .answer {
     min-width: 0;
 }
 .run-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--assistant-muted);
     font-size: 0.8em;
     margin: 8px 0;
 }
@@ -248,42 +257,46 @@ button {
     background: transparent;
     color: inherit;
     font: inherit;
-    border: 1px solid rgb(127 127 127 / 90%);
-    border-radius: 10px;
+    border: 1px solid var(--assistant-border, #e5ece4);
+    border-radius: 16px;
     cursor: pointer;
+    transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 button:focus-visible {
-    outline: 2px solid currentColor;
+    outline: 2px solid var(--assistant-action, #278c62);
     outline-offset: 2px;
 }
-.welcome {
-    padding-block: 48px 24px;
-    text-align: center;
-}
-.welcome h2 {
-    font-size: 1.5em;
-    font-weight: 500;
-}
-.examples {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-}
-.latest {
-    align-self: center;
-    margin: 8px 0;
-    flex-shrink: 0;
-    background: Canvas;
-    color: CanvasText;
-    box-shadow: 0 3px 12px #0002;
-}
-@media (max-width: 440px) {
-    .welcome {
-        padding-top: 12px;
-    }
-    .examples {
-        flex-direction: column;
-    }
-}
+.welcome { padding: 36px 12px 28px; max-width: 620px; margin-inline: auto; }
+.welcome-tag { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 24px; background: var(--assistant-tint, #e8f3e9); color: var(--assistant-action, #278c62); font-size: .75rem; font-weight: 600; }
+.welcome-mark { display: grid; place-items: center; }
+.welcome-mark svg { width: 17px; height: 17px; }
+.answer-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-bottom: 16px; font-size: .8rem; font-weight: 600; }
+.answer-avatar { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 11px; color: var(--assistant-on-action, #fff); background: var(--assistant-action, #278c62); }
+.answer-avatar svg { width: 18px; height: 18px; }
+.answer-complete { color: var(--assistant-muted, #718277); font-weight: 400; font-size: .7rem; }
+.welcome h2 { font-size: clamp(1.75rem, 4vw, 2.4rem); font-weight: 700; line-height: 1.35; letter-spacing: -.035em; margin: 24px 0 12px; text-wrap: balance; }
+.welcome p { font-size: .875rem; color: var(--assistant-muted, #718277); line-height: 1.8; }
+.welcome .welcome-disclosure { margin: 24px 0 0; font-size: .7rem; line-height: 1.7; }
+.examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+.examples button { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; text-align: start; padding: 16px; background: var(--assistant-card, #fff); box-shadow: 0 5px 16px #23452d05; font-size: .875rem; line-height: 1.55; }
+.example-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 12px; background: var(--assistant-tint, #e8f3e9); color: var(--assistant-action, #278c62); }
+.example-arrow { position: absolute; inset-inline-end: 14px; top: 20px; opacity: .4; }
+svg { width: 21px; height: 21px; fill: currentColor; }
+.latest { position: absolute; bottom: 12px; inset-inline-end: 24px; width: 46px; height: 46px; display: grid; place-items: center; padding: 10px; border-radius: 50%; background: var(--assistant-card, #fff); color: var(--assistant-action, #278c62); box-shadow: 0 5px 20px #23452d14; }
+.unread-dot { position: absolute; top: 5px; inset-inline-end: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--assistant-action, #278c62); }
+button:hover:not(:disabled) { background: var(--assistant-tint, #e8f3e9); }
+button:active:not(:disabled) { transform: scale(.98); }
+.generation-indicator { display: inline-flex; align-items: center; gap: 4px; height: 16px; color: var(--assistant-action); }
+.generation-indicator i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: generation-pulse 1.2s ease-in-out infinite; }
+.generation-indicator i:nth-child(2) { animation-delay: 150ms; }
+.generation-indicator i:nth-child(3) { animation-delay: 300ms; }
+.answer-content, .answer-complete { animation: message-fade 180ms ease both; }
+@keyframes generation-pulse { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+/* Reading anchors measure message geometry while navigation restores the list. */
+.turn { animation: message-fade 220ms ease both; }
+.welcome { animation: message-enter 220ms ease both; }
+@keyframes message-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes message-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 440px) { .welcome { padding: 12px 4px; } .examples { gap: 10px; } .examples button { padding: 14px; } }
+@media (prefers-reduced-motion: reduce) { .turn, .welcome, .answer-content, .answer-complete, .generation-indicator i { animation: none; } button { transition: none; } }
 </style>

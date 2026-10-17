@@ -162,7 +162,7 @@ func TestAssistantMetadataLiteralSearchAndTypeScope(t *testing.T) {
 func TestAssistantMetadataEmptyLedger(t *testing.T) {
 	s, engine := assistantServiceFixture(t)
 	// Only the temporary fixture database is cleared.
-	for _, bean := range []any{&models.Account{}, &models.TransactionCategory{}, &models.TransactionTag{}, &models.TransactionTagGroup{}} {
+	for _, bean := range []any{&models.Transaction{}, &models.Account{}, &models.TransactionCategory{}, &models.TransactionTag{}, &models.TransactionTagGroup{}} {
 		if _, err := engine.Where("uid = ?", 7).Delete(bean); err != nil {
 			t.Fatal(err)
 		}

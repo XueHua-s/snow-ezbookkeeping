@@ -18,6 +18,13 @@ function stream(text: string, oneByte = false): ReadableStream<Uint8Array> {
 const done = 'data: {"type":"done","mode":"chat","reply":"完成"}';
 
 describe('assistant SSE protocol', () => {
+    it('retracts provisional tool preambles and requires new reply after reset', async () => {
+        let reply = '';
+        const callbacks = { onReplyDelta: (delta: string) => { reply += delta; }, onReplyReset: () => { reply = ''; } };
+        await readAssistantStream(stream('data: {"type":"reply_delta","delta":"unverified"}\n\ndata: {"type":"reply_reset"}\n\ndata: {"type":"reply_delta","delta":"verified"}\n\ndata: {"type":"done","mode":"chat"}'), callbacks);
+        expect(reply).toBe('verified');
+        await expect(readAssistantStream(stream('data: {"type":"reply_delta","delta":"unverified"}\n\ndata: {"type":"reply_reset"}\n\ndata: {"type":"done","mode":"chat"}'), callbacks)).rejects.toMatchObject({ incomplete: true });
+    });
     it('incrementally decodes UTF-8 and split CRLF, multiline data, heartbeats, unknown events and a final frame without blank line', async () => {
         const onReplyDelta = vi.fn();
         const onStatus = vi.fn();

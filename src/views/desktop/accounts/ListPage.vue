@@ -29,7 +29,7 @@ import { useListPage } from './ListPage/useListPage.ts';
 
 const {
     tt, loading, showHidden, displayOrderModified, showAccountBalance, customAccountCategoryOrder, useLastReconciledTime,
-    allCategorizedAccountsMap, allAccountCount, netAssets, totalAssets, totalLiabilities, canShowAvailableCredit,
+    allCategorizedAccountsMap, allAccountCount, totalAssets, canShowAvailableCredit,
     accountCategoryTotalBalance, accountBalance, accountAvailableCredit, activeAccountCategoryType, activeTab,
     activeSubAccount, showAccountsIncludedInTotalDialog, showCustomDateRangeDialog, hideAccountCategoriesWithoutAccounts,
     hasAnyVisibleAccount, activeAccountCategory, activeAccountCategoryTotalBalance, activeCreditCardTotalAvailabeCredit,
@@ -44,22 +44,8 @@ const {
     <main-page-layout nav-items-class="account-category-tabs my-3">
         <template #nav-items>
             <div class="mx-2 mb-2">
-                <span class="text-body-medium">{{ tt('Net assets') }}</span>
-                <div class="text-body-large text-income text-truncate mt-1 mb-2">
-                    <span v-if="!loading || allAccountCount > 0">{{ netAssets }}</span>
-                    <span v-else-if="loading && allAccountCount <= 0">
-                        <v-skeleton-loader class="skeleton-no-margin mt-1 mb-2" type="text" :loading="true"></v-skeleton-loader>
-                    </span>
-                </div>
-                <span class="text-body-medium">{{ tt('Total liabilities') }}</span>
-                <div class="text-body-large text-expense text-truncate mt-1 mb-2">
-                    <span v-if="!loading || allAccountCount > 0">{{ totalLiabilities }}</span>
-                    <span v-else-if="loading && allAccountCount <= 0">
-                        <v-skeleton-loader class="skeleton-no-margin mt-1 mb-1" type="text" :loading="true"></v-skeleton-loader>
-                    </span>
-                </div>
                 <span class="text-body-medium">{{ tt('Total assets') }}</span>
-                <div class="text-body-large mt-1">
+                <div class="text-body-large text-primary text-truncate mt-1">
                     <span v-if="!loading || allAccountCount > 0">{{ totalAssets }}</span>
                     <span v-else-if="loading && allAccountCount <= 0">
                         <v-skeleton-loader class="skeleton-no-margin mt-3 mb-2 pb-1" type="text" :loading="true"></v-skeleton-loader>

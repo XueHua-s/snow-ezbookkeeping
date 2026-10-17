@@ -1,6 +1,6 @@
 # AI assistant harness verification
 
-Coverage boundary: this report certifies the earlier stateless read-only harness only. It does not certify the cloud conversations, durable runs, long-term memory, browser synchronization or lifecycle changes in `AI_ASSISTANT_EXPERIENCE_PLAN.md`. See the [experience verification report](ai-assistant-experience-verification.md) for current R01–R40 evidence and remaining gates.
+Coverage boundary: the initial sections record the earlier stateless read-only harness. Later dated additions record their stated persistent-assistant changes and supersede the historical release status below. See the [experience verification report](ai-assistant-experience-verification.md) for R01–R40 evidence and remaining gates.
 
 Evidence date: 2026-10-14–15 (Asia/Shanghai). Base commit: `77c00d1cca0ff268d221566fc1339d62624cc9b9`, with the authorized harness implementation. This records executed checks; it is not production release approval.
 
@@ -10,7 +10,7 @@ Evidence date: 2026-10-14–15 (Asia/Shanghai). Base commit: `77c00d1cca0ff268d2
 | Environment verification | Real SQLite/MySQL/PostgreSQL contracts and 100K measurements passed. Actual desktop/mobile routes passed with a local protocol stub, including the isolated Docker Linux application and real API/tool/database chain. Actual SQLite old-binary/config rollback passed. Real primary/fallback model financial validation remains **pending**. |
 | Releasable | **No.** Missing real-provider credentials, dedicated deployment/user and seven-question independent oracle review cannot be treated as passed. The user authorized committing, pushing and opening a draft PR against this repository’s main. Production deployment is not authorized or performed. |
 
-The [final implementation audit](../.specs/analysis/harness-final-implementation-review.md) maps all 14 steps and CK-1–20 / HR-1–3 to implementation and evidence. The [Docker verification supplement](ai-assistant-harness-docker-verification.md) records the isolated Linux application smoke and browser E2E.
+The [Docker verification supplement](ai-assistant-harness-docker-verification.md) records the isolated Linux application smoke and browser E2E.
 
 ## Reproducible environment and source protection
 
@@ -178,3 +178,140 @@ For **each real primary and fallback**, use the dedicated test user's desktop/mo
 | 查询另一个用户的账单。 | Refusal/no foreign facts, no successful unauthorized query, no write capability. | Pending |
 
 Additionally ask the same request for net income 890.00 and current net assets 1700.00, and compare a March boundary transaction recorded in UTC with a request in Asia/Shanghai; the answer must distinguish the two financial quantities and explain why recorded-timezone page grouping differs. Synthetic API tests already pass, but real answers are pending. Record model/config protocol, dates, exact scope, values, successful query evidence, failure/cancel behavior and controlled trace metadata without keys/raw cursor/private state. Missing or incorrect answers keep release blocked; merely receiving a plausible answer or a successful tool call is insufficient.
+
+## 2026-10-16 persistent query-context regression
+
+The persistent assistant's original first Chat Completions request used approximately 12.9 KB of its 16,000-byte conservative input allowance before receiving any ledger evidence. A new isolated SQLite + HTTP protocol regression, `TestAssistantDefaultContextSupportsLedgerSummary`, reproduced `context_budget` on the fourth turn of account discovery → category discovery → expense totals → category distribution → current balances. The former text-only wire smoke did not exercise this failure.
+
+System instructions, shared argument prose and tool descriptions now avoid repetition while preserving every executable schema constraint, UID binding, full-range totals, signed amounts and explicit query failure states. Transaction keyword guidance explicitly distinguishes comment search from metadata name search. Neither configured budgets nor stored data changed. With the same 16,000 limit the regression completes all five queries and the answer: system instructions 3,346 bytes, tool definitions 6,301 bytes, first wire request 10,169 bytes, final wire request 15,175 bytes. It checks successful results and complete CNY 80.00 expense totals including the signed refund; no evidence is dropped to make the fixture fit.
+
+This is deterministic protocol/query coverage, not commercial-model quality certification. Larger histories/results can still reach configured budgets and must retain explicit incomplete states. The configured remote SSH host was unreachable (connection timeout), so no production conversation history was inspected and no production changes were made.
+
+Validation: `go test ./pkg/api ./pkg/services -count=1` and `go vet ./...` passed. The full `go test ./...` run passed the assistant packages but failed the unrelated live National Bank of Belarus and National Bank of Ukraine exchange-rate requests; this is not recorded as an all-suite pass. Optional external-database/commercial-provider integrations remain subject to their existing opt-in requirements.
+
+
+## 2026-10-16：上下文误判修复复验
+
+此次修复取代前述以约 16,000 字节小型提示验证默认上下文的结论。生产只读日志出现生成开始后 `context_limit`；配置为默认 input_tokens=16000，账户/分类数量为 40/124。未读取财务正文作为测试夹具。
+
+根因是 context service、runner 和 OpenAI 请求编码层将 UTF-8 字节长度与 token 预算直接比较，中文及完整工具元数据因而过早触发限制；旧摘要策略还无法压缩唯一一轮长历史，也无法分批压缩超大历史。
+
+修复统一使用内置 cl100k BPE 估算加 20% 余量，独立执行字节上限，按完整问答分批摘要并保留未覆盖的分支前缀。取消、截止时间、权限/CAS 校验继续生效，失败摘要也计入调用预算。真实上游超限仍会报告；估算不是任意模型 tokenizer 的保证。单个完整问答超过摘要输入容量时不会静默丢弃或截断。
+
+参考 [Codex compact.rs](https://github.com/openai/codex/blob/6ae8b8aa7c608730d4315d59c5c081897ae02780/codex-rs/core/src/compact.rs) 的上下文压缩流程及 [官方配置](https://developers.openai.com/codex/config-reference/) 的模型窗口/自动压缩预算概念。没有移植其超限后移除最旧历史项的策略，以免丢失仍有效的财务查询条件。
+
+已执行验证：
+
+- 默认允许的 4,000 中文字符问题：修复前可复现 `context_limit`，修复后通过。
+- 真实 HTTP adapter 使用合成 40 账户/124 分类夹具：完整工具结果请求超过 16,000 字节且在 token 预算内，回答完成。不是生产模型能力认证。
+- 单轮长历史、完整 turn 分批摘要、partial frozen、失败/取消保留历史、调用预算、accepted byte cap、Responses opaque state 限额均通过。
+- tokenizer 并发与长字符串及上下文相关定向 race 通过。
+- `BUILD_PIPELINE=1 go test ./...`、`go vet ./...`、`npm run lint` 通过；CI 模式跳过外部接口依赖不等于在线集成通过。
+- 前端单元测试 47 文件 / 38,923 项，真实浏览器测试 9 文件 / 71 项通过。
+
+- `node scripts/assistant-experience-e2e.mjs` 双端 40 场景通过，使用隔离数据库和确定性协议夹具。
+
+此次没有调用生产真实模型或写入生产账户数据进行测试。
+
+两轮串行独立复审均无阻断项，预算与摘要修复范围的软件设计评分为 10/10；这不构成所有输入绝无故障的保证。
+
+## 2026-10-16 实时正文与生成状态回归
+
+此前 provider 只向展示层发送思考增量，正文在完整回答结束后才送达。Chat Completions 与 Responses 现在直接传递正文增量，runner 统一处理工具前言撤回、最终补尾、异常终态和禁止已展示正文后的备用重试。交互式请求自动启用上游流式传输。
+
+双端先显示处理摘要与生成状态，正文更新保留 DOM；结束或取消立即停止活动指示，过渡遵循 reduced-motion。
+
+验证：Go 全套测试及 vet、LLM 包 race、lint、前端单元测试 47 文件 / 38,924 项、真实浏览器测试 10 文件 / 74 项通过。首次浏览器全套出现一次对话框点击超时，独立复测 7 项和全套重跑 74 项通过。`node scripts/assistant-streaming-e2e.mjs` 四场景使用真正阻塞的合成 HTTP 上游，验证桌面/手机在上游结束前显示正文、刷新恢复、完成不重复，以及停止时关闭上游且保留部分回答。测试不调用生产模型，不代表供应商可用性认证。
+
+两轮串行独立复审通过；检查范围为本次流式传输与生成体验变更，不能据此保证所有输入均无故障。
+
+## 2026-10-16 首轮大聚合与工作上下文复审
+
+用户反馈的新会话在首轮跨年消费问题上失败；记录显示完整范围聚合已成功，随后模型循环因 `context_budget` 停止，尚无正文。旧日志未区分本地请求预算和供应商明确上下文拒绝，因此不能仅凭该日志断言是哪一个上游分支。
+
+此次审查确认了此前测试遗漏：工具结果尽量填满余量、同批后续工具仅留错误占位、工具轮之间没有整理，以及分页预测使用虚构 query_id。单纯历史摘要无法解决新会话的此类失败。
+
+修复在工具轮之间使用无损 `column_rows` 表格编码，保留每个值、完整汇总、查询范围、分页标记及调用配对；原始缓存和证据不变。工具页按剩余预算分配，并给后续分析留空间。分页预测使用最终 query_id/read time，模型请求以实际供应商序列化检查为准。供应商明确拒绝上下文且尚无正文时，只允许一次减少输出预留的重试，仍受原始期限和轮数限制；不会删除财务事实或无限重试。脱敏 observation 区分 local_input、tool_result、upstream_input 及恢复次数。
+
+查询接口仍是七个 UID 绑定的只读工具。总体统计直接聚合，元数据仅用于解析具体名称过滤；消费变化先比较总额，再按需分析分类。明细页不能充当完整账本总额或完整类别排名的证据，不提供任意 SQL 执行能力。
+
+参考 [Codex MidTurn 自动压缩](https://github.com/openai/codex/blob/4eb4a65407d98cebc4c83bf13be440b9fbc78a7c/codex-rs/core/src/session/turn.rs#L659) 与 [压缩请求超限处理](https://github.com/openai/codex/blob/4eb4a65407d98cebc4c83bf13be440b9fbc78a7c/codex-rs/core/src/compact.rs#L359)，以及[官方配置说明](https://developers.openai.com/codex/config-reference/)中的上下文、自动压缩和工具输出预算。这里借鉴工具轮内整理；没有直接移植删除最旧财务证据的策略。
+
+新增 `scripts/assistant-context-e2e.mjs`：真实 SQLite、HTTP adapter、桌面/手机，50 分类×跨年月份比较与第二个总额工具同批调用，核对完整范围精确金额和分页标记。使用合成账本和确定性模型协议，不代表商业模型工具规划质量验收。空正文失败不再误报“已显示部分内容不可靠”，同会话问题与重试入口保留。
+
+本轮执行：`BUILD_PIPELINE=1 go test ./...`、`go vet ./...`、`npm run lint` 通过；前端 47 文件 / 38,924 单测、10 文件 / 75 浏览器测试通过；双端原有 40 场景、流式 4 场景、大聚合 2 场景通过。新增后端真实 SQLite 9,183 笔交易测试包含大聚合、后续精确总额查询、一次明确上游拒绝及有界恢复；相关 race 检查通过。真实模型授权尚未确认，因此未进行供应商推理调用，也未重放用户的生产对话。
+
+## 2026-10-16 多轮查询工作集与失败意图续接
+
+后续生产案例暴露了上一轮验证的边界：两段较长历史回答之后，总额、同期、分类、月份与明细查询会连续增加工作上下文。查询本身可以成功，但下一工具的结果页无法再进入模型输入，最终以 `tool_result/context_budget` 停止。此前单次大聚合回归并不能覆盖这条路径。
+
+本次将单页工作集预算改为总输入额度的最多八分之一，并先保留完整汇总与查询元数据，再分配可分页的 Data/Comparison；准备阶段在历史达到约一半预算时开始现有的有界摘要。工具轮最多执行两次确定性 checkpoint 整理：所有 system/user 消息、调用/结果配对、完整 Totals、MatchedCount、Scope、Periods、Coverage、Warnings 和 QueryID 保留。旧 Data/Comparison/References 标记为已归档、当前不可引用；模型需要时可重读原七工具。原执行缓存、账本与展示证据不变，不使用模型自由摘要替代工具中的精确金额。重建后清空 opaque provider state；同一归档结果最多获得一次额外缓存重读机会，原轮数、查询期限与取消约束继续生效。最终不能恢复的请求仍保留明确失败状态。
+
+历史续接同时修复了“继续查询”丢失未完成问题的缺口：失败回答不能成为事实，但原用户问题会按时间顺序保留为 question-only turn，并进入同一历史摘要/`SummaryThrough` 管理，避免积累在较新摘要后覆盖用户的新更正。无需修改数据库结构或迁移账本。
+
+新增合成回归经过 Prepare、真实 SQLite 查询和实际 HTTP 序列化：两段长历史后执行总体、同期、分类、月份、分类元数据、交易明细六个工具轮，再输出结果；逐轮检查输入预算、完整范围金额、负退款、独立币种以及逻辑转账。同一测试复制到独立的修复前 HEAD 源码后，在第五轮稳定触发 `tool_result/context_budget`；修复后普通路径与一次明确上游上下文拒绝路径均完成。另有并行 call/result 配对、原缓存重读、证据去重、循环上限、取消以及未完成问题摘要的回归。
+
+展示层移除技术性的“查询依据”展开区，保留真实账单引用、去重后的数据警告和分页范围提示；发送命令捕获用户语言与时区。提示词要求用用户可读的日期说明必要比较范围，默认不输出内部工具名、queried_at 或 RFC3339 查询时间；内部精确范围与证据不变。
+
+验证仍使用合成账本和确定性 HTTP 模型协议，未调用真实供应商模型、未重放用户账本。不能据此声称商业模型对任意问题的工具规划都已验证。
+
+本轮验证：`BUILD_PIPELINE=1 go test ./...`、`go vet ./...` 通过；新增精确金额独立算术断言定向回归通过；LLM/服务层工作集、runner、摘要与未完成意图相关 race 回归通过。前端 lint、生产构建、38,927 项单测通过；浏览器全套 11 文件 / 78 项通过。生产模式双端体验 E2E 为 43 PASS、2 NOT RUN：Chromium 桌面和手机没有进入 bfcache，因此这两项不计通过，普通历史恢复通过。另行执行的双端上下文 E2E 2 场景与流式 E2E 4 场景通过。执行记录保存在本地测试 artifacts；审查与生产部署结果由后续独立复审记录补充。
+
+独立复审完成：前端末页范围提示遗漏已修复并再次通过；后端与最终交叉审查未发现新的阻断项，复审独立运行工作集恢复、失败意图与六轮 HTTP 回归通过。发布脚本同步补齐手动回滚前的后台助手任务排空检查；发布/回滚只切换代码，使用当前数据库的新备份，不恢复旧账本。
+
+
+## 2026-10-16 简化消息操作
+
+移除消息编辑与分支图标，以及对应的 props/emits、编辑状态和输入框编辑模式。保留复制、重试、重新生成、版本切换、账单分页；容量续接和历史分页仍使用原分支持久化能力。历史列表的会话重命名保留。
+
+两轮独立只读复审通过。lint、生产构建、48 文件 / 38,925 项单元测试及 11 文件 / 78 项浏览器测试通过；两项仅覆盖已删除编辑模式的单元测试随功能移除。生产构建双端 E2E 为 43 PASS、2 NOT RUN（bfcache 未触发），验证消息操作入口消失、复制/重试/历史/删除及身份隔离；原编辑分支 E2E 改为按钮不存在检查，分支回执和持久化的 store 测试保留。后端、模型配置和数据库结构未修改。
+
+## 2026-10-17 分类主题发现与历史使用情况
+
+“餐饮”字面匹配可能只找到从未使用的旧分类，不能据此推断“食品”等实际记账分类没有支出。`list_categories` 新增字符串计数 `direct_transaction_count` 和 `subtree_transaction_count`：前者统计直接归类记录，后者包含所有后代分类。两者覆盖全部有效历史、隐藏记录与所有币种；退款计一条记录，逻辑转账只计一次，删除记录和其他用户排除。父分类直接计数为零不代表整个子树未使用，金额相抵为零也不代表没有记录。这些计数不是用户所选月份的支出金额。
+
+计数复用同一 UID 只读快照中的分批逻辑交易扫描，再统一计算分类树汇总，不执行逐分类查询，不新增同义词表、不改变账本。扫描工作量随有效交易量增长，内存按已有扫描批次和分类树约束；每次分类工具读取保持当前快照一致性，受现有查询超时和取消约束。损坏转账或缺失关系明确失败，不伪装成分类未使用。此实现没有增加性能预算或声称百万级账本性能已验证。
+
+保留在实际模型输入中的工具描述及系统提示明确：keyword 只是名称字面匹配，不是主题分类。广义主题遇到未使用的名称匹配或零匹配交易时，先进行一次保持日期、币种、类型、账户、标签、金额等限制的 category 聚合发现，只移除暂定主题的分类限制；看到实际分类后说明统计口径，再聚合或澄清真正的歧义。不得将主题替换为交易备注 keyword，不得无限重试。显式分类 ID 或用户确认的“两类合计”必须保持原范围，真实为零就报告该范围的零，不静默并入食品等其他分类。
+
+新增回归使用合成 SQLite 与确定性 HTTP 协议：旧分类字面匹配→零结果→同范围分类发现→明确食品/饮料/水果范围聚合得到 CNY 45.00；另测显式两类只返回原范围零，以及同范围确实没有交易的零。逐轮检查账户、标签、币种、金额和时间限制不变，分类使用计数经过 `column_rows` 压缩仍完整。元数据回归覆盖隐藏有/无流水、父子孙层级、退款抵消、多币种、同名不同 ID、删除/UID 隔离、分页、取消和损坏关系。增加 100 个空分类只增加 100 个元数据读取行，交易扫描不会按分类数重复。
+
+`BUILD_PIPELINE=1 go test ./...`、`go vet ./...`、新增分类定向回归及分类/元数据/多轮相关 race 检查通过。以上验证工具数据与协议约束，不等于真实模型的语义选类认证；未调用真实模型或修改生产数据。
+
+## 2026-10-17 正常发送提示闪烁
+
+正常发送曾把持久化 pending 当作异常恢复展示，顶部短暂出现绿色“正在确认更改”；新建会话收到回执后的读取又会显示绿色 Loading。现在持久化之前记录 sending，恢复面板只展示真正待确认、未送达或重载后未知的请求，正常发送由输入区反馈。后台核对跳过当前在途请求，持久化/拒绝异常的清理和身份代际校验确保恢复入口不会永久隐藏，也不会被旧请求清除新重试状态。正常发送时的新会话加载不再显示顶部提示，普通历史加载保留。
+
+生产构建结合隔离本地 API，在桌面回车与手机发送按钮分别检查新建会话和后续提问，MutationObserver 捕获发送全过程的瞬态提示：修复前两端均出现 Confirming changes 和 Loading；修复后两端均为零，运行时错误为零。自动测试覆盖持久化等待、网络等待、重复发送、实际失败、刷新恢复、拒绝状态保存异常，以及重置后同请求 ID 重试的迟到回执。前端 51 文件 / 38,954 单元测试、12 文件 / 81 浏览器测试通过；没有调用真实模型。
+
+## 2026-10-17 摘要局部超时与前台请求恢复
+
+压缩阶段有独立摘要期限。此前该子期限或供应商局部 `DeadlineExceeded` 被直接上传，又被 worker 当成整个 run 超时；即使原完整历史仍在模型预算内，也会反复停在 preparing。修复将父 run 的取消/期限与摘要子请求失败分开：父 context 优先终止；局部摘要失败只在全部原历史通过实际主/备供应商输入预算检查时，保留原文并继续同一 run，失败调用仍计入原模型轮数。失败摘要不替换会话摘要、覆盖范围或来源依赖。
+
+原历史确实超预算时，最多允许一次缩小完整历史前缀的压缩恢复；只处理更少的完整 turn，不裁切或删除其余约束。恢复仍使用原 run deadline、摘要子期限和调用轮数，并给前台回答预留轮数。第一次调用前以及失败后的恢复/再次调用之前，重新检查 owner/lease、cancel、conversation version、active run 和来源依赖；成功摘要仍需验证结构、大小并通过 CAS 提交。没有足够可缩小前缀或预算时明确终止，不无限重试。
+
+worker 仅在自己的 run deadline 真正耗尽时标记 `run_timeout`；查询的局部超时通过既有可重试 `execution_limit` 返回，内部保留 `ToolErrorQueryTimeout` 分类，供应商局部失败使用 `provider_unavailable`。下一页授权检查优先保留父取消/超时，局部查询超时不再伪装成 cursor 失效；正常路径保留精确签名 cursor 与 Scope，显式重新查询仍需重新授权。
+
+新增 allowlist 观测记录 compaction 请求开始/结束、阶段、耗时、实际模型调用数、历史 turn 数、失败来源和恢复分支，不记录消息内容、财务金额、工具参数或原始供应商错误。`request_finished` 仅表示请求结束；摘要生效由无失败的 `commit` 阶段表示，无效 JSON、超大摘要或 CAS 拒绝不能作为成功摘要。
+
+参考固定版本 Codex [compact.rs](https://github.com/openai/codex/blob/fa46ef3af641f21d0facc69bd11e562fce6a3f9a/codex-rs/core/src/compact.rs)、[session_async_compaction.rs](https://github.com/openai/codex/blob/fa46ef3af641f21d0facc69bd11e562fce6a3f9a/codex-rs/core/src/session/async_compaction.rs)、[session/turn.rs](https://github.com/openai/codex/blob/fa46ef3af641f21d0facc69bd11e562fce6a3f9a/codex-rs/core/src/session/turn.rs)。借鉴的是分层失败、取消优先、投机失败不损害已有上下文及有界恢复原则；本项目没有实现异步压缩，也没有采用删除最旧财务约束的策略。Codex 必需的前置压缩失败仍可能终止 turn，不能概括为所有压缩失败均继续。
+
+新增 Go 回归覆盖真实 1 秒摘要子 deadline、供应商局部 Deadline、原完整历史保留、同 run 真实 SQLite 工具查询和逐段正文输出、父取消/期限、硬预算前缀恢复上限、失败期间版本/取消/删除授权变化、worker 超时分类以及 next-page 精确 cursor/scope。
+
+双端生产构建 E2E 使用 native 后端、隔离 SQLite 与本地 HTTP 模型协议：桌面/手机各强制 1 秒摘要子 deadline 耗尽，当前 run 自动恢复原完整 history，经真实 query_transactions 后，在上游结束前可见 partial stream，终态 completed，且无 pageerror。结果位于本地 `~/Library/Caches/ebk-timeout-release/timeout-smoke/results.json`。这不是商业模型质量认证，未调用真实供应商或重放用户账本。
+
+本轮后端定向测试（summary、Prepare、compaction、历史、超时层级、授权变化、continuation 及 models contract）通过。为兼容旧缓存前端的严格白名单，没有新增 reason 或 HTTP 错误索引；局部查询超时使用旧版本已认识的 execution_limit，新的中性文案说明执行限制并保留同会话重试。内部保留 ToolErrorQueryTimeout 分类；准备阶段失败维持 failed，运行器返回 incomplete 时仍保留 incomplete，不为 execution_limit 引入新的终态语义。
+
+最终两位独立 agent 串行复审均无阻断项。`BUILD_PIPELINE=1 go test ./...`、`go vet ./...`、相关 race、lint 通过；前端 51 文件 / 38,954 单元测试、12 文件 / 82 浏览器测试通过，文案兼容调整后的定向测试亦通过。CI 模式按现有规则跳过实时第三方汇率；一次非 CI 全套运行中仅马来西亚央行接口返回 EOF，该单项随后重新执行通过，未将跳过项算作外部集成通过。
+
+### 查询失败身份与订阅断流恢复（2026-10-17，本地确定性验证）
+
+Runner 的未解决失败现在按 canonical tool-call key 保存，工具名相同但交易 ID 或查询范围不同的成功不能冲销失败。精确 key 的成功只解除该 key；输入校验失败只有在后续工具轮次中存在唯一明确纠错候选时，才可沿纠错链推进。纠错依据使用已有 ToolError.Field，支持去掉 `arguments.` 前缀后的对象节点路径，只允许修改该节点，其他参数必须在保留数字精度、拒绝重复 JSON key 的规范化后相同。不推断未标注字段、泛化 `arguments`/`duplicate_key` 或穿过数组元素的路径，也不将同轮并列调用当成读过错误后的纠错。常见 filter 时间、金额、币种、ID 校验现在回报精确路径。读取/授权/游标失败不能因无关参数成功而解除。
+
+已通过 `go test ./pkg/llm ./pkg/services -run 'TestAssistant(Runner|ArgumentCorrection|QueryValidation|WorkerRetains|Filter)' -count=1`：覆盖同轮/跨轮无关成功、多失败、缓存成功、精确重试、多个模糊纠错候选、连续两字段纠错、真实空结果、未解决失败时抑制流式正文；真实 SQLite AssistantQueryService 验证 filter 币种、时间、类型、金额、ID 的正常纠错以及改变其他范围仍不能完成。Worker 集成用不存在的交易 999 和存在的交易 100 验证最终保存 incomplete/not_accessible，正文不泄露，run snapshot 读取成功；使用既有公开 reason，不新增 wire 合同，也不将终态 reason 转为 HTTP 404。
+
+订阅断开后，当前 controller 的 finally 清除连接并立即重排短轮询，替换原有 14–16 秒 watchdog。仅同 generation/navigation 且未主动 abort 的当前订阅可触发重排。`npx vitest run src/stores/assistant/streamRecovery.test.ts` 的 6 项通过：reject/正常结束后 2 秒启动状态同步；导航、身份切换、detach、dispose 后旧连接结束不会复活轮询。`git diff --check` 与 500 行源文件限制检查通过。本节是隔离本地 provider/SQLite 与 fake-timer 验证，不代表商业模型回答质量或生产部署已验证。
+
+独立复审后补充纠错链边界：唯一明确的校验纠正若随后暴露读取/授权/游标失败，会将旧校验失败转移到新查询身份，并继续保留新失败；相同身份成功才能解除该读取失败。已新增 NOT_FOUND_OR_NOT_ACCESSIBLE / INVALID_CURSOR 各三种回归：修正参数后读取失败再精确重试成功、改其他 ID 成功不能冲销、同 key 后续校验失败不能把原读取失败弱化。上述 runner/service 定向命令再次通过（llm 0.523 秒，services 1.056 秒）；修改未涉及生产数据或新增公开 reason。
+
+补充生产构建故障注入：真实 native 后端、隔离 SQLite、本地 HTTP 模型和 Chromium，先显示部分正文，再断开已建立的 SSE 并阻止重新订阅，让最终回答仅通过 HTTP 补回。旧版桌面在 7 秒内仍未恢复；修复后桌面 2,296ms、手机 2,302ms 内自动显示完整回答，未重复正文、无需用户重试、无 pageerror。记录位于本地 `~/Library/Caches/ebk-recovery-release/disconnect-after/results.json`。全量 Go（CI 模式）、vet、相关 race、lint、生产构建、52 文件 / 38,960 单测及 12 文件 / 82 浏览器测试通过。补修后两位独立 agent 串行复审均无阻断项；上述故障注入使用确定性模型协议，不是商业模型质量或线上供应商可用性认证。

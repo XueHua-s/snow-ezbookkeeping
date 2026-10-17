@@ -1,36 +1,3 @@
-<template>
-    <f7-card class="account-overview-card no-margin-top margin-bottom" :class="{ 'skeleton-text': loading }" :style="cardStyle">
-        <f7-card-header class="display-block" :style="cardHeaderStyle">
-            <p class="no-margin">
-                <small class="card-header-content" v-if="loading">Net assets</small>
-                <small class="card-header-content" v-else-if="!loading">{{ tt('Net assets') }}</small>
-            </p>
-            <p class="no-margin">
-                <span class="net-assets" v-if="loading">0.00 USD</span>
-                <span class="net-assets" v-else-if="!loading">{{ netAssets }}</span>
-                <f7-link class="display-inline-flex margin-inline-start-half" :style="iconStyle"
-                         :aria-label="showAccountBalance ? tt('Hide Account Balance') : tt('Show Account Balance')"
-                         @click="showAccountBalance = !showAccountBalance"
-                         v-if="scene === 'accountList'">
-                    <f7-icon class="ebk-hide-icon" :f7="showAccountBalance ? 'eye_slash_fill' : 'eye_fill'"></f7-icon>
-                </f7-link>
-            </p>
-            <p class="no-margin">
-                <small class="account-overview-info" v-if="loading">
-                    <span>Total assets | Total liabilities</span>
-                </small>
-                <small class="account-overview-info" v-else-if="!loading">
-                    <span>{{ tt('Total assets') }}</span>
-                    <span>{{ totalAssets }}</span>
-                    <span>|</span>
-                    <span>{{ tt('Total liabilities') }}</span>
-                    <span>{{ totalLiabilities }}</span>
-                </small>
-            </p>
-        </f7-card-header>
-    </f7-card>
-</template>
-
 <script setup lang="ts">
 import { computed } from 'vue';
 
@@ -59,9 +26,7 @@ const { tt } = useI18n();
 
 const {
     showAccountBalance,
-    netAssets,
-    totalAssets,
-    totalLiabilities
+    totalAssets
 } = useAssetSummaryWidgetBase(props.scene);
 
 const environmentsStore = useEnvironmentsStore();
@@ -99,3 +64,30 @@ const iconStyle = computed<Record<string, string>>(() => ({
     opacity: '1'
 }));
 </script>
+
+<template>
+    <f7-card class="account-overview-card no-margin-top margin-bottom" :class="{ 'skeleton-text': loading }" :style="cardStyle">
+        <f7-card-header class="display-block" :style="cardHeaderStyle">
+            <p class="no-margin">
+                <small class="card-header-content" v-if="loading">Total assets</small>
+                <small class="card-header-content" v-else-if="!loading">{{ tt('Total assets') }}</small>
+            </p>
+            <p class="no-margin">
+                <span class="total-assets" v-if="loading">0.00 USD</span>
+                <span class="total-assets" v-else-if="!loading">{{ totalAssets }}</span>
+                <f7-link class="display-inline-flex margin-inline-start-half" :style="iconStyle"
+                         :aria-label="showAccountBalance ? tt('Hide Account Balance') : tt('Show Account Balance')"
+                         @click="showAccountBalance = !showAccountBalance"
+                         v-if="scene === 'accountList'">
+                    <f7-icon class="ebk-hide-icon" :f7="showAccountBalance ? 'eye_slash_fill' : 'eye_fill'"></f7-icon>
+                </f7-link>
+            </p>
+        </f7-card-header>
+    </f7-card>
+</template>
+
+<style scoped>
+.total-assets {
+    font-size: 1.5em;
+}
+</style>
